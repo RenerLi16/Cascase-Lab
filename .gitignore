@@ -14,3 +14,9 @@ export_credentials.cfg
 .mono/
 data_*/
 mono_crash.*.json
+
+# Local builds, exported sessions, and test output
+build/
+test-output/
+cascade_session_*.json
+.DS_Store
