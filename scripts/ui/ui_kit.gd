@@ -1,18 +1,18 @@
 class_name UIkit
 extends RefCounted
 
-const BG := Color("09121e")
-const PANEL := Color("111f2e")
-const INNER := Color("162738")
-const LINE := Color("2a4055")
-const TEXT := Color("eaf2f7")
-const MUTED := Color("9eb2c6")
-const ACCENT := Color("baf269")
-const TEAL := Color("63d8ca")
-const RED := Color("ff7d83")
-const AMBER := Color("ffce78")
+const BG := Color("d4cebf")
+const PANEL := Color("f3efe4")
+const INNER := Color("e6e1d4")
+const LINE := Color("b9b5a6")
+const TEXT := Color("343c32")
+const MUTED := Color("65695c")
+const ACCENT := Color("596c47")
+const TEAL := Color("637c6e")
+const RED := Color("a44336")
+const AMBER := Color("94652d")
 
-static func box(color: Color = PANEL, border: Color = LINE, radius: int = 12, padding: int = 18) -> StyleBoxFlat:
+static func box(color: Color = PANEL, border: Color = LINE, radius: int = 5, padding: int = 14) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
 	style.border_color = border
@@ -34,21 +34,19 @@ static func make_theme() -> Theme:
 	theme.set_stylebox("panel", "PanelContainer", box())
 	for kind in ["Button", "OptionButton"]:
 		theme.set_stylebox("normal", kind, box(INNER, LINE, 8, 12))
-		theme.set_stylebox("hover", kind, box(Color("20394b"), TEAL, 8, 12))
-		theme.set_stylebox("pressed", kind, box(Color("2f4c48"), ACCENT, 8, 12))
+		theme.set_stylebox("hover", kind, box(Color("d8dece"), TEAL, 8, 12))
+		theme.set_stylebox("pressed", kind, box(Color("c2cdb6"), ACCENT, 8, 12))
 		theme.set_stylebox("focus", kind, box(Color(0,0,0,0), TEAL, 8, 12))
-		theme.set_stylebox("disabled", kind, box(Color("101b27"), Color("233445"), 8, 12))
+		theme.set_stylebox("disabled", kind, box(Color("e0ddd3"), Color("c4c2b8"), 8, 12))
 		theme.set_color("font_color", kind, TEXT)
 		theme.set_color("font_hover_color", kind, TEXT)
 		theme.set_color("font_pressed_color", kind, ACCENT)
-		theme.set_color("font_disabled_color", kind, Color("73899a"))
+		theme.set_color("font_disabled_color", kind, Color("7a7d70"))
 	theme.set_stylebox("panel", "PopupMenu", box())
 	theme.set_color("font_color", "PopupMenu", TEXT)
-	theme.set_stylebox("panel", "TabContainer", box(PANEL, LINE, 10, 15))
-	theme.set_stylebox("tab_selected", "TabContainer", box(INNER, LINE, 6, 12))
-	theme.set_stylebox("tab_unselected", "TabContainer", box(BG, LINE, 6, 12))
-	theme.set_color("font_selected_color", "TabContainer", ACCENT)
-	theme.set_color("font_unselected_color", "TabContainer", MUTED)
+	theme.set_stylebox("hover", "PopupMenu", box(INNER, LINE, 3, 8))
+	theme.set_color("font_hover_color", "PopupMenu", TEXT)
+	theme.set_color("font_disabled_color", "PopupMenu", MUTED)
 	return theme
 
 static func label(text: String, size: int = 16, color: Color = TEXT) -> Label:
@@ -82,9 +80,9 @@ static func button(text: String, callback: Callable, primary: bool = false) -> B
 	node.pressed.connect(callback)
 	if primary:
 		node.add_theme_stylebox_override("normal", box(ACCENT, ACCENT, 8, 12))
-		node.add_theme_stylebox_override("hover", box(Color("d1ff94"), ACCENT, 8, 12))
-		node.add_theme_color_override("font_color", BG)
-		node.add_theme_color_override("font_hover_color", BG)
+		node.add_theme_stylebox_override("hover", box(Color("6a7f55"), ACCENT, 8, 12))
+		node.add_theme_color_override("font_color", PANEL)
+		node.add_theme_color_override("font_hover_color", PANEL)
 	return node
 
 static func card(parent: Node, color: Color = PANEL) -> VBoxContainer:

@@ -8,6 +8,7 @@ var round := 1
 var actions: Array[GameAction] = []
 var investigation_log: Array[String] = []
 var monitor_alerts: Array[String] = []
+var observations: Array = []
 var round_summaries: Array = []
 var spread_calculations: Array = []
 
@@ -18,6 +19,7 @@ func _init(scenario: ScenarioData = null) -> void:
 		shelters[id] = ShelterState.new(id, scenario.shelter_names[id], int(scenario.initial_pressures[id]))
 	for connection in scenario.edges:
 		var edge := EdgeState.new(connection[0], connection[1])
+		edge.length = scenario.road_length(edge.id)
 		edges[edge.id] = edge
 	for id in scenario.supply_depots:
 		depots[id] = SupplyDepot.new(id, int(scenario.supply_amounts[id]))
@@ -36,6 +38,7 @@ func copy() -> GameState:
 	for id in edges:
 		var edge := EdgeState.new(edges[id].from, edges[id].to)
 		edge.isolated = edges[id].isolated
+		edge.length = edges[id].length
 		other.edges[id] = edge
 	for id in depots:
 		var depot := SupplyDepot.new(id, depots[id].capacity)

@@ -6,32 +6,43 @@ var state: GameState
 func _init(current_state: GameState) -> void:
 	state = current_state
 
-# Supply is undirected; pressure resolution deliberately uses directed edges instead.
+# Dijkstra over physical road lengths. Stable edge order breaks equal-length ties.
+# Both supply and zombie movement use the same undirected road topology.
 func get_supply_path(depot: String, shelter: String, excluded_edge: String = "") -> Array[String]:
-	if not state.depots.has(depot) or not state.shelters.has(shelter):
-		return []
-	if state.shelters[depot].is_overrun or state.shelters[shelter].is_overrun:
-		return []
-	var queue: Array[String] = [depot]
+	if not state.depots.has(depot) or not state.shelters.has(shelter): return []
+	if state.shelters[depot].is_overrun or state.shelters[shelter].is_overrun: return []
+	var distance := {depot:0.0}
 	var previous := {depot:""}
-	while not queue.is_empty():
-		var current: String = queue.pop_front()
+	var visited: Array[String] = []
+	while true:
+		var current := ""
+		var best := INF
+		for id in state.shelters:
+			if not visited.has(id) and distance.get(id,INF) < best:
+				current = id
+				best = distance[id]
+		if current == "": return []
 		if current == shelter:
 			var path: Array[String] = []
 			while current != "":
 				path.push_front(current)
 				current = previous[current]
 			return path
+		visited.append(current)
 		for edge: EdgeState in state.edges.values():
-			if edge.isolated or edge.id == excluded_edge:
-				continue
-			var neighbor := ""
-			if edge.from == current: neighbor = edge.to
-			elif edge.to == current: neighbor = edge.from
-			if neighbor != "" and not previous.has(neighbor) and not state.shelters[neighbor].is_overrun:
+			if edge.isolated or edge.id == excluded_edge: continue
+			var neighbor := edge.other_endpoint(current)
+			if neighbor == "" or state.shelters[neighbor].is_overrun: continue
+			var candidate: float = best + edge.length
+			if candidate < distance.get(neighbor,INF):
+				distance[neighbor] = candidate
 				previous[neighbor] = current
-				queue.append(neighbor)
 	return []
+
+func road_between(first: String, second: String) -> String:
+	for edge: EdgeState in state.edges.values():
+		if edge.other_endpoint(first) == second: return edge.id
+	return ""
 
 func can_supply_reach(depot: String, shelter: String) -> bool:
 	return not get_supply_path(depot, shelter).is_empty()

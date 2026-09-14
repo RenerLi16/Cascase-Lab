@@ -1,38 +1,17 @@
-# MVP validation record
+# Refactor validation record
 
-Tested on September 13, 2026 using Godot **4.7.1.stable.official.a13da4feb**, macOS, Apple M4, and the Compatibility renderer.
+Tested on September 13, 2026 with Godot 4.7.1 stable, macOS, Apple M4, and the Compatibility renderer.
 
-## Automated checks
+The refactored project passes:
 
-- **187 rule checks: passed.** Covers deterministic scenario setup, reverse supply transportation, directed infection, Overrun routing obstruction, per-depot isolation previews, resource deduction, stale/invalid requests, atomic confirmation, exact dated verification, persistent monitors, stacked infection, shield blocking and expiry, permanent isolation, permanent Overrun states, all mandatory phases, repeatable JSON exports, and restart.
-- **227 UI integration checks: passed.** Loads `scenes/Main.tscn` and exercises real screen controls and map hit testing. Covers six private forms with blank defaults, six privacy handoffs, both anonymous comparisons, discussion/actions, all four action types, paying-depot selection, multiple confirmed batches, isolation's second warning, cancellation, clearing plans, disabled action reasons, mandatory diagnostic evidence, all three summaries, results, JSON save-dialog completion, development mode, and restart.
-- Final test logs contain no script errors. The native project starts successfully.
+- 455 deterministic mechanics checks in `tests/test_rules.gd`.
+- 135 real scene/UI checks in `tests/test_ui.gd`.
+- Godot editor/import startup with no project parser errors.
 
-## Complete logical/UI playthrough
+The suites exercise the one-hidden-exposure start, no initial Overrun, hidden pressure, bidirectional roads, irregular map topology, loops and chokepoints, shortest supply paths, two-endpoint isolation, split depot funding, fixed supplies, delivery and resolution phases, private survey handoffs, structured public intelligence, Verify-on-arrival, Monitor alerts, Shield expiry, map pan/zoom/center, Dev Mode, restart, and structured JSON logging.
 
-| Round | Confirmed actions | New Overrun | Supplies afterward |
-| --- | --- | --- | --- |
-| 1 | Verify B from H; Monitor E and Shield E from A; Isolate D–G from H | None | A 1, H 0 |
-| 2 | Shield E from A | None | A 0, H 0 |
-| 3 | None | E; monitor reports 1 → 2 | A 0, H 0 |
+The strategy suite reports an informed 7/8 survival result, 3/8 with no containment, and a seeded random legal-action baseline averaging 3.62/8 over 200 trials. Randomness exists only in this test baseline; gameplay and the scenario are deterministic.
 
-Final result: **6/8 surviving**, Overrun **D and E**, **0 supply**. B's Round 1 verification remains a dated Pressure 1 record. The result includes both belief sets, two source-belief changes in the test fixture, the ground-truth timeline, and complete event data. The native save dialog's callback wrote and roundtripped the resulting structured JSON.
+The UI test also verifies that normal play has no Beliefs, Reports, or Log tabs; private fields begin blank; survey responses remain internal; delivery animation locks the phase; isolation sends one unit to each endpoint; and the first hidden exposure becomes Overrun during gameplay. It can run headless or with a window. Windowed runs can capture screenshots under `/tmp/cascade-lab-qa`.
 
-## Strategy comparison
-
-- Isolating both outgoing roads from D before Round 1: **7/8 survive**, two supplies remain.
-- Shielding E and G every round: **7/8 survive**, zero supplies remain.
-- No containment: **1/8 survives**.
-- Test-only random legal-action baseline: **2.42/8 average**, 200 trials with fixed seed 73019. This is a repeatable baseline rather than a human-performance claim.
-
-## Visual and input checks
-
-Rendered screenshots were captured for the menu, briefing, privacy gate, initial and updated private forms, belief comparisons, actions, isolation preview, plan confirmation, diagnostic evidence, summary, results, and dev mode. Inspected full-size and smaller-laptop renders, including 1440 × 900 and 1100 × 720. Fixed an automatic first-answer selection issue in Godot's OptionButton and a font-rendering configuration that degraded bold text. Moved immediate action results to the top of the Plan tab and cleared map captions from vertical arrows.
-
-The running native app was also opened and its briefing/rules controls checked using actual mouse input, including fullscreen. It was left open for play.
-
-## Remaining platform verification
-
-The Web preset explicitly includes the scenario JSON and disables threads/extensions. **Matching Godot Web export templates are absent on this machine. No HTML/WASM/PCK build was produced, no browser playthrough was performed, and nothing was deployed.** Follow the README's future deployment procedure to validate an exported build and its download behavior in Chrome before publishing.
-
-This record concerns the local MVP, not networked play, experiment-grade anonymity, or backend persistence; those are outside the requested implementation.
+The native project starts successfully. Web export templates are not installed on the development machine, so the Web preset is prepared but an HTML/WASM/PCK browser build has not been compiled or deployed. Follow the Web/itch.io procedure in the README and perform a browser smoke test before publishing.

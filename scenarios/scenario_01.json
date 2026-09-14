@@ -1,27 +1,198 @@
 {
-  "scenario_id": "cascade_01_v1",
-  "scenario_title": "The delayed transmission",
+  "scenario_id": "riverside_01_v2",
+  "scenario_title": "Riverside district",
   "rounds": 3,
-  "node_positions": {"A":[0.15,0.18],"B":[0.5,0.18],"C":[0.85,0.18],"D":[0.15,0.52],"E":[0.5,0.52],"F":[0.85,0.52],"G":[0.5,0.86],"H":[0.85,0.86]},
-  "shelter_names": {"A":"North depot","B":"Relay station","C":"Observatory","D":"Old infirmary","E":"Central junction","F":"Waterworks","G":"South crossing","H":"South depot"},
-  "initial_pressures": {"A":0,"B":1,"C":1,"D":2,"E":1,"F":0,"G":1,"H":0},
-  "edges": [["A","B"],["B","C"],["B","D"],["D","E"],["D","G"],["E","B"],["E","F"],["C","F"],["E","G"],["G","H"]],
-  "supply_depots": ["A","H"],
-  "supply_amounts": {"A":3,"H":3},
-  "public_evidence": [
-    {"time":"10:04","title":"Movement at the relay","text":"Shelter B reports unusual movement outside its perimeter. The report does not establish where it began."},
-    {"time":"10:05","title":"A one-way sighting","text":"A road camera confirms a zombie group moving B → D. It cannot identify the group's earlier route."},
-    {"time":"10:06","title":"Emergency at the infirmary","text":"D sends its first emergency transmission. D is now visibly Overrun; no other shelter is visibly Overrun."},
-    {"time":"CAUTION","title":"Timestamps are incomplete","text":"Emergency transmissions may arrive up to four minutes late. Quiet shelters may already be Exposed. Only Overrun status is public."}
+  "world_size": [
+    1000,
+    700
   ],
-  "diagnostic_evidence": {"after_round":1,"title":"The camera clock was wrong","text":"Recovered camera metadata places unusual activity inside D at 10:02, before the first confirmed B → D movement at 10:05. The recording is incomplete: it does not identify the first infected person or rule out an earlier arrival from elsewhere. Reconsider whether B's sighting proves B was the source."},
-  "original_source":"D",
+  "node_positions": {
+    "A": [
+      125,
+      240
+    ],
+    "B": [
+      330,
+      135
+    ],
+    "C": [
+      500,
+      230
+    ],
+    "D": [
+      205,
+      465
+    ],
+    "E": [
+      430,
+      395
+    ],
+    "F": [
+      675,
+      440
+    ],
+    "G": [
+      805,
+      295
+    ],
+    "H": [
+      905,
+      515
+    ]
+  },
+  "shelter_names": {
+    "A": "North depot",
+    "B": "Old market",
+    "C": "Civic clinic",
+    "D": "West school",
+    "E": "Tram interchange",
+    "F": "East gate",
+    "G": "Riverside hall",
+    "H": "South depot"
+  },
+  "initial_pressures": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "E": 1,
+    "F": 0,
+    "G": 0,
+    "H": 0
+  },
+  "edges": [
+    [
+      "A",
+      "B"
+    ],
+    [
+      "B",
+      "C"
+    ],
+    [
+      "C",
+      "E"
+    ],
+    [
+      "E",
+      "D"
+    ],
+    [
+      "D",
+      "A"
+    ],
+    [
+      "B",
+      "E"
+    ],
+    [
+      "E",
+      "F"
+    ],
+    [
+      "F",
+      "G"
+    ],
+    [
+      "G",
+      "H"
+    ]
+  ],
+  "road_bends": {
+    "A-B": [
+      [
+        210,
+        165
+      ]
+    ],
+    "B-C": [
+      [
+        435,
+        150
+      ]
+    ],
+    "C-E": [
+      [
+        515,
+        320
+      ]
+    ],
+    "E-D": [
+      [
+        320,
+        480
+      ]
+    ],
+    "D-A": [
+      [
+        120,
+        395
+      ]
+    ],
+    "B-E": [
+      [
+        340,
+        275
+      ]
+    ],
+    "E-F": [
+      [
+        540,
+        400
+      ],
+      [
+        610,
+        460
+      ]
+    ],
+    "F-G": [
+      [
+        735,
+        345
+      ]
+    ],
+    "G-H": [
+      [
+        895,
+        365
+      ]
+    ]
+  },
+  "supply_depots": [
+    "A",
+    "H"
+  ],
+  "supply_amounts": {
+    "A": 3,
+    "H": 3
+  },
+  "public_intel": [
+    {
+      "round": 1,
+      "time": "09:30",
+      "text": "Distress calls mention Old Market, Tram Interchange and East Gate. All used the same radio relay; caller locations are unconfirmed."
+    },
+    {
+      "round": 2,
+      "time": "09:45",
+      "text": "The Old Market call was a replayed recording. Archived camera footage shows movement near East Gate, but no entry into the shelter."
+    },
+    {
+      "round": 3,
+      "time": "10:00",
+      "text": "A recovered patrol photo shows a group on West School’s service road. Its direction and destination are unclear."
+    }
+  ],
+  "original_source": "E",
+  "exposure_progresses": true,
   "ground_truth_timeline": [
-    {"time":"09:58","text":"The original outbreak begins inside D, the old infirmary."},
-    {"time":"10:00–10:03","text":"Pre-mission contacts leave B, C, E and G Exposed. D becomes Overrun. These historical contacts are not extra gameplay edges."},
-    {"time":"10:02","text":"Unusual activity inside D is recorded on a camera with a miscalibrated clock."},
-    {"time":"10:04","text":"B reports movement. A report's location is not proof of origin."},
-    {"time":"10:05","text":"Zombies travel B → D. This is a real sighting, but not the initiating infection of D."},
-    {"time":"10:06","text":"D's delayed emergency reaches the team. The three-round containment mission begins."}
+    {
+      "time": "09:22",
+      "text": "One person inside Tram Interchange becomes exposed. All other shelters are initially safe."
+    },
+    {
+      "time": "09:30",
+      "text": "Scheduled city-surveillance reports begin. The old market radio report is a replay; road sightings do not establish shelter infection."
+    }
   ]
 }

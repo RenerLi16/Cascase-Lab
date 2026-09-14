@@ -4,112 +4,88 @@ extends RefCounted
 var state: GameState
 var logger: EventLogger
 var supply: SupplyManager
+var in_transit: GameAction
 
 func _init(current_state: GameState, event_logger: EventLogger) -> void:
 	state = current_state
 	logger = event_logger
 	supply = SupplyManager.new(state)
 
-func unavailable_reason(kind: String, target: String, depot: String = "") -> String:
-	if not GameAction.TYPES.has(kind): return "Unknown action."
-	var road := kind == "ISOLATE"
-	var cost := 2 if road else 1
-	if road:
-		if not state.edges.has(target): return "Select a road."
-		if state.edges[target].isolated: return "This road is already permanently isolated."
+func unavailable_reason(kind: String, target: String) -> String:
+	if in_transit != null: return "DELIVERY IN PROGRESS"
+	if not GameAction.TYPES.has(kind): return "UNKNOWN ACTION"
+	if kind == "ISOLATE":
+		if not state.edges.has(target): return "SELECT A ROAD"
+		var edge: EdgeState = state.edges[target]
+		if edge.isolated: return "ROAD CLOSED"
+		if state.shelters[edge.from].is_overrun or state.shelters[edge.to].is_overrun: return "ENDPOINT OVERRUN"
 	else:
-		if not state.shelters.has(target): return "Select a shelter."
+		if not state.shelters.has(target): return "SELECT A SHELTER"
 		var shelter: ShelterState = state.shelters[target]
-		if shelter.is_overrun: return "Overrun shelters cannot receive or relay supplies."
-		if kind == "MONITOR" and shelter.is_monitored: return "A permanent monitor is already installed."
-		if kind == "SHIELD" and shelter.shielded_this_round: return "Already shielded for this spread phase."
-	var eligible := supply.eligible_depots(target, cost, road)
-	if eligible.is_empty():
-		return "No depot with %d supply has an active route to %s." % [cost, "either road endpoint" if road else "Shelter " + target]
-	if depot != "" and not eligible.has(depot):
-		return "Depot %s cannot fund or reach this action." % depot
+		if shelter.is_overrun: return "OVERRUN"
+		if kind == "MONITOR" and shelter.is_monitored: return "MONITOR ACTIVE"
+		if kind == "SHIELD" and shelter.shielded_this_round: return "SHIELD ACTIVE"
+	if supply.delivery_options(kind,target).is_empty():
+		return "NO SUPPLY" if state.total_supply() < (2 if kind == "ISOLATE" else 1) else "NO SUPPLY ROUTE"
 	return ""
 
 func can_verify(target: String) -> bool:
-	return unavailable_reason("VERIFY", target).is_empty()
+	return unavailable_reason("VERIFY",target).is_empty()
 
-func can_isolate(edge_id: String) -> bool:
-	return unavailable_reason("ISOLATE", edge_id).is_empty()
+func can_isolate(target: String) -> bool:
+	return unavailable_reason("ISOLATE",target).is_empty()
 
-func preview_isolation(edge_id: String) -> Dictionary:
-	return supply.network.preview_isolation(edge_id)
+func preview_isolation(target: String) -> Dictionary:
+	return supply.network.preview_isolation(target)
 
-func verify(target: String, depot: String) -> Dictionary:
-	return execute(GameAction.new("VERIFY", target, depot, state.round))
+func reserve(request: GameAction) -> Dictionary:
+	var reason := unavailable_reason(request.type,request.target)
+	if reason != "": return {"ok":false,"error":reason}
+	if request.round != state.round: return {"ok":false,"error":"WRONG ROUND"}
+	var assignments := request.endpoint_depots
+	if not supply.delivery_options(request.type,request.target).has(assignments):
+		return {"ok":false,"error":"NO SUPPLY ROUTE"}
+	# Validate both endpoint deliveries and total stock before deducting either unit.
+	var action := GameAction.new(request.type,request.target,"",state.round)
+	action.endpoint_depots.assign(assignments)
+	action.depot_used = "+".join(assignments)
+	action.deliveries = supply.delivery_plan(action.type,action.target,assignments)
+	logger.record(state.round,"ACTION_SELECTED",action.target,null,null,action.to_dictionary())
+	for delivery in action.deliveries:
+		var depot: SupplyDepot = state.depots[delivery.depot]
+		var before := depot.supply_remaining
+		depot.supply_remaining -= 1
+		logger.record(state.round,"SUPPLY_SPENT",depot.node,before,depot.supply_remaining,{"action":action.type,"target":action.target})
+		logger.record(state.round,"SUPPLY_DELIVERY_STARTED",delivery.target,null,null,delivery)
+	in_transit = action
+	return {"ok":true,"action":action}
 
-func monitor(target: String, depot: String) -> Dictionary:
-	return execute(GameAction.new("MONITOR", target, depot, state.round))
-
-func shield(target: String, depot: String) -> Dictionary:
-	return execute(GameAction.new("SHIELD", target, depot, state.round))
-
-func isolate(edge_id: String, depot: String) -> Dictionary:
-	return execute(GameAction.new("ISOLATE", edge_id, depot, state.round))
-
-func execute(request: GameAction) -> Dictionary:
-	var reason := unavailable_reason(request.type, request.target, request.depot_used)
-	if not reason.is_empty(): return {"ok":false,"error":reason}
-	if request.round != state.round: return {"ok":false,"error":"This action belongs to another round."}
-	if request.depot_used.is_empty(): return {"ok":false,"error":"Choose the paying depot."}
-	# Reconstruct instead of trusting client-supplied cost.
-	var action := GameAction.new(request.type, request.target, request.depot_used, state.round)
-	var depot: SupplyDepot = state.depots[action.depot_used]
-	var old_supply := depot.supply_remaining
-	depot.supply_remaining -= action.cost
-	logger.record(state.round, "SUPPLY_SPENT", depot.node, old_supply, depot.supply_remaining, action.to_dictionary())
-	state.actions.append(action)
-	var message := ""
+func complete_delivery(action: GameAction) -> Dictionary:
+	if action != in_transit or action.completed: return {"ok":false,"error":"NO PENDING DELIVERY"}
+	for delivery in action.deliveries: logger.record(state.round,"SUPPLY_DELIVERED",delivery.target,null,null,delivery)
+	var observation: Dictionary = {}
 	if action.type == "ISOLATE":
-		var losses := preview_isolation(action.target)
+		var loss := preview_isolation(action.target)
 		state.edges[action.target].isolated = true
-		message = "Road %s permanently isolated. Zombies and supplies cannot cross." % action.target
-		logger.record(state.round, "EDGE_ISOLATED", action.target, false, true, {"disconnected":losses})
+		logger.record(state.round,"EDGE_ISOLATED",action.target,false,true,{"supply_impact":loss})
 	else:
 		var shelter: ShelterState = state.shelters[action.target]
 		match action.type:
 			"VERIFY":
-				var result := {"round":state.round,"pressure":shelter.zombie_pressure}
-				shelter.verified_history.append(result)
-				message = "Round %d: %s was verified at Pressure %d." % [state.round, shelter.id, shelter.zombie_pressure]
-				state.investigation_log.append(message)
-				logger.record(state.round, "VERIFY_RESULT", shelter.id, null, shelter.zombie_pressure)
+				var record := {"round":state.round,"pressure":shelter.zombie_pressure}
+				shelter.verified_history.append(record)
+				observation = {"type":"VERIFY","target":shelter.id,"round":state.round,"pressure":shelter.zombie_pressure}
+				state.observations.append(observation)
+				state.investigation_log.append("R%d · %s verified: Pressure %d" % [state.round,shelter.id,shelter.zombie_pressure])
+				logger.record(state.round,"VERIFY_RESULT",shelter.id,null,shelter.zombie_pressure)
 			"MONITOR":
 				shelter.is_monitored = true
-				message = "Round %d: Monitor installed at %s. Future changes will be reported." % [state.round, shelter.id]
-				state.investigation_log.append(message)
-				logger.record(state.round, "MONITOR_INSTALLED", shelter.id, false, true)
+				logger.record(state.round,"MONITOR_INSTALLED",shelter.id,false,true)
 			"SHIELD":
 				shelter.shielded_this_round = true
-				message = "Shelter %s is shielded for the next spread only." % shelter.id
-				logger.record(state.round, "SHIELD_APPLIED", shelter.id, false, true)
-	return {"ok":true,"message":message}
-
-static func ordered_plan(plan: Array[GameAction]) -> Array[GameAction]:
-	var ordered: Array[GameAction] = []
-	for action in plan:
-		if action.type in ["VERIFY", "MONITOR"]: ordered.append(action)
-	for action in plan:
-		if action.type not in ["VERIFY", "MONITOR"]: ordered.append(action)
-	return ordered
-
-# A dry run makes confirmation atomic. Invalid plans never partially spend supplies.
-func project_plan(plan: Array[GameAction]) -> Dictionary:
-	var projected := state.copy()
-	var simulator := ActionManager.new(projected, EventLogger.new())
-	for action in ordered_plan(plan):
-		var result := simulator.execute(action)
-		if not result.ok: return {"ok":false,"error":result.error}
-	return {"ok":true,"state":projected}
-
-func commit_plan(plan: Array[GameAction]) -> Dictionary:
-	var projection := project_plan(plan)
-	if not projection.ok: return projection
-	var messages: Array[String] = []
-	for action in ordered_plan(plan):
-		messages.append(execute(action).message)
-	return {"ok":true,"messages":messages}
+				logger.record(state.round,"SHIELD_APPLIED",shelter.id,false,true)
+	action.completed = true
+	state.actions.append(action)
+	logger.record(state.round,"ACTION_COMPLETED",action.target,null,null,action.to_dictionary())
+	in_transit = null
+	return {"ok":true,"observation":observation}

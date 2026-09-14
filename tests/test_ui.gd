@@ -1,7 +1,5 @@
 extends SceneTree
 
-# Drives the real scene's buttons, forms, map input, dialogs and screen transitions.
-# Run without --headless to also capture screenshots under /tmp/cascade-lab-qa.
 var app: Control
 var checks := 0
 var failures := 0
@@ -13,14 +11,14 @@ func check(condition: bool, description: String) -> void:
 	checks += 1
 	if not condition:
 		failures += 1
-		push_error("UI FAIL: "+description)
+		push_error("UI FAIL: " + description)
 
 func descendants(node: Node, type: String) -> Array:
-	var found: Array = []
+	var result: Array = []
 	for child in node.get_children():
-		if child.is_class(type): found.append(child)
-		found.append_array(descendants(child,type))
-	return found
+		if child.is_class(type): result.append(child)
+		result.append_array(descendants(child,type))
+	return result
 
 func button_containing(fragment: String) -> Button:
 	for button: Button in descendants(app,"Button"):
@@ -29,203 +27,164 @@ func button_containing(fragment: String) -> Button:
 
 func click(fragment: String) -> void:
 	var button := button_containing(fragment)
-	check(button!=null,"Button exists: "+fragment)
-	if button==null: return
+	check(button != null,"Button exists: "+fragment)
+	if button == null: return
 	check(not button.disabled,"Button enabled: "+fragment)
 	if button.disabled: return
 	button.pressed.emit()
 	await settle()
 
-func settle() -> void:
-	for frame in 3: await process_frame
+func settle(frames: int = 3) -> void:
+	for _frame in frames: await process_frame
 
-func capture(name: String) -> void:
-	await settle()
-	if DisplayServer.get_name()=="headless": return
-	await RenderingServer.frame_post_draw
-	var picture := root.get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute("/tmp/cascade-lab-qa")
-	picture.save_png("/tmp/cascade-lab-qa/"+name+".png")
-
-func pick_form(source: String, predicted: String, confidence: String) -> void:
-	var options := descendants(app,"OptionButton")
-	check(options.size()==(3 if app.session.collecting_update else 4),"Private form contains only fresh current fields")
-	for option: OptionButton in options: check(option.selected==0,"No private answer preselected or leaked")
-	var submit := button_containing("Submit privately")
-	check(submit!=null and submit.disabled,"Cannot submit unanswered form")
-	var values: Array[String] = [source,predicted]
-	if not app.session.collecting_update: values.append("SHIELD")
-	values.append(confidence)
-	for index in options.size():
-		var option: OptionButton = options[index]
-		for item in option.item_count:
-			if option.get_item_text(item)==values[index]:
-				option.select(item)
-				option.item_selected.emit(item)
-	await click("Submit privately")
-
-func private_cycle(update: bool) -> void:
-	for index in 3:
-		check(app.session.phase==GameManager.Phase.PRIVATE_GATE,"Private handoff shown")
-		check(descendants(app,"OptionButton").is_empty(),"Handoff clears all form controls")
-		check(app.board==null,"No underlying shared board during privacy gate")
-		await click("I am Player %d" % (index+1))
-		if index==0: await capture("private-update" if update else "private-initial")
-		await pick_form("D" if update else ["B","D","B"][index],"F",str(index+2))
-	check(app.session.phase==GameManager.Phase.BELIEFS,"Anonymous comparison follows all three submissions")
-	await capture("belief-changes" if update else "initial-beliefs")
-	await click("Begin team discussion")
-
-func map_select(target: String, road: bool = false) -> void:
-	var map: NetworkView = app.board
+func map_click(target: String, road: bool = false) -> void:
 	await settle()
 	var point: Vector2
 	if road:
 		var edge: EdgeState = app.session.state.edges[target]
-		point=(map.positions[edge.from]+map.positions[edge.to])/2.0
-	else: point=map.positions[target]
-	check(map.hit_test(point)==target,"Map geometry picks "+target)
+		point = (app.board.positions[edge.from]+app.board.positions[edge.to])/2.0
+	else: point = app.board.positions[target]
 	var input := InputEventMouseButton.new()
-	input.button_index=MOUSE_BUTTON_LEFT
-	input.pressed=true
-	input.position=point
-	map._gui_input(input)
+	input.button_index = MOUSE_BUTTON_LEFT
+	input.pressed = true
+	input.position = point
+	app.board._gui_input(input)
+	input.pressed = false
+	app.board._gui_input(input)
 	await settle()
-	check(app.selected_edge==target if road else app.selected_shelter==target,"Map click selects target "+target)
+	check(app.selected_edge == target if road else app.selected_shelter == target,"Map selects "+target)
 
-func queue(kind: String, target: String, depot: String) -> void:
-	await map_select(target,kind=="ISOLATE")
-	await click(kind+"  ·")
-	var pickers := descendants(app.modal,"OptionButton")
-	check(pickers.size()==1,"Action asks for paying depot")
-	if pickers.is_empty(): return
-	var picker: OptionButton=pickers[0]
+func choose(picker: OptionButton, value: String) -> bool:
 	for index in picker.item_count:
-		if picker.get_item_text(index).begins_with("Depot "+depot):
+		if picker.get_item_metadata(index) == value or picker.get_item_text(index) == value:
 			picker.select(index)
 			picker.item_selected.emit(index)
-	if kind=="ISOLATE":
-		await capture("isolation-preview")
-		await click("Review isolation warning")
-		check(button_containing("I understand")!=null,"Isolation requires second confirmation")
-		await click("I understand")
-	else: await click("Add to plan")
+			return true
+	return false
 
-func confirm() -> void:
-	await click("Review & confirm")
-	await capture("plan-confirmation")
-	await click("Confirm & spend supply")
-	check(app.session.draft.is_empty(),"Confirmed draft clears")
+func submit_private(round_number: int, index: int) -> void:
+	check(app.session.phase == GameManager.Phase.PRIVATE_GATE,"Private handoff is visible")
+	check(descendants(app,"OptionButton").is_empty(),"Private handoff clears previous form controls")
+	await click("Open my form")
+	var pickers := descendants(app,"OptionButton")
+	check(pickers.size()==5,"Private survey has five structured fields")
+	for picker: OptionButton in pickers: check(picker.selected==0,"Private fields begin blank")
+	var danger: OptionButton = pickers[0]
+	var action: OptionButton = pickers[1]
+	var target: OptionButton = pickers[2]
+	var confidence: OptionButton = pickers[3]
+	var reason: OptionButton = pickers[4]
+	check(choose(danger,"E-F" if index==0 else "E"),"Choose danger location")
+	check(choose(action,"WAIT" if index==1 else "VERIFY"),"Choose structured action")
+	if action.get_selected_metadata() == "WAIT":
+		check(target.disabled,"WAIT has no target")
+	else:
+		check(choose(target,"E"),"Choose action target")
+	check(choose(confidence,str(index+2)),"Choose confidence")
+	check(choose(reason,"prevent cascade"),"Choose structured reason")
+	await click("Submit & pass screen")
+	check(app.session.private_surveys[round_number].size()==index+1,"Private response stored internally only")
 
-func resolve_round() -> void:
-	await click("Resolve Round")
-	await click("Resolve spread")
-	check(app.session.phase==GameManager.Phase.SUMMARY,"Spread moves to summary screen")
+func dispatch(kind: String, target: String, assignments: Array[String]) -> void:
+	var result: Dictionary = app.session.dispatch_action(kind,target,assignments)
+	check(result.ok,"Dispatch "+kind+" "+target)
+	if not result.ok: return
+	check(app.session.phase == GameManager.Phase.DELIVERY,"Delivery phase shown")
+	check(app.session.pending_action.deliveries.size()==assignments.size(),"Delivery count matches action")
+	await create_timer(2.2).timeout
+	await settle()
+	check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery returns to action phase")
 
 func run() -> void:
-	app=load("res://scenes/Main.tscn").instantiate()
+	app = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(app)
 	await settle()
-	await capture("menu-1440")
-	await click("Begin briefing")
-	await capture("briefing")
-	# Exercise every report/rules tab as real TabContainer controls.
-	for tab: TabContainer in descendants(app,"TabContainer"):
-		for index in tab.get_tab_count():
-			tab.current_tab=index
-			await settle()
-	await click("Start private judgments")
-	await capture("privacy-gate")
-	await private_cycle(false)
-	await click("Proceed to Actions")
-	await capture("actions")
-	# Disabled actions explain why an Overrun shelter cannot receive supplies.
-	await map_select("D")
-	check(button_containing("VERIFY  ·").disabled,"Overrun shelter action is disabled")
-	check("Overrun" in button_containing("VERIFY  ·").tooltip_text,"Disabled action has explanatory tooltip")
-	# Canceling an action doesn't queue or spend anything.
-	await map_select("A")
-	await click("VERIFY  ·")
-	await click("Cancel")
-	check(app.session.draft.is_empty() and app.session.state.total_supply()==6,"Cancel is side-effect free")
-	await queue("VERIFY","B","H")
-	await confirm()
-	check(app.session.state.shelters.B.verified_history[0].pressure==1,"Confirmed Verify reveals exact current pressure")
-	await queue("MONITOR","E","A")
-	await queue("SHIELD","E","A")
-	await queue("ISOLATE","D-G","H")
-	check(button_containing("Resolve Round").disabled,"Spread button disabled with pending plan")
-	await confirm()
-	check(app.session.state.depots.A.supply_remaining==1 and app.session.state.depots.H.supply_remaining==0,"Multi-action plan spends the selected depot balances")
-	await capture("round-one-plan-applied")
-	await click("Return to discussion")
-	await click("Proceed to Actions")
-	await resolve_round()
-	check(app.session.state.overrun_ids()==["D"],"Shield and isolation prevent first-round infections")
-	await click("Examine new evidence")
-	check(app.session.phase==GameManager.Phase.DIAGNOSTIC,"Mandatory diagnostic evidence screen exists")
-	await capture("diagnostic-evidence")
-	await click("Record private belief updates")
-	await private_cycle(true)
-	check(app.session.state.round==2,"Round 2 follows private updates")
-	await click("Proceed to Actions")
-	# Exercise clear-plan and confirmation cancellation.
-	await queue("SHIELD","E","A")
-	await click("Clear plan")
-	check(app.session.state.total_supply()==1 and app.session.draft.is_empty(),"Clear plan preserves supply")
-	await queue("SHIELD","E","A")
-	await click("Review & confirm")
-	await click("Keep planning")
-	check(app.session.draft.size()==1,"Cancel confirmation preserves draft")
-	await confirm()
-	await resolve_round()
-	await click("Discuss Round 3")
-	await click("Proceed to Actions")
-	# No fixed action allowance: zero remaining supply still permits resolving the game.
-	await resolve_round()
-	check(app.session.state.monitor_alerts.size()==1,"Monitor alerts appear when E changes in Round 3")
-	await capture("round-three-summary")
-	await click("View mission results")
-	check(app.session.phase==GameManager.Phase.RESULTS,"Full UI playthrough reaches results")
-	check(app.session.state.overrun_ids()==["D","E"],"Final score is six survivors")
-	check(app.session.belief_change_count()==2,"Results calculate belief changes")
-	await capture("results-1440")
-	for tab: TabContainer in descendants(app,"TabContainer"):
-		for index in tab.get_tab_count():
-			tab.current_tab=index
-			await settle()
-			tab.current_tab=0
-	# File dialog callback uses the same export path the player invokes.
-	await click("Export session JSON")
-	var dialogs := descendants(app,"FileDialog")
-	check(dialogs.size()==1,"Native export opens a save dialog")
-	if not dialogs.is_empty():
-		dialogs[0].file_selected.emit("/tmp/cascade-ui-session.json")
+	check(app.session.phase == GameManager.Phase.OBSERVE,"Scenario starts in Observe")
+	check(app.session.state.overrun_ids().is_empty(),"Normal opening has no visible Overrun")
+	check(app.session.state.shelters.E.zombie_pressure==1,"Exactly one hidden exposure at start")
+	check(app.session.public_intel.size()==1,"Round 1 public intel is visible")
+	check(not app.session.dev_mode,"Dev mode starts off")
+	check(app.board != null,"Map is the primary interface")
+	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Map starts centered at 100 percent")
+	check(app.board.hit_test(app.board.positions["E"])=="E","Map node hit testing works")
+	var old_zoom: float = app.board.zoom
+	app.board.zoom_at(1.3,app.board.size/2)
+	check(app.board.zoom>old_zoom,"Map zoom in works")
+	app.board.center_map()
+	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Center resets map")
+	var drag := InputEventMouseButton.new()
+	drag.button_index=MOUSE_BUTTON_LEFT; drag.pressed=true; drag.position=Vector2(200,200)
+	app.board._gui_input(drag)
+	var move := InputEventMouseMotion.new(); move.position=Vector2(250,240)
+	app.board._gui_input(move)
+	var release := InputEventMouseButton.new(); release.button_index=MOUSE_BUTTON_LEFT; release.pressed=false; release.position=Vector2(250,240)
+	app.board._gui_input(release)
+	check(app.board.pan != Vector2.ZERO,"Map drag pans")
+	app.board.center_map()
+	await click("Private judgment")
+	for index in 3: await submit_private(1,index)
+	check(app.session.phase == GameManager.Phase.DISCUSSION,"Private submissions lead directly to discussion")
+	check(button_containing("Beliefs")==null,"Normal UI has no Beliefs tab")
+	check(button_containing("Reports")==null,"Normal UI has no Reports tab")
+	check(button_containing("Log")==null,"Normal UI has no Log tab")
+	await click("Proceed to actions")
+	check(app.session.phase == GameManager.Phase.ACTIONS,"Actions phase is explicit")
+	await map_click("E")
+	check(button_containing("VERIFY")!=null,"Verify action is visible")
+	check(button_containing("MONITOR")!=null,"Monitor action is visible")
+	check(button_containing("SHIELD")!=null,"Shield action is visible")
+	await dispatch("VERIFY","E",["H"])
+	check(app.session.latest_observation.get("pressure",-1)==1,"Verify resolves on delivery")
+	check(app.session.state.shelters.E.verified_history.size()==1,"Verify marker persists")
+	await dispatch("MONITOR","E",["A"])
+	await dispatch("SHIELD","E",["A"])
+	await map_click("E-F",true)
+	await click("ISOLATE")
+	check(app.modal != null,"Isolation opens concise confirmation modal")
+	check(button_containing("Confirm delivery")!=null,"Isolation has explicit confirmation")
+	check(app.board.preview_edge=="E-F" and not app.board.preview_lost.is_empty(),"Isolation previews supply losses on map")
+	await click("Confirm delivery")
+	check(app.session.phase==GameManager.Phase.DELIVERY,"Isolation begins two-endpoint delivery")
+	check(app.session.pending_action.deliveries.size()==2,"Isolation sends one unit to each endpoint")
+	await create_timer(2.2).timeout
+	check(app.session.state.edges["E-F"].isolated,"Road closes only after both deliveries arrive")
+	check(app.session.state.total_supply()==1,"Fixed supply is deducted, never regenerated")
+	await click("End round")
+	await click("Resolve")
+	await create_timer(3.0).timeout
+	check(app.session.phase == GameManager.Phase.ROUND_COMPLETE,"Resolution returns to round complete")
+	check(app.session.state.overrun_ids()==["E"],"Hidden initial exposure becomes Overrun during play")
+	check(app.session.state.monitor_alerts.size()==1,"Monitor alert appears after pressure change")
+	check(app.session.public_intel.size()==1,"Only round-one intel before next round")
+	await click("Next round")
+	check(app.session.phase==GameManager.Phase.OBSERVE and app.session.state.round==2,"Next round returns to Observe")
+	check(app.session.public_intel.size()==2 and app.session.public_intel[1].round==2,"Round 2 intel publishes at boundary")
+	var dev_toggle: CheckButton = descendants(app,"CheckButton")[0]
+	dev_toggle.toggled.emit(true)
+	await settle()
+	check(app.modal != null,"Dev mode asks before revealing state")
+	await click("Enable Dev mode")
+	check(app.session.dev_mode and app.board.dev_mode,"Dev mode reveals hidden pressure on map")
+	await click("Inspect")
+	check(app.modal != null,"Dev inspector opens")
+	check(button_containing("Export research JSON")!=null,"Dev inspector offers research export")
+	await click("Close")
+	app._export_session()
+	await settle()
+	var export_dialogs := descendants(app,"FileDialog")
+	check(export_dialogs.size()==1,"Session export opens a save dialog")
+	if export_dialogs.size()==1:
+		var export_path := "/tmp/cascade-lab-ui-export.json"
+		export_dialogs[0].file_selected.emit(export_path)
 		await settle()
-	check(FileAccess.file_exists("/tmp/cascade-ui-session.json"),"Session JSON saved to a selected local file")
-	var saved: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("/tmp/cascade-ui-session.json"))
-	check(saved.events.size()>20 and saved.final_state.shelters.E.zombie_pressure==2,"Export contains final state and structured events")
-	# Test at a smaller laptop viewport, then restore.
-	root.size=Vector2i(1100,720)
-	await capture("results-1100")
-	check(app.footer.get_global_rect().end.y<=app.size.y+2,"Footer fits at laptop size")
-	root.size=Vector2i(1440,900)
-	await settle()
-	await click("Play again")
-	await click("Cancel")
-	check(app.session.phase==GameManager.Phase.RESULTS,"Cancel restart preserves results")
-	await click("Play again")
-	await click("Restart mission")
-	check(app.session.phase==GameManager.Phase.MENU and app.session.state.total_supply()==6,"Restart returns to clean menu")
-	var dev: CheckButton=descendants(app,"CheckButton")[0]
-	dev.toggled.emit(true)
-	await click("Enable DEV MODE")
-	check(app.session.dev_mode and app.board.dev_mode,"Dev toggle reveals labeled board state")
-	await capture("dev-mode")
-	dev=descendants(app,"CheckButton")[0]
-	dev.toggled.emit(false)
-	await settle()
-	check(not app.session.dev_mode and app.session.dev_used,"Turning dev off preserves exposure flag")
+		var exported_text := FileAccess.get_file_as_string(export_path)
+		var exported_json = JSON.parse_string(exported_text)
+		check(exported_json is Dictionary and exported_json.get("schema_version",0)==2,"Session export writes schema v2 JSON")
+	await click("Restart")
+	check(app.modal != null,"Restart asks before clearing")
+	await click("Restart scenario")
+	check(app.session.phase==GameManager.Phase.OBSERVE and app.session.state.total_supply()==6,"Restart resets state and fixed stock")
+	check(app.session.private_surveys.is_empty() and app.session.state.actions.is_empty(),"Restart clears private and action history")
 	print("UI TESTS: %d checks, %d failures" % [checks,failures])
 	app.queue_free()
 	await process_frame
