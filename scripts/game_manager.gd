@@ -10,7 +10,13 @@ var state: GameState
 var logger: EventLogger
 var action_manager: ActionManager
 var phase := Phase.OBSERVE
-var intervention_type := InterventionType.NONE
+var _intervention_type := InterventionType.NONE
+var intervention_type: InterventionType:
+	get: return _intervention_type
+var support_message: Dictionary = {}
+var support_shown := false
+var support_deadline_ms := 0
+var _support_clock: Callable
 var private_player := 0
 var private_surveys: Dictionary = {}
 var public_intel: Array = []
@@ -23,8 +29,10 @@ var resolution_applied := false
 var last_summary: Dictionary = {}
 var latest_observation: Dictionary = {}
 
-func _init(data: ScenarioData = null) -> void:
+func _init(data: ScenarioData = null, condition: InterventionType = InterventionType.NONE, clock: Callable = Callable()) -> void:
 	scenario = data if data != null else ScenarioData.load_default()
+	_intervention_type = condition if condition in InterventionType.values() else InterventionType.NONE
+	_support_clock = clock if clock.is_valid() else func(): return Time.get_ticks_msec()
 	reset(false)
 
 func reset(emit_change: bool = true) -> void:
@@ -38,13 +46,15 @@ func reset(emit_change: bool = true) -> void:
 	public_intel.clear()
 	dev_mode = false
 	dev_used = false
-	intervention_type = InterventionType.NONE
+	support_message = {}
+	support_shown = false
+	support_deadline_ms = 0
 	pending_action = null
 	pending_resolution = {}
 	resolution_applied = false
 	last_summary = {}
 	latest_observation = {}
-	logger.record(0,"SESSION_STARTED",scenario.scenario_id,null,null,{"schema_version":2,"condition":"NONE"})
+	logger.record(0,"SESSION_STARTED",scenario.scenario_id,null,null,{"schema_version":3,"condition":condition_name(),"support_version":SupportLibrary.VERSION})
 	_publish_intel()
 	logger.record(state.round,"PHASE_STARTED","OBSERVE")
 	if emit_change: changed.emit()
@@ -57,7 +67,20 @@ func _set_phase(next: Phase) -> void:
 
 func phase_label() -> String:
 	if phase in [Phase.PRIVATE_GATE,Phase.PRIVATE_FORM]: return "PRIVATE JUDGMENT"
+	if phase == Phase.INTERVENTION: return "DECISION PAUSE"
 	return Phase.keys()[phase].replace("_"," ")
+
+func condition_name() -> String:
+	return InterventionType.keys()[_intervention_type]
+
+func can_configure_condition() -> bool:
+	return phase == Phase.OBSERVE and state.round == 1 and private_surveys.is_empty() and state.actions.is_empty()
+
+func configure_condition(condition: int) -> bool:
+	if not can_configure_condition() or not condition in InterventionType.values(): return false
+	_intervention_type = condition as InterventionType
+	reset()
+	return true
 
 func _publish_intel() -> void:
 	for report in scenario.public_intel:
@@ -87,18 +110,43 @@ func submit_belief(belief: PlayerBelief) -> bool:
 	# Snapshot prevents later form changes from mutating a submitted measurement.
 	var response := belief.to_dictionary()
 	private_surveys[state.round].append(response)
-	logger.record(state.round,"PRIVATE_SURVEY_SUBMITTED","participant_%d" % (private_player+1),null,null,response)
+	# A receipt contains neither the answer nor a participant identifier.
+	logger.record(state.round,"PRIVATE_SURVEY_SUBMITTED")
 	private_player += 1
 	if private_player < 3:
 		_set_phase(Phase.PRIVATE_GATE)
 	else:
-		# Reserved server-controlled condition boundary. No intervention UI in this MVP.
-		logger.record(state.round,"INTERVENTION_SKIPPED","",null,null,{"condition":"NONE"})
 		_set_phase(Phase.DISCUSSION)
 	return true
 
-func proceed_to_actions() -> void:
-	if phase == Phase.DISCUSSION: _set_phase(Phase.ACTIONS)
+func begin_support() -> bool:
+	if phase != Phase.DISCUSSION: return false
+	var context := SupportContext.build(state,public_intel,private_surveys.get(state.round,[]))
+	support_message = SupportLibrary.generate(context,condition_name())
+	support_shown = false
+	support_deadline_ms = 0
+	_set_phase(Phase.INTERVENTION)
+	return true
+
+func mark_support_shown() -> bool:
+	if phase != Phase.INTERVENTION or support_shown: return false
+	support_shown = true
+	support_deadline_ms = int(_support_clock.call()) + SupportLibrary.PAUSE_SECONDS * 1000
+	# Categories only: never persist the support input payload or individual views here.
+	logger.record(state.round,"SUPPORT_SHOWN","",null,null,{
+		"condition":condition_name(),"scenario_id":scenario.scenario_id,"round":state.round,
+		"allowed_inputs":SupportContext.CATEGORIES.duplicate(),"displayed_text":support_message.text,
+		"template_id":support_message.template_id,"template_version":support_message.version})
+	return true
+
+func support_seconds_remaining() -> int:
+	if not support_shown: return SupportLibrary.PAUSE_SECONDS
+	return maxi(0,ceili(float(support_deadline_ms - int(_support_clock.call())) / 1000.0))
+
+func proceed_to_actions() -> bool:
+	if phase != Phase.INTERVENTION or not support_shown or support_seconds_remaining() > 0: return false
+	_set_phase(Phase.ACTIONS)
+	return true
 
 func dispatch_action(kind: String, target: String, depots: Array[String]) -> Dictionary:
 	if phase != Phase.ACTIONS: return {"ok":false,"error":"NOT ACTION PHASE"}
@@ -205,7 +253,7 @@ func next_round() -> void:
 		_set_phase(Phase.OBSERVE)
 
 func set_dev_mode(enabled: bool) -> void:
-	if phase in [Phase.DELIVERY,Phase.RESOLUTION,Phase.PRIVATE_GATE,Phase.PRIVATE_FORM]: return
+	if phase in [Phase.DELIVERY,Phase.RESOLUTION,Phase.PRIVATE_GATE,Phase.PRIVATE_FORM,Phase.INTERVENTION]: return
 	var previous := dev_mode
 	dev_mode = enabled
 	dev_used = dev_used or enabled
@@ -218,12 +266,15 @@ func closed_road_count() -> int:
 		if edge.isolated: count += 1
 	return count
 
-func export_dictionary() -> Dictionary:
+func anonymous_surveys() -> Array:
 	var surveys: Array = []
 	for round_number in private_surveys:
-		for index in private_surveys[round_number].size():
-			surveys.append({"round":round_number,"participant_id":"participant_%d" % (index+1),"response":private_surveys[round_number][index].duplicate(true)})
-	return {"schema_version":2,"scenario_id":scenario.scenario_id,"intervention":"NONE","dev_used":dev_used,
-		"events":logger.to_array(),"private_surveys":surveys,"public_intel":public_intel.duplicate(true),
+		var responses: Array = SupportContext.build(state,[],private_surveys[round_number]).responses
+		for response in responses: surveys.append({"round":round_number,"response":response})
+	return surveys
+
+func export_dictionary() -> Dictionary:
+	return {"schema_version":3,"scenario_id":scenario.scenario_id,"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
+		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"public_intel":public_intel.duplicate(true),
 		"observations":state.observations.duplicate(true),"final_state":state.to_dictionary(),
 		"ground_truth":{"original_source":scenario.original_source,"initial_pressures":scenario.initial_pressures,"timeline":scenario.ground_truth_timeline}}

@@ -2,13 +2,14 @@
 
 Cascade Lab is a deterministic cooperative zombie strategy game for three people sharing one computer. The map is the main interface: inspect a small city district, discuss danger, spend a fixed supply budget, and watch the outbreak develop over three rounds.
 
-The project uses Godot 4.7.1, GDScript, built-in Controls, and procedural drawing. There are no external art assets, plugins, online services, AI interventions, or backend dependencies.
+The project uses Godot 4.7.1, GDScript, built-in Controls, and procedural drawing. Experimental support uses a deterministic template library; there are no external art assets, plugins, online services, model APIs, or backend dependencies.
 
 ## Run it
 
 1. Open `project.godot` in Godot 4.7+.
 2. Press F6 with `scenes/Main.tscn` open, or press F5.
-3. Start in `OBSERVE`, then pass the screen for each `PRIVATE JUDGMENT`.
+3. Before play, the facilitator can open **Session setup** and select No AI, Direct-Recommendation AI, or Constructive-Dissent AI. The default is No AI.
+4. Start in `OBSERVE`, then pass the screen for each `PRIVATE JUDGMENT`.
 
 The Compatibility renderer and 1440 × 900 viewport are configured. The layout remains usable in a smaller laptop window, and the map can be zoomed or panned.
 
@@ -17,11 +18,13 @@ The Compatibility renderer and 1440 × 900 viewport are configured. The layout r
 Every round is intentionally distinct:
 
 ```text
-OBSERVE → PRIVATE JUDGMENT → TEAM DISCUSSION → ACTIONS
+OBSERVE → PRIVATE JUDGMENT → INITIAL DISCUSSION → DECISION PAUSE → ACTIONS
         → SUPPLY DELIVERY → OUTBREAK RESOLUTION → NEXT ROUND
 ```
 
-The current phase and `ROUND n / 3` are always in the sidebar. The map stays visible while the sidebar shows the selected shelter or road, fixed supply balances, and scheduled public intelligence. The Help button opens the compact rules.
+The map and current decision lead the screen. The sidebar shows the phase, round, selected target, and latest field dispatch; supply balances are printed directly on the two depots. **Field guide** opens the rules and map key. Private handoffs replace the board with an opaque screen; the blank private form restores only the public map as a reference.
+
+The presentation uses white surfaces, dark ink, teal status marks, amber selection brackets, and red confirmed losses. Large shelter symbols, pointed overrun crosses, bold barricades, and distinct depot supply strips communicate state through shape as well as color. Earlier dispatches are collapsed, and ordinary action explanations live in tooltips. See [the presentation report](docs/VISUAL_REDESIGN.md) for the design system and screenshots.
 
 At scenario start, exactly one shelter is secretly `Pressure 1`; the other seven are `Pressure 0`, and there are no Overrun shelters. Pressure 0 and 1 are hidden in normal play. When an exposed shelter reaches 2 it becomes publicly Overrun and stays that way. Each Overrun shelter spreads to every active neighboring road at resolution. Roads are bidirectional for both supply and zombies.
 
@@ -38,7 +41,25 @@ The action meanings are:
 
 The city-surveillance system publishes one concise, predefined report at the start of each round. Reports are shared, incomplete observations; they never state exact pressure. Verify and Monitor are the precise player-gathered information.
 
-Private surveys measure the current decision model: immediate danger (shelter or road), next action (`VERIFY`, `MONITOR`, `SHIELD`, `ISOLATE`, or `WAIT / SAVE SUPPLY`), action target, confidence 1–5, and a structured reason. Forms start blank and the handoff clears the previous form. Responses are kept out of normal gameplay; they are in Dev Mode and the research export.
+Private surveys measure the current decision model: immediate danger (shelter or road), next action (`VERIFY`, `MONITOR`, `SHIELD`, `ISOLATE`, or `WAIT / SAVE SUPPLY`), action target, confidence 1–5, and a structured reason. Forms start blank and the handoff clears the previous form. Responses are kept out of normal gameplay. Dev Inspector and the research export contain anonymous records sorted within each round, with no participant identifiers or submission-order linkage. Survey event entries record submission receipts without answers.
+
+## Controlled support conditions
+
+The condition locks when the first private judgment begins. Restart retains the assigned condition; Session setup is available again before the new run starts. The condition is not randomized or inferred from team performance. No condition selector is shown during an active run.
+
+After initial discussion, **Finish initial discussion** opens a **Decision pause** in the same sidebar position for every condition. Both support modes produce one 35–60 word message with three equally emphasized sections. No AI displays a neutral message of the same length range. All use a 15-second minimum pause measured from first display; **Proceed to actions** then unlocks. The team can take longer. No action is preselected or executed, and no message is regenerated during that round. Dev controls cannot interrupt this phase.
+
+- **Direct-Recommendation AI:** Recommendation / Why / Check. It offers an executable action and target, or an explicit district-wide wait if no funded action is reachable or all structured proposals favor waiting. The fixed ranking considers visible Overrun neighbors, public topology, and anonymous proposed actions/targets. It avoids claiming shields cure known exposure.
+- **Constructive-Dissent AI:** Decision check / Discuss / Evidence to seek. It distinguishes different decisions, different reasoning categories, and uncertainty in confidence. Agreement triggers a shared-assumption question. It never identifies respondents, reports vote counts, assigns majority/minority labels, or prescribes a final action.
+- **No AI:** Pause / Time / Continue. It describes the scheduled interval without suggesting a tactic or introducing a decision check.
+
+`SupportContext` is the only simulation-to-support adapter. Its whitelist contains public Overrun/monitor status, dated Verify observations, road topology/closures, depot supplies, previous team actions, already-published reports, current round, remaining budget, and anonymous structured responses. Unrevealed P0/P1 remain unknown; a historical Verify result is never silently upgraded to current pressure. No names, raw explanations, live discussion, source, hidden pressure, future reports, or ground-truth timeline enter the generator, even in Dev Mode.
+
+`SupportLibrary` version **support-1.0.0** is a pure local template/ranking function. It has no file, network, random, clock, scenario, or simulator access. Both modes receive the same projection. Reports and prior actions are available in that projection; this version does not interpret report prose with a language model. Templates and deterministic selection rules must receive a new version if wording or ranking changes.
+
+The `SUPPORT_SHOWN` event stores condition, scenario ID, round, permitted input categories, exact displayed text, template ID/version, and display time (UTC plus elapsed milliseconds). It intentionally does not store the input payload or any individual response. Replay of the displayed message uses the stored text; regenerating from inputs requires the same permitted snapshot and library version. Existing anonymous survey records and detailed simulation logs remain separate research data and are never fed wholesale into support. The export schema is now **3**.
+
+See [the support implementation notes](docs/AI_SUPPORT.md) for selection, privacy, timing, and validation details.
 
 ## Scenario
 
@@ -48,7 +69,7 @@ The initial hidden exposure is E. The three public reports describe ambiguous ra
 
 ## Dev Mode and export
 
-Dev Mode is explicitly labeled and asks before showing hidden pressure (`P0`, `P1`, `P2`) and the hidden source. The Inspector exposes supply paths, road state, private survey records, next-resolution calculations, and the internal event stream. Enabling Dev Mode permanently sets `dev_used` in the session export. Dev Mode is disabled during private handoffs and delivery/resolution animations.
+Dev Mode is explicitly labeled and asks before showing hidden pressure (`P0`, `P1`, `P2`) and the hidden source. The Inspector exposes supply paths, road state, anonymous survey records, next-resolution calculations, and the internal event stream. Enabling Dev Mode permanently sets `dev_used` in the session export. Dev Mode controls are disabled during private handoffs, decision pauses, and delivery/resolution animations. Its hidden simulation view is separate from the support input whitelist.
 
 Results stay simple for normal players: survivors, supply used, roads closed, and shelters lost. Research details remain in the local event logger and can be exported as structured JSON from the results screen or Dev Inspector. Native builds open a save dialog; Web builds request a browser download. Event records include ordered types, round, elapsed milliseconds, UTC timestamp, target, before/after values, and metadata. Logged events include surveys, public intelligence, action selection, shortest delivery paths, supply spent and delivered, Verify/Monitor observations, shields, isolation, pressure changes, Overrun transitions, damage, phase transitions, and completion.
 
@@ -66,6 +87,8 @@ scripts/
   supply_manager.gd     delivery eligibility and endpoint assignments
   action_manager.gd     validation, reservations and action effects
   event_logger.gd       UI-independent research events
+  support_context.gd    explicit public/anonymous input whitelist
+  support_library.gd    versioned deterministic support templates/ranking
   scenario_data.gd      scenario loader
   models/               ShelterState, EdgeState, SupplyDepot,
                         PlayerBelief, GameAction, GameEvent
@@ -75,9 +98,11 @@ scripts/
   ui/presentation_text.gd rules and Dev Inspector text
 tests/test_rules.gd    deterministic mechanics and research checks
 tests/test_ui.gd       real scene integration checks
+tests/test_support.gd  support privacy, reproducibility, legality and timing checks
+tests/test_presentation.gd  six full sessions, layout and public-pixel privacy checks
 ```
 
-The root scene intentionally stays small; the screen is composed from native Controls so the map remains present through the main play loop. Domain state and managers are `RefCounted` objects and do not depend on the scene tree, keeping a later networked client/server split practical.
+The root scene intentionally stays small; the screen is composed from native Controls, with an opaque private handoff between respondents. Domain state and managers are `RefCounted` objects and do not depend on the scene tree, keeping a later networked client/server split practical.
 
 ## Validation
 
@@ -87,11 +112,14 @@ The project has been tested with Godot 4.7.1 on macOS using the Compatibility re
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --editor --import --quit
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_rules.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_ui.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_support.gd
 ```
 
-The current suites pass **455 mechanics checks** and **135 UI integration checks**. They cover the one-exposure start, hidden pressure, bidirectional roads, loops and chokepoints, both-depot routing, two-endpoint isolation, atomic reservations, fixed supply, real delivery/resolution phases, pan/zoom/center, blank private forms, survey privacy, public-intel boundaries, Verify arrival, Monitor alerts, Shield expiry, isolation, restart, Dev Mode and structured export.
+The current suites pass **485 mechanics checks**, **142 UI integration checks**, **1,994 support checks**, and **5,064 windowed presentation checks**. They cover gameplay, export, anonymity, hidden-state independence, deterministic output, template word limits, recommendation eligibility, condition locking, equal exposure timing, and desktop layout.
 
-The UI suite can run headless or with a window. With a window it writes temporary screenshots under `/tmp/cascade-lab-qa`; those are QA artifacts, not game dependencies. The test run uses real animation time so supply vehicles and outbreak markers have time to complete. The native game is also safe to open directly from the project manager.
+The suites can run headless or with a window. The windowed support suite writes `/tmp/cascade-support-0.png` through `/tmp/cascade-support-2.png` for visual inspection. Gameplay tests use real delivery/resolution animation time; support timing uses an injected monotonic clock to exercise the full 15-second boundary without sleeping.
+
+Run the presentation suite with `/Applications/Godot.app/Contents/MacOS/Godot --path . --script res://tests/test_presentation.gd`. It captures all conditions at 1440 × 900 and 1200 × 800 in `/private/tmp/cascade-presentation/`, including a pixel comparison confirming that unrevealed pressure changes do not alter the public screen. Run it with a window for image checks. In a restricted environment, use a writable `--log-file` path if Godot cannot open its default user log.
 
 ## Future multiplayer architecture
 
@@ -105,7 +133,7 @@ Player 3 ─┘
 
 The server should own hidden pressure, scenario ground truth, resource counts, action validation, shortest-path delivery, outbreak resolution, experiment condition, private survey storage, and logging. Clients should receive only a public projection: visible Overrun state, roads, supplies, shields, monitors, scheduled public intelligence, and observations permitted to that participant. Hidden pressure and the full scenario should eventually leave the client. Use authenticated room and participant IDs, idempotent commands, ordered round barriers, reconnect handling, and WSS/WebRTC or WebSocket transport as appropriate.
 
-The future AI boundary remains `PRIVATE SURVEY → DISCUSSION → INTERVENTION → ACTION`. `InterventionType` already defines `NONE`, `DIRECT_RECOMMENDATION`, and `CONSTRUCTIVE_DISSENT`; the MVP always uses `NONE` and does not expose an AI choice to players.
+The support boundary is `PRIVATE SURVEY → DISCUSSION → INTERVENTION → ACTION`. A future authoritative server should own condition assignment and deliver only the same permitted projection to the support generator. The current facilitator selector is local session configuration, not an authentication or study-assignment service.
 
 ## Future Web / itch.io deployment
 
@@ -122,6 +150,8 @@ Nothing is deployed by this project. `export_presets.cfg` contains a Web preset 
 9. Configure a responsive 1440 × 900 or laptop-sized embed and fullscreen.
 10. Test Chrome and another browser: map input, zoom/pan, all actions, private handoffs, all three reports, delivery/resolution animation, JSON download, restart, and fullscreen.
 
-The project has not produced a Web export on this machine because matching Web export templates are not installed. Desktop startup and the mechanics/UI suites passing do not replace a browser smoke test.
+Matching Web export templates are installed on this machine. Re-export after source changes and replace the itch.io upload to update the hosted game. Desktop suites do not replace a browser smoke test.
+
+The current white-theme release is `build/operations-web/`. Upload **`build/cascade-lab-operations.zip`**, replacing the older archive on itch.io. Its `index.html` and companion files are at the ZIP root. Older root-level ZIPs are separate snapshots and do not receive source updates.
 
 For current browser limitations, see the [Godot Web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html).

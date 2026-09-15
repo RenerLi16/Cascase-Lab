@@ -3,6 +3,7 @@ extends SceneTree
 var app: Control
 var checks := 0
 var failures := 0
+var support_time := 0
 
 func _initialize() -> void:
 	call_deferred("run")
@@ -98,6 +99,7 @@ func dispatch(kind: String, target: String, assignments: Array[String]) -> void:
 func run() -> void:
 	app = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(app)
+	app.session._support_clock = func(): return support_time
 	await settle()
 	check(app.session.phase == GameManager.Phase.OBSERVE,"Scenario starts in Observe")
 	check(app.session.state.overrun_ids().is_empty(),"Normal opening has no visible Overrun")
@@ -127,6 +129,14 @@ func run() -> void:
 	check(button_containing("Beliefs")==null,"Normal UI has no Beliefs tab")
 	check(button_containing("Reports")==null,"Normal UI has no Reports tab")
 	check(button_containing("Log")==null,"Normal UI has no Log tab")
+	await click("Finish initial discussion")
+	check(app.session.phase == GameManager.Phase.INTERVENTION,"Discussion leads to decision pause")
+	check(app.session.support_shown,"Visible support card records display")
+	check(button_containing("Proceed to actions").disabled,"Continue is locked for the equivalent pause")
+	check(not app.session.proceed_to_actions(),"Manager rejects early continuation")
+	check(app.session.support_message.template_id=="none.pause","No AI gets a neutral message")
+	support_time += SupportLibrary.PAUSE_SECONDS * 1000
+	await settle()
 	await click("Proceed to actions")
 	check(app.session.phase == GameManager.Phase.ACTIONS,"Actions phase is explicit")
 	await map_click("E")
@@ -179,7 +189,7 @@ func run() -> void:
 		await settle()
 		var exported_text := FileAccess.get_file_as_string(export_path)
 		var exported_json = JSON.parse_string(exported_text)
-		check(exported_json is Dictionary and exported_json.get("schema_version",0)==2,"Session export writes schema v2 JSON")
+		check(exported_json is Dictionary and exported_json.get("schema_version",0)==3,"Session export writes schema v3 JSON")
 	await click("Restart")
 	check(app.modal != null,"Restart asks before clearing")
 	await click("Restart scenario")

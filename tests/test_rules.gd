@@ -2,6 +2,7 @@ extends SceneTree
 
 var checks := 0
 var failures := 0
+var support_time := 0
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -13,7 +14,7 @@ func check(condition: bool, description: String) -> void:
 		push_error("FAIL: " + description)
 
 func fresh() -> GameManager:
-	var game := GameManager.new()
+	var game := GameManager.new(null,GameManager.InterventionType.NONE,func(): return support_time)
 	game.logger.capture_timing = false
 	return game
 
@@ -34,6 +35,9 @@ func survey_round(game: GameManager) -> void:
 		game.open_private_form()
 		check(game.submit_belief(PlayerBelief.new("E-F","WAIT","NONE",index+2,"protect supply access")),"Decision survey accepts road danger and wait")
 	check(game.phase==GameManager.Phase.DISCUSSION,"No comparison; directly to discussion")
+	check(game.begin_support(),"Initial discussion leads to controlled pause")
+	game.mark_support_shown()
+	support_time += SupportLibrary.PAUSE_SECONDS * 1000
 	game.proceed_to_actions()
 
 func act(game: GameManager, kind: String, target: String, assignments: Array[String]) -> bool:
