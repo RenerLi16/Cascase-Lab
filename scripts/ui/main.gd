@@ -64,7 +64,6 @@ func _render() -> void:
 	page.add_theme_constant_override("separation",UIkit.LG)
 	margin.add_child(page)
 	_build_header(page)
-	UIkit.rule(page,true)
 	if session.phase == GameManager.Phase.PRIVATE_GATE:
 		_build_handoff(page)
 		return

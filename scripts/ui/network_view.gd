@@ -370,13 +370,13 @@ func _draw_pointed_slash(start: Vector2, end: Vector2) -> void:
 	draw_colored_polygon(PackedVector2Array([start,start+tip+side,end-tip+side,end,end-tip-side,start+tip-side]),UIkit.RED)
 
 func _text(at: Vector2, value: String, font_size: int, color: Color) -> void:
-	var font := ThemeDB.fallback_font
+	var font := UIkit.face(value,font_size,true)
 	var width := font.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
 	draw_string(font,at-Vector2(width/2,0),value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
 
 func _stamp(at: Vector2, value: String, color: Color, font_size: int = UIkit.CAPTION) -> void:
 	if value in ["OVERRUN","CLOSED","SHIELD","BLOCKED"]: font_size = UIkit.BODY
-	var width := ThemeDB.fallback_font.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
+	var width := UIkit.face(value,font_size,true).get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
 	draw_rect(Rect2(at-Vector2(width/2+4,font_size+1),Vector2(width+8,font_size+6)),UIkit.MAP)
 	_text(at,value,font_size,color)
 

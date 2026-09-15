@@ -1,7 +1,11 @@
 class_name UIkit
 extends RefCounted
 
-# Light operations board: one built-in face, four text levels, square stock.
+# Light operations board: IBM Plex Sans for reading, Plex Mono for all-caps labels, square stock.
+const SANS := preload("res://assets/fonts/IBMPlexSans-Regular.ttf")
+const SANS_MEDIUM := preload("res://assets/fonts/IBMPlexSans-Medium.ttf")
+const SANS_BOLD := preload("res://assets/fonts/IBMPlexSans-SemiBold.ttf")
+const MONO := preload("res://assets/fonts/IBMPlexMono-Medium.ttf")
 const BG := Color("ffffff")
 const PANEL := Color("ffffff")
 const INNER := Color("f5f7f8")
@@ -46,9 +50,18 @@ static func rule(parent: Node, strong: bool = false) -> void:
 	line.add_theme_stylebox_override("separator",style)
 	parent.add_child(line)
 
+# Headings use the semibold cut; short all-caps labels use the mono face.
+static func face(text: String, size: int, medium: bool = false) -> Font:
+	if size >= SECTION: return SANS_BOLD
+	if size <= CAPTION and text.to_upper() == text and text.to_lower() != text: return MONO
+	return SANS_MEDIUM if medium else SANS
+
 static func make_theme() -> Theme:
 	var result := Theme.new()
+	result.default_font = SANS
 	result.default_font_size = BODY
+	result.set_font("bold_font","RichTextLabel",SANS_BOLD)
+	for kind in ["Button","OptionButton","CheckButton","CheckBox","PopupMenu"]: result.set_font("font",kind,SANS_MEDIUM)
 	result.set_color("font_color","Label",TEXT)
 	result.set_color("default_color","RichTextLabel",TEXT)
 	result.set_constant("line_spacing","Label",4)
@@ -86,6 +99,7 @@ static func make_theme() -> Theme:
 static func label(text: String, size: int = BODY, color: Color = TEXT) -> Label:
 	var node := Label.new()
 	node.text = text
+	node.add_theme_font_override("font",face(text,size))
 	node.add_theme_font_size_override("font_size",size)
 	node.add_theme_color_override("font_color",color)
 	return node

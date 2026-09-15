@@ -73,7 +73,7 @@ godot --headless --path . --script res://tests/test_ui.gd
 godot --headless --path . --script res://tests/test_support.gd
 ```
 
-On the development Mac, the executable is `/Applications/Godot.app/Contents/MacOS/Godot`. Latest validation: 485 mechanics, 142 UI, 1,994 support, and 5,064 windowed presentation checks passed. Run `--path . --script res://tests/test_presentation.gd` with a window for the image-based checks. It completes three rounds in each condition at 1440 × 900 and 1200 × 800, checks equal support-note bounds, and compares public pixels under different unrevealed pressures. Details and browser validation are in `docs/VALIDATION.md`.
+On the development Mac, the executable is `/Applications/Godot.app/Contents/MacOS/Godot`. Latest validation: 485 mechanics, 142 UI, 1,994 support, and 4,920 windowed presentation checks passed. Run `--path . --script res://tests/test_presentation.gd` with a window for the image-based checks. It completes three rounds in each condition at 1440 × 900 and 1200 × 800, checks equal support-note bounds, and compares public pixels under different unrevealed pressures. Details and browser validation are in `docs/VALIDATION.md`.
 
 `export_presets.cfg` defines the single-threaded Web export. The latest prepared build is `build/operations-web/`, with upload archive `build/cascade-lab-operations.zip`. Keep `index.html` at the ZIP root and preserve its companion files. Re-export after code changes; uploading an older root-level ZIP will not include those changes. The repository does not automatically publish changes.
 

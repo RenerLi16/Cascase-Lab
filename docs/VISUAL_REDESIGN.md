@@ -35,7 +35,7 @@ All three support conditions share one renderer, note bounds, text styles, spaci
 
 ### Typography
 
-One bundled system face; display 32, section 20, body 16, caption 13. Important result numbers use 48. Status captions are larger than incidental map metadata, and depot stock is legible directly on the board. No external font or asset licensing dependency was added.
+IBM Plex Sans (Regular for reading, Medium for buttons and map labels, SemiBold for display and section sizes) with IBM Plex Mono Medium for short all-caps captions and map stamps; `UIkit.face()` picks the cut. Sizes: display 32, section 20, body 16, caption 13. Important result numbers use 48. Status captions are larger than incidental map metadata, and depot stock is legible directly on the board. The fonts are Latin subsets bundled under `assets/fonts/` with their SIL Open Font License. The masthead has no rule beneath it; the header sits directly above the map and decision sheet.
 
 ### Animation
 

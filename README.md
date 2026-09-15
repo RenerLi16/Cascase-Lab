@@ -2,7 +2,7 @@
 
 Cascade Lab is a deterministic cooperative zombie strategy game for three people sharing one computer. The map is the main interface: inspect a small city district, discuss danger, spend a fixed supply budget, and watch the outbreak develop over three rounds.
 
-The project uses Godot 4.7.1, GDScript, built-in Controls, and procedural drawing. Experimental support uses a deterministic template library; there are no external art assets, plugins, online services, model APIs, or backend dependencies.
+The project uses Godot 4.7.1, GDScript, built-in Controls, and procedural drawing. Experimental support uses a deterministic template library; the only bundled assets are the IBM Plex Sans and Plex Mono fonts (SIL Open Font License, see `assets/fonts/OFL.txt`); there are no plugins, online services, model APIs, or backend dependencies.
 
 ## Run it
 
@@ -115,7 +115,7 @@ The project has been tested with Godot 4.7.1 on macOS using the Compatibility re
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_support.gd
 ```
 
-The current suites pass **485 mechanics checks**, **142 UI integration checks**, **1,994 support checks**, and **5,064 windowed presentation checks**. They cover gameplay, export, anonymity, hidden-state independence, deterministic output, template word limits, recommendation eligibility, condition locking, equal exposure timing, and desktop layout.
+The current suites pass **485 mechanics checks**, **142 UI integration checks**, **1,994 support checks**, and **4,920 windowed presentation checks**. They cover gameplay, export, anonymity, hidden-state independence, deterministic output, template word limits, recommendation eligibility, condition locking, equal exposure timing, and desktop layout.
 
 The suites can run headless or with a window. The windowed support suite writes `/tmp/cascade-support-0.png` through `/tmp/cascade-support-2.png` for visual inspection. Gameplay tests use real delivery/resolution animation time; support timing uses an injected monotonic clock to exercise the full 15-second boundary without sleeping.
 
