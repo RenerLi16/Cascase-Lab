@@ -1,5 +1,7 @@
 # Dark city interface
 
+The subsequent [typography refinement](TYPOGRAPHY_REFINEMENT.md) documents the current text hierarchy, rendering audit, and before/after comparison.
+
 The September 2026 redesign implements the supplied sketches in the existing Godot game. The black frame in the reference is treated as the screen boundary. The surrounding presentation paper is not part of the game.
 
 ## Interaction and layout

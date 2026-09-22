@@ -11,8 +11,11 @@ const PANEL := Color("101b22")
 const INNER := Color("15232b")
 const MAP := Color("0b151a")
 const LINE := Color("30454f")
-const TEXT := Color("e4eff0")
-const MUTED := Color("a2b6be")
+# Opaque glyph cores: hierarchy comes from luminance, never parent opacity.
+const TEXT := Color("f2f7f8")
+const NORMAL := Color("c8d3d7")
+const MUTED := Color("919ea4")
+const FAINT := Color("6e7c82")
 const ACCENT := Color("9bff8a")
 const TEAL := Color("79efa2")
 const RED := Color("ff6b70")
@@ -62,8 +65,9 @@ static func make_theme() -> Theme:
 	result.default_font_size = BODY
 	result.set_font("bold_font","RichTextLabel",SANS_BOLD)
 	for kind in ["Button","OptionButton","CheckButton","CheckBox","PopupMenu"]: result.set_font("font",kind,SANS_MEDIUM)
+	result.set_font("font","Button",SANS_BOLD)
 	result.set_color("font_color","Label",TEXT)
-	result.set_color("default_color","RichTextLabel",TEXT)
+	result.set_color("default_color","RichTextLabel",NORMAL)
 	result.set_constant("line_spacing","Label",4)
 	result.set_constant("line_separation","RichTextLabel",6)
 	result.set_constant("separation","VBoxContainer",MD)
@@ -99,7 +103,7 @@ static func make_theme() -> Theme:
 static func label(text: String, size: int = BODY, color: Color = TEXT) -> Label:
 	var node := Label.new()
 	node.text = text
-	node.add_theme_font_override("font",face(text,size))
+	node.add_theme_font_override("font",face(text,size,color == TEXT))
 	node.add_theme_font_size_override("font_size",size)
 	node.add_theme_color_override("font_color",color)
 	return node
@@ -134,6 +138,7 @@ static func button(text: String, callback: Callable, primary: bool = false) -> B
 
 static func quiet(text: String, callback: Callable) -> Button:
 	var node := button(text,callback)
+	node.add_theme_font_override("font",MONO if text == "×" else SANS_MEDIUM)
 	node.add_theme_font_size_override("font_size",CAPTION)
 	node.add_theme_stylebox_override("normal",box(Color.TRANSPARENT,Color.TRANSPARENT,0,SM))
 	node.custom_minimum_size.y = 36

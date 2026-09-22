@@ -188,10 +188,10 @@ func _draw_shelter(id: String) -> void:
 	var title := id+" / "+shelter.display_name
 	var font := UIkit.MONO
 	var label_width := font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,13).x+12
-	var at := rect.position-Vector2(0,24)
+	var at := _pixel_aligned(rect.position-Vector2(0,24))
 	draw_rect(Rect2(at,Vector2(label_width,24)),UIkit.PANEL)
 	draw_line(at,at+Vector2(label_width,0),ink,1)
-	draw_string(font,at+Vector2(6,17),title,HORIZONTAL_ALIGNMENT_LEFT,-1,13,ink)
+	_draw_caption(font,at+Vector2(6,17),title,13,ink)
 	var tags: Array[String] = []
 	if shelter.is_overrun:
 		_draw_overrun_mark(rect.get_center(),minf(rect.size.x,rect.size.y)*0.35)
@@ -340,15 +340,28 @@ func _draw_pointed_slash(start: Vector2, end: Vector2) -> void:
 	var tip := direction*minf(9.0,length*0.35)
 	draw_colored_polygon(PackedVector2Array([start,start+tip+side,end-tip+side,end,end-tip-side,start+tip-side]),UIkit.RED)
 
+# Round captions in render-target pixels, not logical map units. Camera geometry
+# stays continuous, and font size stays independent of building zoom.
+func _pixel_aligned(point: Vector2) -> Vector2:
+	var transform := get_viewport_transform() * get_global_transform()
+	return transform.affine_inverse() * (transform * point).round()
+
+func _draw_caption(font: Font, origin: Vector2, value: String, font_size: int, color: Color) -> void:
+	var at := _pixel_aligned(origin)
+	if color == UIkit.ACCENT or color == UIkit.TEAL:
+		# A tight halo is drawn behind a fully opaque core; no canvas-wide blur.
+		draw_string_outline(font,at,value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,1,Color(color,0.12))
+	draw_string(font,at,value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
+
 func _text(at: Vector2, value: String, font_size: int, color: Color) -> void:
 	var font := UIkit.face(value,font_size,true)
 	var width := font.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
-	draw_string(font,at-Vector2(width/2,0),value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
+	_draw_caption(font,at-Vector2(width/2,0),value,font_size,color)
 
 func _stamp(at: Vector2, value: String, color: Color, font_size: int = UIkit.CAPTION) -> void:
 	if value in ["OVERRUN","CLOSED","SHIELD","BLOCKED"]: font_size = UIkit.BODY
 	var width := UIkit.face(value,font_size,true).get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
-	draw_rect(Rect2(at-Vector2(width/2+4,font_size+1),Vector2(width+8,font_size+6)),UIkit.MAP)
+	draw_rect(Rect2(_pixel_aligned(at-Vector2(width/2+4,font_size+1)),Vector2(ceilf(width)+8,font_size+6)),UIkit.MAP)
 	_text(at,value,font_size,color)
 
 func _brackets(at: Vector2, extent: float, color: Color, weight: float) -> void:

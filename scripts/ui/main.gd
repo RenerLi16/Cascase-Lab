@@ -124,7 +124,7 @@ func _render() -> void:
 	footer.custom_minimum_size.x = 280
 	mission.add_child(footer)
 	_build_phase_button()
-	var footnote := UIkit.label("CASCADE LAB  /  OUTBREAK     ·     COOPERATIVE CONTAINMENT",11,UIkit.MUTED)
+	var footnote := UIkit.label("CASCADE LAB  /  OUTBREAK     ·     COOPERATIVE CONTAINMENT",11,UIkit.FAINT)
 	page.add_child(footnote)
 	if session.phase == GameManager.Phase.PRIVATE_FORM: _build_survey_drawer()
 	if selected_edge != "": _build_road_bubble()
@@ -350,7 +350,7 @@ func _build_intel(parent: Node, compact: bool = false) -> void:
 	column.add_child(UIkit.label("FIELD DISPATCH",UIkit.CAPTION,UIkit.MUTED))
 	var latest: Dictionary = session.public_intel.back()
 	column.add_child(UIkit.label("R%02d   ·   %s" % [latest.round,latest.time],UIkit.CAPTION,UIkit.MUTED))
-	column.add_child(UIkit.paragraph(latest.text,UIkit.CAPTION if compact else UIkit.BODY,UIkit.TEXT))
+	column.add_child(UIkit.paragraph(latest.text,UIkit.CAPTION if compact else UIkit.BODY,UIkit.NORMAL))
 	if session.public_intel.size() > 1:
 		var archive := VBoxContainer.new()
 		archive.visible = false
@@ -454,7 +454,7 @@ func _build_support(parent: Node) -> void:
 	for line: String in str(session.support_message.text).split("\n"):
 		var separator := line.find(":")
 		support_card.add_child(UIkit.label(line.substr(0,separator+1),UIkit.BODY))
-		support_card.add_child(UIkit.paragraph(line.substr(separator+1).strip_edges(),UIkit.BODY,UIkit.TEXT))
+		support_card.add_child(UIkit.paragraph(line.substr(separator+1).strip_edges(),UIkit.BODY,UIkit.NORMAL))
 	_mark_support_visible.call_deferred(session.run_token,session.state.round)
 
 func _mark_support_visible(token: int, round_number: int) -> void:
