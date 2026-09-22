@@ -1,3 +1,17 @@
+# Dark interface validation — September 2026
+
+- Rule suite: **485 checks, 0 failures**.
+- Support suite: **1,994 checks, 0 failures**.
+- Updated gameplay UI suite: **184 checks, 0 failures**.
+- Full three-round presentation suite: **5,842 checks, 0 failures**.
+- Windowed redesign suite: **1,416 checks, 0 failures**, including all twelve support templates, every building close-up, survey retention, actual form bounds, and countdown expiry at 1440 × 900 and 1200 × 800.
+- Browser export loaded locally; building selection, information panel, private handoff, and survey rendering were inspected. No browser console warnings or errors were reported during the smoke test.
+- The browser archive was checked for integrity and for index.html / index.pck at the ZIP root.
+
+Current screenshots and implementation notes: [Dark UI redesign](DARK_UI_REDESIGN.md). Older validation below describes the preceding release.
+
+---
+
 # Refactor validation record
 
 Tested on September 14, 2026 with Godot 4.7.1 stable, macOS, Apple M4, and the Compatibility renderer.

@@ -2,16 +2,16 @@
 
 Cascade Lab is a deterministic cooperative zombie strategy game for three people sharing one computer. The map is the main interface: inspect a small city district, discuss danger, spend a fixed supply budget, and watch the outbreak develop over three rounds.
 
-The project uses Godot 4.7.1, GDScript, built-in Controls, and procedural drawing. Experimental support uses a deterministic template library; the only bundled assets are the IBM Plex Sans and Plex Mono fonts (SIL Open Font License, see `assets/fonts/OFL.txt`); there are no plugins, online services, model APIs, or backend dependencies.
+The project uses Godot 4.7.1, GDScript, built-in Controls, and an illustrated city with drawn gameplay overlays. Bundled assets include the existing generated Riverside artwork and IBM Plex Sans / Plex Mono fonts (SIL Open Font License, see `assets/fonts/OFL.txt`). Experimental support uses a deterministic template library; there are no plugins, online services, model APIs, or backend dependencies.
 
 ## Run it
 
 1. Open `project.godot` in Godot 4.7+.
 2. Press F6 with `scenes/Main.tscn` open, or press F5.
-3. Before play, the facilitator can open **Session setup** and select No AI, Direct-Recommendation AI, or Constructive-Dissent AI. The default is No AI.
+3. Before play, the facilitator can open **Menu → Session setup** and select No AI, Direct-Recommendation AI, or Constructive-Dissent AI. The default is No AI.
 4. Start in `OBSERVE`, then pass the screen for each `PRIVATE JUDGMENT`.
 
-The Compatibility renderer and 1440 × 900 viewport are configured. The layout remains usable in a smaller laptop window, and the map can be zoomed or panned.
+The Compatibility renderer and 1440 × 900 viewport are configured. The desktop layout is checked at 1440 × 900 and 1200 × 800. Click a named building frame for an animated close-up; use Overview or Escape to return. Roads open action bubbles without zooming.
 
 ## Play loop
 
@@ -22,9 +22,9 @@ OBSERVE → PRIVATE JUDGMENT → INITIAL DISCUSSION → DECISION PAUSE → ACTIO
         → SUPPLY DELIVERY → OUTBREAK RESOLUTION → NEXT ROUND
 ```
 
-The map and current decision lead the screen. The sidebar shows the phase, round, selected target, and latest field dispatch; supply balances are printed directly on the two depots. **Field guide** opens the rules and map key. Private handoffs replace the board with an opaque screen; the blank private form restores only the public map as a reference.
+The map and current decision lead the screen. The top header shows the phase and round, the right panel shows the selected building, and the bottom strip carries field dispatches. Supply balances appear on the two depots. **Menu → Field guide** opens the rules and map key. Private handoffs replace the board with an opaque screen; the blank private form restores only the public map as a reference.
 
-The presentation uses white surfaces, dark ink, teal status marks, amber selection brackets, and red confirmed losses. Large shelter symbols, pointed overrun crosses, bold barricades, and distinct depot supply strips communicate state through shape as well as color. Earlier dispatches are collapsed, and ordinary action explanations live in tooltips. See [the presentation report](docs/VISUAL_REDESIGN.md) for the design system and screenshots.
+The presentation uses a dark operations console, the illustrated Riverside city, green named building frames, amber road bubbles, and red confirmed losses. Building details open at the right, with decisions beneath a divider. The phase is centered above the map; timed phases have a red countdown. Private forms slide down into a bottom drawer for map inspection and retain unfinished answers. Earlier dispatches remain available below the map. See [the redesign report](docs/DARK_UI_REDESIGN.md) for details and previews.
 
 At scenario start, exactly one shelter is secretly `Pressure 1`; the other seven are `Pressure 0`, and there are no Overrun shelters. Pressure 0 and 1 are hidden in normal play. When an exposed shelter reaches 2 it becomes publicly Overrun and stays that way. Each Overrun shelter spreads to every active neighboring road at resolution. Roads are bidirectional for both supply and zombies.
 
@@ -47,7 +47,7 @@ Private surveys measure the current decision model: immediate danger (shelter or
 
 The condition locks when the first private judgment begins. Restart retains the assigned condition; Session setup is available again before the new run starts. The condition is not randomized or inferred from team performance. No condition selector is shown during an active run.
 
-After initial discussion, **Finish initial discussion** opens a **Decision pause** in the same sidebar position for every condition. Both support modes produce one 35–60 word message with three equally emphasized sections. No AI displays a neutral message of the same length range. All use a 15-second minimum pause measured from first display; **Proceed to actions** then unlocks. The team can take longer. No action is preselected or executed, and no message is regenerated during that round. Dev controls cannot interrupt this phase.
+A two-minute discussion timer starts after the third private response. Expiry, or **Finish initial discussion**, opens a **Decision pause** in the same sidebar position for every condition. Both support modes produce one 35–60 word message with three equally emphasized sections. No AI displays a neutral message of the same length range. All use a 15-second minimum pause measured from first display; **Proceed to actions** then unlocks. The team can take longer. No action is preselected or executed, and no message is regenerated during that round. Dev controls cannot interrupt this phase.
 
 - **Direct-Recommendation AI:** Recommendation / Why / Check. It offers an executable action and target, or an explicit district-wide wait if no funded action is reachable or all structured proposals favor waiting. The fixed ranking considers visible Overrun neighbors, public topology, and anonymous proposed actions/targets. It avoids claiming shields cure known exposure.
 - **Constructive-Dissent AI:** Decision check / Discuss / Evidence to seek. It distinguishes different decisions, different reasoning categories, and uncertainty in confidence. Agreement triggers a shared-assumption question. It never identifies respondents, reports vote counts, assigns majority/minority labels, or prescribes a final action.
@@ -93,7 +93,7 @@ scripts/
   models/               ShelterState, EdgeState, SupplyDepot,
                         PlayerBelief, GameAction, GameEvent
   ui/main.gd            map/sidebar/phase interface and dialogs
-  ui/network_view.gd   city-map drawing, pan/zoom and animations
+  ui/network_view.gd   illustrated map, building focus and animations
   ui/ui_kit.gd          palette and reusable controls
   ui/presentation_text.gd rules and Dev Inspector text
 tests/test_rules.gd    deterministic mechanics and research checks
@@ -148,10 +148,10 @@ Nothing is deployed by this project. `export_presets.cfg` contains a Web preset 
 7. Create an itch.io HTML/browser project and upload the ZIP.
 8. Mark “This file will be played in the browser.”
 9. Configure a responsive 1440 × 900 or laptop-sized embed and fullscreen.
-10. Test Chrome and another browser: map input, zoom/pan, all actions, private handoffs, all three reports, delivery/resolution animation, JSON download, restart, and fullscreen.
+10. Test Chrome and another browser: map input, building focus, road bubbles, survey drawer, all actions, private handoffs, all three reports, delivery/resolution animation, JSON download, restart, and fullscreen.
 
 Matching Web export templates are installed on this machine. Re-export after source changes and replace the itch.io upload to update the hosted game. Desktop suites do not replace a browser smoke test.
 
-The current white-theme release is `build/operations-web/`. Upload **`build/cascade-lab-operations.zip`**, replacing the older archive on itch.io. Its `index.html` and companion files are at the ZIP root. Older root-level ZIPs are separate snapshots and do not receive source updates.
+The current dark-theme release is `build/dark-web/`. Upload **`build/cascade-lab-dark.zip`**, replacing the older archive on itch.io. Its `index.html` and companion files are at the ZIP root. Older root-level ZIPs are separate snapshots and do not receive source updates.
 
 For current browser limitations, see the [Godot Web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html).

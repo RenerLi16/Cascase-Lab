@@ -16,6 +16,8 @@ var intervention_type: InterventionType:
 var support_message: Dictionary = {}
 var support_shown := false
 var support_deadline_ms := 0
+const DISCUSSION_SECONDS := 120
+var discussion_deadline_ms := 0
 var _support_clock: Callable
 var private_player := 0
 var private_surveys: Dictionary = {}
@@ -49,6 +51,7 @@ func reset(emit_change: bool = true) -> void:
 	support_message = {}
 	support_shown = false
 	support_deadline_ms = 0
+	discussion_deadline_ms = 0
 	pending_action = null
 	pending_resolution = {}
 	resolution_applied = false
@@ -116,8 +119,15 @@ func submit_belief(belief: PlayerBelief) -> bool:
 	if private_player < 3:
 		_set_phase(Phase.PRIVATE_GATE)
 	else:
+		discussion_deadline_ms = int(_support_clock.call()) + DISCUSSION_SECONDS * 1000
 		_set_phase(Phase.DISCUSSION)
 	return true
+
+func discussion_seconds_remaining() -> int:
+	return maxi(0,ceili(float(discussion_deadline_ms-int(_support_clock.call()))/1000.0))
+
+func tick_discussion() -> void:
+	if phase == Phase.DISCUSSION and discussion_seconds_remaining() == 0: begin_support()
 
 func begin_support() -> bool:
 	if phase != Phase.DISCUSSION: return false

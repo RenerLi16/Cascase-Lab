@@ -39,7 +39,7 @@ Deliveries follow available shortest routes through functioning shelters. Overru
 | `scripts/scenario_data.gd` | Loads scenario data and enforces MVP assumptions. |
 | `scenarios/scenario_01.json` | Map geometry, roads, names, starting supplies, hidden initial state, and scheduled reports. Contains spoilers. |
 | `scripts/ui/main.gd` | Main screen, sidebar, dialogs, private handoffs, condition selector, and phase-specific controls. |
-| `scripts/ui/network_view.gd` | Map rendering, selection, pan/zoom, and visual animations. |
+| `scripts/ui/network_view.gd` | Illustrated map registration, building focus, selection, and visual animations. |
 | `scripts/ui/ui_kit.gd` | Shared palette and reusable controls. |
 | `scripts/ui/presentation_text.gd` | Help/rules and developer inspection text. |
 | `scripts/support_context.gd` | Sole public/anonymous projection supplied to experimental support. |
@@ -77,6 +77,6 @@ On the development Mac, the executable is `/Applications/Godot.app/Contents/MacO
 
 `export_presets.cfg` defines the single-threaded Web export. The latest prepared build is `build/operations-web/`, with upload archive `build/cascade-lab-operations.zip`. Keep `index.html` at the ZIP root and preserve its companion files. Re-export after code changes; uploading an older root-level ZIP will not include those changes. The repository does not automatically publish changes.
 
-The current presentation has white surfaces, dark ink, teal status marks, large depot counts, and pointed overrun crosses. Start with the tokens in `scripts/ui/ui_kit.gd`, phase composition in `scripts/ui/main.gd`, and drawing helpers in `scripts/ui/network_view.gd`. Handoff removes the board entirely; forms restore the public map; action explanations use tooltips; earlier dispatches are collapsed. The support note uses one renderer for all conditions. See `docs/VISUAL_REDESIGN.md` for the complete design report and screenshots.
+The current presentation has dark surfaces, green named frames on the illustrated city, animated building focus, a right information panel, anchored road bubbles, and a retractable private survey. Start with the tokens in `scripts/ui/ui_kit.gd`, phase composition in `scripts/ui/main.gd`, and drawing helpers in `scripts/ui/network_view.gd`. Handoff removes the board entirely; forms restore the public map; action explanations use tooltips; earlier dispatches are collapsed. The support note uses one renderer for all conditions. See `docs/DARK_UI_REDESIGN.md` for the current design report and screenshots.
 
 For onboarding, read `README.md`, trace `game_manager.gd`, then open the UI or domain file for the behavior being changed. Run the relevant test suite before rebuilding the Web upload.

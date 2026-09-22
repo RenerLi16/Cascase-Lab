@@ -42,8 +42,7 @@ func map_click(target: String, road: bool = false) -> void:
 	await settle()
 	var point: Vector2
 	if road:
-		var edge: EdgeState = app.session.state.edges[target]
-		point = (app.board.positions[edge.from]+app.board.positions[edge.to])/2.0
+		point = app.board._point_on_path(app.board.road_geometry[target],0.5)
 	else: point = app.board.positions[target]
 	var input := InputEventMouseButton.new()
 	input.button_index = MOUSE_BUTTON_LEFT
@@ -83,6 +82,16 @@ func submit_private(round_number: int, index: int) -> void:
 		check(choose(target,"E"),"Choose action target")
 	check(choose(confidence,str(index+2)),"Choose confidence")
 	check(choose(reason,"prevent cascade"),"Choose structured reason")
+	await click("Hide survey")
+	await create_timer(0.35).timeout
+	check(not app.survey_content.visible,"Retracted survey hides private answers")
+	await map_click("E")
+	await create_timer(0.65).timeout
+	check(app.inspector.visible,"Retracted survey permits building inspection")
+	await click("Expand survey")
+	await create_timer(0.35).timeout
+	check(app.survey_content.visible and pickers[0] == descendants(app,"OptionButton")[0],"Survey controls survive map inspection")
+	check(confidence.get_selected_metadata()==str(index+2),"Survey answer survives collapse and expand")
 	await click("Submit & pass screen")
 	check(app.session.private_surveys[round_number].size()==index+1,"Private response stored internally only")
 
@@ -109,20 +118,25 @@ func run() -> void:
 	check(app.board != null,"Map is the primary interface")
 	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Map starts centered at 100 percent")
 	check(app.board.hit_test(app.board.positions["E"])=="E","Map node hit testing works")
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	wheel.position = app.board.size/2
+	app.board._gui_input(wheel)
+	check(app.board.zoom==1.0,"Wheel no longer zooms")
+	await map_click("E")
+	await create_timer(0.65).timeout
+	check(is_equal_approx(app.board.zoom,2.6),"Building selection animates into a close-up")
+	check(app.inspector.visible,"Building opens right information panel")
+	check(app.board.camera_center.is_equal_approx(NetworkView.BUILDINGS.E.get_center()),"Camera centers selected building")
 	var old_zoom: float = app.board.zoom
-	app.board.zoom_at(1.3,app.board.size/2)
-	check(app.board.zoom>old_zoom,"Map zoom in works")
-	app.board.center_map()
-	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Center resets map")
-	var drag := InputEventMouseButton.new()
-	drag.button_index=MOUSE_BUTTON_LEFT; drag.pressed=true; drag.position=Vector2(200,200)
-	app.board._gui_input(drag)
-	var move := InputEventMouseMotion.new(); move.position=Vector2(250,240)
-	app.board._gui_input(move)
-	var release := InputEventMouseButton.new(); release.button_index=MOUSE_BUTTON_LEFT; release.pressed=false; release.position=Vector2(250,240)
-	app.board._gui_input(release)
-	check(app.board.pan != Vector2.ZERO,"Map drag pans")
-	app.board.center_map()
+	await map_click("E-F",true)
+	check(app.board.zoom==old_zoom,"Road selection does not zoom")
+	check(is_instance_valid(app.road_bubble),"Road selection opens anchored bubble")
+	await click("Overview")
+	await create_timer(0.65).timeout
+	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Overview restores district")
+	check(not app.inspector.visible,"Overview closes building panel")
 	await click("Private judgment")
 	for index in 3: await submit_private(1,index)
 	check(app.session.phase == GameManager.Phase.DISCUSSION,"Private submissions lead directly to discussion")
@@ -169,12 +183,14 @@ func run() -> void:
 	await click("Next round")
 	check(app.session.phase==GameManager.Phase.OBSERVE and app.session.state.round==2,"Next round returns to Observe")
 	check(app.session.public_intel.size()==2 and app.session.public_intel[1].round==2,"Round 2 intel publishes at boundary")
+	await click("Menu")
 	var dev_toggle: CheckButton = descendants(app,"CheckButton")[0]
 	dev_toggle.toggled.emit(true)
 	await settle()
 	check(app.modal != null,"Dev mode asks before revealing state")
 	await click("Enable Dev mode")
 	check(app.session.dev_mode and app.board.dev_mode,"Dev mode reveals hidden pressure on map")
+	await click("Menu")
 	await click("Inspect")
 	check(app.modal != null,"Dev inspector opens")
 	check(button_containing("Export research JSON")!=null,"Dev inspector offers research export")
@@ -190,6 +206,7 @@ func run() -> void:
 		var exported_text := FileAccess.get_file_as_string(export_path)
 		var exported_json = JSON.parse_string(exported_text)
 		check(exported_json is Dictionary and exported_json.get("schema_version",0)==3,"Session export writes schema v3 JSON")
+	await click("Menu")
 	await click("Restart")
 	check(app.modal != null,"Restart asks before clearing")
 	await click("Restart scenario")

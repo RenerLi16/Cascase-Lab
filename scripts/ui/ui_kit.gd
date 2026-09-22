@@ -1,23 +1,23 @@
 class_name UIkit
 extends RefCounted
 
-# Light operations board: IBM Plex Sans for reading, Plex Mono for all-caps labels, square stock.
+# Dark operations console: calm surfaces, bright focus, readable Plex typography.
 const SANS := preload("res://assets/fonts/IBMPlexSans-Regular.ttf")
 const SANS_MEDIUM := preload("res://assets/fonts/IBMPlexSans-Medium.ttf")
 const SANS_BOLD := preload("res://assets/fonts/IBMPlexSans-SemiBold.ttf")
 const MONO := preload("res://assets/fonts/IBMPlexMono-Medium.ttf")
-const BG := Color("ffffff")
-const PANEL := Color("ffffff")
-const INNER := Color("f5f7f8")
-const MAP := Color("ffffff")
-const LINE := Color("afc0c6")
-const TEXT := Color("21363f")
-const MUTED := Color("516873")
-const ACCENT := TEXT
-const TEAL := Color("007f7a")
-const RED := Color("c93c32")
-const AMBER := Color("bd6712")
-const INFRA := Color("8199a3")
+const BG := Color("090f14")
+const PANEL := Color("101b22")
+const INNER := Color("15232b")
+const MAP := Color("0b151a")
+const LINE := Color("30454f")
+const TEXT := Color("e4eff0")
+const MUTED := Color("a2b6be")
+const ACCENT := Color("9bff8a")
+const TEAL := Color("79efa2")
+const RED := Color("ff6b70")
+const AMBER := Color("f2c477")
+const INFRA := Color("64838c")
 const DISPLAY := 32
 const SECTION := 20
 const BODY := 16
@@ -128,7 +128,7 @@ static func button(text: String, callback: Callable, primary: bool = false) -> B
 	node.pressed.connect(callback)
 	if primary:
 		for state in ["normal","hover","pressed"]:
-			node.add_theme_stylebox_override(state,box(TEXT if state == "normal" else TEAL,TEXT,1,MD))
+			node.add_theme_stylebox_override(state,box(ACCENT if state == "normal" else TEAL,ACCENT,1,MD))
 		for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]: node.add_theme_color_override(state,PANEL)
 	return node
 
