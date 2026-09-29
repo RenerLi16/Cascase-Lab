@@ -376,7 +376,7 @@ func _build_selection(parent: Node) -> void:
 	parent.add_child(UIkit.paragraph("Pressure: " + PresentationText.known_status(shelter),UIkit.BODY,UIkit.RED if shelter.is_overrun else UIkit.TEXT))
 	var access: Array[String] = []
 	for depot in session.action_manager.supply.eligible_depots(selected_shelter): access.append(session.scenario.shelter_names[depot])
-	parent.add_child(UIkit.paragraph("Supply access: " + ", ".join(access) if not access.is_empty() else "No stocked supply route",UIkit.BODY))
+	parent.add_child(UIkit.paragraph("Supply access: " + ", ".join(access) if not access.is_empty() else "No stocked supply route",UIkit.BODY,UIkit.TEXT))
 	if session.state.depots.has(selected_shelter): parent.add_child(UIkit.label("%d supply remaining" % session.state.depots[selected_shelter].supply_remaining,UIkit.BODY,UIkit.ACCENT))
 	if shelter.is_monitored: parent.add_child(UIkit.label("MONITOR / active",UIkit.CAPTION,UIkit.TEAL))
 	if shelter.shielded_this_round: parent.add_child(UIkit.paragraph("SHIELD / this resolution only",UIkit.CAPTION,UIkit.TEAL))

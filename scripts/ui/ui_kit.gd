@@ -6,17 +6,18 @@ const SANS := preload("res://assets/fonts/IBMPlexSans-Regular.ttf")
 const SANS_MEDIUM := preload("res://assets/fonts/IBMPlexSans-Medium.ttf")
 const SANS_BOLD := preload("res://assets/fonts/IBMPlexSans-SemiBold.ttf")
 const MONO := preload("res://assets/fonts/IBMPlexMono-Medium.ttf")
+const MONO_STRONG := preload("res://assets/fonts/IBMPlexMono-SemiBold.ttf")
 const BG := Color("090f14")
 const PANEL := Color("101b22")
 const INNER := Color("15232b")
 const MAP := Color("0b151a")
 const LINE := Color("30454f")
 # Opaque glyph cores: hierarchy comes from luminance, never parent opacity.
-const TEXT := Color("f2f7f8")
-const NORMAL := Color("c8d3d7")
-const MUTED := Color("919ea4")
-const FAINT := Color("6e7c82")
-const ACCENT := Color("9bff8a")
+const TEXT := Color("f2f5f4")
+const NORMAL := Color("c6cecf")
+const MUTED := Color("929fa2")
+const FAINT := Color("687679")
+const ACCENT := Color("8fff86")
 const TEAL := Color("79efa2")
 const RED := Color("ff6b70")
 const AMBER := Color("f2c477")
@@ -53,19 +54,30 @@ static func rule(parent: Node, strong: bool = false) -> void:
 	line.add_theme_stylebox_override("separator",style)
 	parent.add_child(line)
 
-# Headings use the semibold cut; short all-caps labels use the mono face.
-static func face(text: String, size: int, medium: bool = false) -> Font:
+# Weight follows the reading role; subdued text keeps solid medium strokes.
+static func face(text: String, size: int, important: bool = false) -> Font:
 	if size >= SECTION: return SANS_BOLD
-	if size <= CAPTION and text.to_upper() == text and text.to_lower() != text: return MONO
-	return SANS_MEDIUM if medium else SANS
+	if size <= CAPTION and text.to_upper() == text and text.to_lower() != text: return MONO_STRONG if important else MONO
+	return SANS_BOLD if important else SANS_MEDIUM
 
 static func make_theme() -> Theme:
 	var result := Theme.new()
-	result.default_font = SANS
+	result.default_font = SANS_MEDIUM
 	result.default_font_size = BODY
+	result.set_font("normal_font","RichTextLabel",SANS_MEDIUM)
 	result.set_font("bold_font","RichTextLabel",SANS_BOLD)
+	# Ordinary HUD glyphs have no halo, shadow, outline, or translucent core.
+	# Luminous accents are drawn separately inside NetworkView only.
+	for kind in ["Label","RichTextLabel","Button","OptionButton","CheckButton","CheckBox","PopupMenu","TooltipLabel"]:
+		result.set_constant("outline_size",kind,0)
+		result.set_constant("shadow_outline_size",kind,0)
+		result.set_color("font_shadow_color",kind,Color.TRANSPARENT)
+		result.set_color("font_outline_color",kind,Color.TRANSPARENT)
 	for kind in ["Button","OptionButton","CheckButton","CheckBox","PopupMenu"]: result.set_font("font",kind,SANS_MEDIUM)
 	result.set_font("font","Button",SANS_BOLD)
+	for kind in ["CheckButton","CheckBox"]:
+		for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]: result.set_color(state,kind,TEXT)
+		result.set_color("font_disabled_color",kind,MUTED)
 	result.set_color("font_color","Label",TEXT)
 	result.set_color("default_color","RichTextLabel",NORMAL)
 	result.set_constant("line_spacing","Label",4)
@@ -81,7 +93,7 @@ static func make_theme() -> Theme:
 		focus.set_border_width_all(2)
 		result.set_stylebox("focus",kind,focus)
 		result.set_stylebox("disabled",kind,box(INNER,LINE,1,MD))
-		for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]: result.set_color(state,kind,TEXT)
+		for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]: result.set_color(state,kind,TEXT)
 		result.set_color("font_disabled_color",kind,MUTED)
 	result.set_stylebox("panel","PopupMenu",box())
 	result.set_font_size("font_size","PopupMenu",BODY)
@@ -103,12 +115,12 @@ static func make_theme() -> Theme:
 static func label(text: String, size: int = BODY, color: Color = TEXT) -> Label:
 	var node := Label.new()
 	node.text = text
-	node.add_theme_font_override("font",face(text,size,color == TEXT))
+	node.add_theme_font_override("font",face(text,size,color == TEXT or color == ACCENT or color == RED))
 	node.add_theme_font_size_override("font_size",size)
 	node.add_theme_color_override("font_color",color)
 	return node
 
-static func paragraph(text: String, size: int = BODY, color: Color = MUTED) -> Label:
+static func paragraph(text: String, size: int = BODY, color: Color = NORMAL) -> Label:
 	var node := label(text,size,color)
 	node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -133,7 +145,7 @@ static func button(text: String, callback: Callable, primary: bool = false) -> B
 	if primary:
 		for state in ["normal","hover","pressed"]:
 			node.add_theme_stylebox_override(state,box(ACCENT if state == "normal" else TEAL,ACCENT,1,MD))
-		for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]: node.add_theme_color_override(state,PANEL)
+		for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]: node.add_theme_color_override(state,PANEL)
 	return node
 
 static func quiet(text: String, callback: Callable) -> Button:

@@ -186,7 +186,7 @@ func _draw_shelter(id: String) -> void:
 		draw_line(corner,corner+Vector2(direction.x*14,0),ink,3,true)
 		draw_line(corner,corner+Vector2(0,direction.y*14),ink,3,true)
 	var title := id+" / "+shelter.display_name
-	var font := UIkit.MONO
+	var font := UIkit.MONO_STRONG
 	var label_width := font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,13).x+12
 	var at := _pixel_aligned(rect.position-Vector2(0,24))
 	draw_rect(Rect2(at,Vector2(label_width,24)),UIkit.PANEL)
