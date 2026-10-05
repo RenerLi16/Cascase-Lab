@@ -33,3 +33,6 @@ __pycache__/
 *.pyc
 
 backend/certs/*.pem
+
+# Local data exports (contain private study responses)
+exports/
