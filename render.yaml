@@ -5,7 +5,7 @@ services:
     name: cascade-lab-backend
     runtime: python
     plan: free            # fine for synthetic testing (sleeps after 15 idle minutes); use a paid plan for real sessions
-    region: oregon        # choose the region closest to your RDS database
+    region: singapore     # closest Render region to mainland China participants; keep RDS in AWS ap-southeast-1 (Singapore)
     buildCommand: >-
       pip install -r backend/requirements.txt &&
       python3 -m backend.fetch_rds_ca
@@ -22,7 +22,7 @@ services:
       - key: CASCADE_ORIGINS
         value: https://html-classic.itch.zone,https://html.itch.zone
       - key: CASCADE_DATABASE_URL
-        sync: false       # postgresql://cascade_app:PASSWORD@your-db.xxxx.rds.amazonaws.com:5432/cascade
+        sync: false       # postgresql://cascade_app:PASSWORD@your-db.xxxx.rds.amazonaws.com:5432/cascade_lab
       - key: CASCADE_ACCESS_CODE
         sync: false
       - key: CASCADE_MAX_DAILY_SESSIONS

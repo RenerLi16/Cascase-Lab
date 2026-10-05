@@ -27,7 +27,7 @@ Render deploys from a Git repository. Commit and push the repository yourself. `
 
 ## 2. Create the RDS database (AWS console)
 
-Pick an AWS region close to the Render region you will use. For example, Render **Oregon** pairs with AWS **us-west-2 (Oregon)**.
+Participants are in mainland China, so use **Asia Pacific (Singapore) ap-southeast-1** for RDS, paired with Render's **Singapore** region (set in `render.yaml`). Data stored outside mainland China is a cross-border transfer under China's PIPL: participants must be told and give separate consent, and your ethics approval should cover it. Before the real study, check from a mainland connection that the itch.io page and the Render URL load reliably.
 
 1. **RDS → Create database → Standard create → PostgreSQL** (version 15 or later; SSL is then required by default).
 2. **Templates:** *Free tier* if offered; otherwise the smallest *Dev/Test* option.
@@ -41,7 +41,7 @@ Pick an AWS region close to the Render region you will use. For example, Render 
    - Public access: **Yes**. Render is outside AWS, so this is needed.
    - VPC security group: *Create new*, named `cascade-lab-db`.
 7. **Additional configuration:**
-   - Initial database name: `cascade`
+   - Initial database name: `cascade_lab` (not `cascade`, which is a reserved SQL word)
    - Automated backups: on (e.g. 7 days)
    - Encryption: on
    - Deletion protection: on
@@ -69,7 +69,7 @@ You are asked for the master password, then a new 16+ character password for `ca
 Then build the connection string. Do not paste it into chat:
 
 ```
-postgresql://cascade_app:APP_PASSWORD@YOUR-ENDPOINT.rds.amazonaws.com:5432/cascade
+postgresql://cascade_app:APP_PASSWORD@YOUR-ENDPOINT.rds.amazonaws.com:5432/cascade_lab
 ```
 
 If the password contains `@ : / ? # %`, URL-encode it, or choose a password made of letters, digits, `-` and `_`.

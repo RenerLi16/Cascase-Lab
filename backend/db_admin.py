@@ -24,10 +24,29 @@ def connect(args, user, password):
 def setup(args):
     from psycopg import sql
     admin_password = getpass.getpass(f'RDS master password for {args.admin_user}: ')
-    app_password = getpass.getpass('New password for cascade_app (16+ characters): ')
-    if len(app_password) < 16 or app_password != getpass.getpass('Repeat cascade_app password: '):
-        raise SystemExit('Passwords must match and be at least 16 characters.')
-    with connect(args, args.admin_user, admin_password) as db:
+    if admin_password != admin_password.strip():
+        print('Note: removed spaces at the start/end of the master password you entered.')
+        admin_password = admin_password.strip()
+    print(f'(master password entered: {len(admin_password)} characters)')
+    app_password = getpass.getpass('New password for cascade_app (16+ characters; letters, digits, - and _): ')
+    if len(app_password) < 16:
+        raise SystemExit(f'That password has {len(app_password)} characters; it needs at least 16. Nothing was changed.')
+    if not all(c.isascii() and (c.isalnum() or c in '-_') for c in app_password):
+        raise SystemExit('Use only letters, digits, - and _ (other symbols break the connection URL). Nothing was changed.')
+    if app_password != getpass.getpass('Repeat cascade_app password: '):
+        raise SystemExit('The two passwords did not match. Nothing was changed.')
+    import psycopg
+    try:
+        admin = connect(args, args.admin_user, admin_password)
+    except psycopg.OperationalError as exc:
+        if 'password authentication failed' in str(exc):
+            raise SystemExit('The database rejected the MASTER password (first prompt). Check it, or reset it in '
+                             'AWS: Modify -> new master password -> Apply immediately, then wait for "Available". '
+                             'Nothing was changed.')
+        if 'timeout' in str(exc).lower():
+            raise SystemExit('Could not reach the database: check the security group allows your current IP (My IP).')
+        raise
+    with admin as db:
         exists = db.execute("SELECT 1 FROM pg_roles WHERE rolname='cascade_app'").fetchone()
         verb = 'ALTER' if exists else 'CREATE'
         db.execute(sql.SQL(verb + ' ROLE cascade_app WITH LOGIN PASSWORD {}').format(sql.Literal(app_password)))
@@ -54,7 +73,7 @@ def main():
     parser.add_argument('command', choices=['setup', 'summary'])
     parser.add_argument('--host', required=True)
     parser.add_argument('--port', type=int, default=5432)
-    parser.add_argument('--database', default='cascade')
+    parser.add_argument('--database', default='cascade_lab')
     parser.add_argument('--admin-user', default='postgres')
     parser.add_argument('--ca', default=DEFAULT_ROOT_CERT)
     args = parser.parse_args()
