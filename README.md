@@ -7,7 +7,7 @@
 
 Cascade Lab is a deterministic cooperative zombie strategy game for three people sharing one computer. The map is the main interface: inspect a small city district, discuss danger, spend a fixed supply budget, and watch the outbreak develop over three rounds.
 
-The project uses Godot 4.7.1, GDScript, built-in Controls, and an illustrated city with drawn gameplay overlays. Bundled assets include the existing generated Riverside artwork and IBM Plex Sans / Plex Mono fonts (SIL Open Font License, see `assets/fonts/OFL.txt`). Experimental support uses a deterministic template library; there are no plugins, online services, model APIs, or backend dependencies.
+The project uses Godot 4.7.1, GDScript, built-in Controls, and an illustrated city with drawn gameplay overlays. Bundled assets include the generated city artwork, Barlow and Barlow Semi Condensed (SIL Open Font License, see `assets/fonts/Barlow-OFL.txt`), and Noto Sans SC for Simplified Chinese (see `assets/fonts/NotoSansSC-OFL.txt`). All fonts load locally; no web font service is used. The current interface is described in [Option A typography](docs/OPTION_A_TYPOGRAPHY.md). Experimental support uses a deterministic template library; there are no plugins, online services, model APIs, or backend dependencies.
 
 ## Run it
 

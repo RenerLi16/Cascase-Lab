@@ -26,9 +26,17 @@ var map_center := Vector2(500,350)
 var footer: VBoxContainer
 var support_card: VBoxContainer
 var support_countdown: Label
-const SUPPORT_FONT := preload("res://assets/fonts/SupportChinese.tres")
 var support_continue: Button
 var save_indicator: Label
+var save_text := ""
+# Presentation constants at the 1440 x 900 reference layout.
+const SIDEBAR_WIDTH := 400
+const SUPPORT_SIDEBAR_WIDTH := 460
+# Every condition's note uses this identical card height.
+const SUPPORT_NOTE_HEIGHT := 480
+const SURVEY_HEIGHT := 470
+const SURVEY_COLLAPSED := 88
+const HEADER_SIDE := 340
 
 func _ready() -> void:
 	theme = UIkit.make_theme()
@@ -41,7 +49,7 @@ func _busy() -> bool:
 	return session.phase in [GameManager.Phase.DELIVERY,GameManager.Phase.RESOLUTION]
 
 func _process(_delta: float) -> void:
-	if is_instance_valid(save_indicator): save_indicator.text = StudySync.status_text()
+	if is_instance_valid(save_indicator): _refresh_save_notice()
 	if session == null: return
 	if session.phase == GameManager.Phase.DISCUSSION:
 		_update_timer(session.discussion_seconds_remaining())
@@ -57,6 +65,19 @@ func _process(_delta: float) -> void:
 
 func _update_timer(seconds: int) -> void:
 	if is_instance_valid(timer_label): timer_label.text = "%d:%02d" % [seconds / 60,seconds % 60]
+
+# Saving and connection state. Routine saves stay quiet during play; problems are
+# always shown. The main menu may also show routine status for the facilitator.
+func _refresh_save_notice() -> void:
+	var text := StudySync.status_text()
+	if text == save_text and save_indicator.has_meta("ready"): return
+	save_text = text
+	save_indicator.set_meta("ready",true)
+	# Automated test runs disable saving on purpose; participants never see that state.
+	var routine := text.begins_with("Saved") or text.begins_with("Saving") or not StudySync.enabled
+	save_indicator.text = text
+	save_indicator.visible = not routine or save_indicator.has_meta("show_routine")
+	save_indicator.add_theme_color_override("font_color",UIkit.SECONDARY if routine else UIkit.AMBER)
 
 func _render() -> void:
 	if map_token != session.run_token:
@@ -91,10 +112,12 @@ func _render() -> void:
 	add_child(background)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left","top","right","bottom"]: margin.add_theme_constant_override("margin_"+side,UIkit.XL)
+	for side in ["left","right"]: margin.add_theme_constant_override("margin_"+side,UIkit.XL)
+	margin.add_theme_constant_override("margin_top",UIkit.LG)
+	margin.add_theme_constant_override("margin_bottom",UIkit.XL-4)
 	add_child(margin)
 	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation",UIkit.MD)
+	page.add_theme_constant_override("separation",UIkit.LG)
 	margin.add_child(page)
 	_build_header(page)
 	if session.phase == GameManager.Phase.PRIVATE_GATE:
@@ -111,8 +134,8 @@ func _render() -> void:
 	_build_map(body)
 	inspector = PanelContainer.new()
 	inspector.name = "BuildingDetails"
-	inspector.custom_minimum_size.x = 350
-	inspector.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,0,UIkit.XL))
+	inspector.custom_minimum_size.x = SIDEBAR_WIDTH
+	inspector.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,Color.TRANSPARENT,3,UIkit.XL-4))
 	body.add_child(inspector)
 	inspector_column = UIkit.scroll_column(inspector)
 	inspector_column.get_parent().follow_focus = true
@@ -123,13 +146,13 @@ func _render() -> void:
 	var intel := VBoxContainer.new()
 	intel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mission.add_child(intel)
-	_build_intel(intel,true)
+	_build_intel(intel)
 	footer = VBoxContainer.new()
-	footer.custom_minimum_size.x = 280
+	footer.custom_minimum_size.x = 300
+	footer.add_theme_constant_override("separation",UIkit.SM)
 	mission.add_child(footer)
 	_build_phase_button()
-	var footnote := UIkit.label("DEV MODE — NOT RESEARCH DATA" if session.is_sandbox() else "CASCADE LAB  /  OUTBREAK     ·     COOPERATIVE CONTAINMENT",12,UIkit.AMBER if session.is_sandbox() else UIkit.FAINT)
-	page.add_child(footnote)
+	if session.is_sandbox(): page.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
 	if session.phase == GameManager.Phase.PRIVATE_FORM: _build_survey_drawer()
 	if selected_edge != "": _build_road_bubble()
 	if _busy(): _animate_phase.call_deferred(session.run_token)
@@ -140,16 +163,18 @@ func _refresh_inspector() -> void:
 		child.queue_free()
 	var phase_panel := session.phase in [GameManager.Phase.INTERVENTION,GameManager.Phase.RESULTS,GameManager.Phase.ROUND_COMPLETE] or _busy()
 	inspector.visible = selected_shelter != "" or phase_panel
-	inspector.custom_minimum_size.x = 380 if session.phase == GameManager.Phase.INTERVENTION else 350
+	inspector.custom_minimum_size.x = SUPPORT_SIDEBAR_WIDTH if session.phase == GameManager.Phase.INTERVENTION else SIDEBAR_WIDTH
 	sidebar = inspector_column
 	if session.phase == GameManager.Phase.INTERVENTION:
-		sidebar.add_child(UIkit.label("DECISION PAUSE",UIkit.CAPTION,UIkit.ACCENT))
+		# The header already names the decision pause; the note stands alone.
 		_build_support(sidebar)
 	elif session.phase == GameManager.Phase.RESULTS: _build_results(sidebar)
 	elif _busy(): _build_operation(sidebar)
 	elif session.phase == GameManager.Phase.ROUND_COMPLETE:
-		sidebar.add_child(UIkit.label("RESOLUTION RECORD",UIkit.SECTION))
-		for alert in session.last_summary.get("monitor_alerts",[]): _observation_card(sidebar,alert)
+		sidebar.add_child(UIkit.heading("Resolution record"))
+		var alerts: Array = session.last_summary.get("monitor_alerts",[])
+		for alert in alerts: _observation_card(sidebar,alert)
+		if alerts.is_empty(): sidebar.add_child(UIkit.paragraph("No monitor alerts this round.",UIkit.BODY,UIkit.SECONDARY))
 	if selected_shelter != "":
 		_build_selection(sidebar)
 		if not session.latest_observation.is_empty() and session.latest_observation.get("target","") == selected_shelter:
@@ -157,52 +182,67 @@ func _refresh_inspector() -> void:
 
 func _build_header(parent: Node) -> void:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size.y = 92
+	row.custom_minimum_size.y = 72
+	row.add_theme_constant_override("separation",UIkit.XL)
 	parent.add_child(row)
 	var left := HBoxContainer.new()
-	left.custom_minimum_size.x = 290
+	left.custom_minimum_size.x = HEADER_SIDE
+	left.add_theme_constant_override("separation",UIkit.LG)
 	row.add_child(left)
 	var menu := UIkit.button("Menu",_show_menu)
 	menu.tooltip_text = "Session menu and field guide"
-	menu.custom_minimum_size.x = 46
+	menu.custom_minimum_size.x = 92
 	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	left.add_child(menu)
 	var context := VBoxContainer.new()
 	context.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	context.add_theme_constant_override("separation",UIkit.XS)
+	context.add_theme_constant_override("separation",0)
 	left.add_child(context)
-	context.add_child(UIkit.label("MISSION %02d / %02d" % [mission_session.index+1,mission_session.order.size()],UIkit.SECTION))
-	context.add_child(UIkit.label("ROUND %d / %d" % [session.state.round,session.scenario.rounds],UIkit.CAPTION,UIkit.MUTED))
-	var heading := VBoxContainer.new()
+	context.add_child(UIkit.strong("Mission %d of %d" % [mission_session.index+1,mission_session.order.size()]))
+	context.add_child(UIkit.label("Round %d of %d" % [session.state.round,session.scenario.rounds]))
+	# Phase title with its countdown on the same line, keeping the header compact.
+	var heading := HBoxContainer.new()
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_theme_constant_override("separation",0)
+	heading.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	heading.alignment = BoxContainer.ALIGNMENT_CENTER
+	heading.add_theme_constant_override("separation",UIkit.LG+4)
 	row.add_child(heading)
-	phase_label = UIkit.label("Discussion Time" if session.phase == GameManager.Phase.DISCUSSION else PresentationText.phase_title(session.phase),34)
+	phase_label = UIkit.text_label("Discussion time" if session.phase == GameManager.Phase.DISCUSSION else PresentationText.phase_title(session.phase),UIkit.HEADING_FONT,UIkit.DISPLAY)
 	phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	heading.add_child(phase_label)
-	timer_label = UIkit.label("",30,UIkit.RED)
-	timer_label.add_theme_font_override("font",UIkit.MONO)
-	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_label = UIkit.figure("",UIkit.TIMER,UIkit.RED)
+	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	heading.add_child(timer_label)
 	if session.phase == GameManager.Phase.DISCUSSION: _update_timer(session.discussion_seconds_remaining())
 	elif session.phase == GameManager.Phase.INTERVENTION: _update_timer(session.support_seconds_remaining())
-	else:
-		timer_label.text = "OPERATIONS LIVE" if _busy() else "AWAITING TEAM"
-		timer_label.add_theme_font_size_override("font_size",UIkit.CAPTION)
-		timer_label.add_theme_color_override("font_color",UIkit.MUTED)
+	else: timer_label.visible = false
 	var status := VBoxContainer.new()
-	status.custom_minimum_size.x = 290
+	status.custom_minimum_size.x = HEADER_SIDE
 	status.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	status.add_theme_constant_override("separation",UIkit.XS)
 	row.add_child(status)
-	for text in ["%02d / 08  FUNCTIONING" % (8-session.state.overrun_ids().size()),"%02d / 06  SUPPLY REMAINING" % session.state.total_supply()]:
-		var line := UIkit.label(text,UIkit.CAPTION,UIkit.ACCENT)
-		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		status.add_child(line)
-	save_indicator = UIkit.paragraph(StudySync.status_text(),UIkit.CAPTION,UIkit.MUTED)
+	var readouts := HBoxContainer.new()
+	readouts.alignment = BoxContainer.ALIGNMENT_END
+	readouts.add_theme_constant_override("separation",UIkit.XL+4)
+	status.add_child(readouts)
+	_readout(readouts,"%d / 8" % (8-session.state.overrun_ids().size()),"Shelters functioning")
+	_readout(readouts,"%d / 6" % session.state.total_supply(),"Supply remaining")
+	save_indicator = UIkit.meta("")
 	save_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	save_text = ""
 	status.add_child(save_indicator)
-	var source_label := "MOCK / DEVELOPMENT" if session.support_provider is MockSupportProvider else "BACKEND / DEVELOPMENT"
-	status.add_child(UIkit.label(source_label,12,UIkit.AMBER))
+	_refresh_save_notice()
+
+func _readout(parent: Node, value: String, caption: String) -> void:
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation",0)
+	parent.add_child(column)
+	var number := UIkit.figure(value,UIkit.METRIC)
+	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	column.add_child(number)
+	var name_label := UIkit.text_label(caption,UIkit.MEDIUM_FONT,UIkit.SMALL,UIkit.SECONDARY)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	column.add_child(name_label)
 
 func _show_menu() -> void:
 	var column := _modal_base("Session menu")
@@ -223,6 +263,7 @@ func _show_menu() -> void:
 		column.add_child(UIkit.button("Restart",_request_restart))
 		column.add_child(UIkit.button("Choose another scenario",func(): _request_leave(_show_level_picker)))
 	column.add_child(UIkit.button("Main menu",func(): _request_leave(_show_main_menu)))
+	UIkit.spacer(column,UIkit.XS)
 	column.add_child(UIkit.button("Close",_close_modal,true))
 
 func _build_map(parent: Node) -> void:
@@ -232,14 +273,17 @@ func _build_map(parent: Node) -> void:
 	parent.add_child(left)
 	var top := HBoxContainer.new()
 	left.add_child(top)
-	var title := UIkit.label(session.scenario.scenario_title.to_upper(),UIkit.CAPTION,UIkit.MUTED)
+	var title := UIkit.text_label(session.scenario.scenario_title,UIkit.HEADING_FONT,26)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.clip_text = true
 	top.add_child(title)
-	var overview := UIkit.quiet("↖ Overview",_clear_selection)
+	var overview := UIkit.quiet("Overview",_clear_selection)
 	overview.tooltip_text = "Return to the full district (Escape)"
 	top.add_child(overview)
 	var border := PanelContainer.new()
-	border.add_theme_stylebox_override("panel",UIkit.box(UIkit.MAP,UIkit.LINE,0,0))
+	border.add_theme_stylebox_override("panel",UIkit.box(UIkit.MAP,Color.TRANSPARENT,0,0))
 	border.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(border)
 	board = NetworkView.new()
@@ -253,10 +297,9 @@ func _build_map(parent: Node) -> void:
 	board.shelter_selected.connect(_select_shelter)
 	board.edge_selected.connect(_select_edge)
 	board.background_selected.connect(_clear_selection)
-	var legend := UIkit.label("SELECT A BUILDING TO INSPECT   ·   DASHED LINES: ACTIVE ROADS   ·   ? UNOBSERVED",11,UIkit.MUTED)
-	left.add_child(legend)
+	left.add_child(UIkit.meta("Select a building or road to inspect it. Dashed lines mark playable roads."))
 	if session.dev_mode and not _private_phase():
-		left.add_child(UIkit.label("DEV MODE · HIDDEN STATE VISIBLE",UIkit.CAPTION,UIkit.RED))
+		left.add_child(UIkit.meta("Dev mode · hidden state visible",UIkit.RED))
 
 func _build_survey_drawer() -> void:
 	survey_collapsed = false
@@ -264,13 +307,22 @@ func _build_survey_drawer() -> void:
 	survey_drawer.name = "SurveyDrawer"
 	workspace.add_child(survey_drawer)
 	survey_drawer.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	survey_drawer.offset_top = -minf(460,workspace.size.y)
-	survey_drawer.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.ACCENT,0,UIkit.LG))
+	survey_drawer.offset_top = -minf(SURVEY_HEIGHT,workspace.size.y)
+	survey_drawer.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,3,UIkit.XL-4))
 	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation",UIkit.LG)
 	survey_drawer.add_child(column)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation",UIkit.LG)
+	column.add_child(top)
+	var private_label := UIkit.strong("Private input · Player %d only" % (session.private_player+1),UIkit.BODY,UIkit.AMBER)
+	private_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	private_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(private_label)
 	survey_toggle = UIkit.button("Hide survey · inspect map",_toggle_survey)
 	survey_toggle.name = "SurveyToggle"
-	column.add_child(survey_toggle)
+	survey_toggle.custom_minimum_size.x = 360
+	top.add_child(survey_toggle)
 	survey_content = VBoxContainer.new()
 	survey_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(survey_content)
@@ -281,7 +333,7 @@ func _build_survey_drawer() -> void:
 func _size_survey() -> void:
 	await get_tree().process_frame
 	if is_instance_valid(survey_drawer):
-		survey_drawer.offset_top = -76.0 if survey_collapsed else -minf(460,workspace.size.y)
+		survey_drawer.offset_top = -float(SURVEY_COLLAPSED) if survey_collapsed else -minf(SURVEY_HEIGHT,workspace.size.y)
 		survey_drawer.offset_bottom = 0
 
 func _toggle_survey() -> void:
@@ -291,7 +343,7 @@ func _toggle_survey() -> void:
 	if survey_collapsed: survey_toggle.grab_focus()
 	if survey_tween: survey_tween.kill()
 	survey_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	survey_tween.tween_property(survey_drawer,"offset_top",-76.0 if survey_collapsed else -minf(460,workspace.size.y),0.3)
+	survey_tween.tween_property(survey_drawer,"offset_top",-float(SURVEY_COLLAPSED) if survey_collapsed else -minf(SURVEY_HEIGHT,workspace.size.y),0.3)
 
 func _clear_selection() -> void:
 	if not is_instance_valid(board): return
@@ -327,27 +379,30 @@ func _build_road_bubble() -> void:
 	road_pointer.draw.connect(func():
 		var rect := Rect2(road_bubble.position,road_bubble.size)
 		var end := road_pointer.position.clamp(rect.position,rect.end)-road_pointer.position
-		road_pointer.draw_line(Vector2.ZERO,end,Color(UIkit.AMBER,0.7),1,true)
+		road_pointer.draw_line(Vector2.ZERO,end,UIkit.AMBER,1,true)
 		road_pointer.draw_circle(Vector2.ZERO,3,UIkit.AMBER))
 	road_bubble = PanelContainer.new()
 	road_bubble.name = "RoadBubble"
-	road_bubble.custom_minimum_size.x = 270
-	road_bubble.size = Vector2(270,0)
-	road_bubble.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.AMBER,0,UIkit.LG))
+	road_bubble.custom_minimum_size.x = 300
+	road_bubble.size = Vector2(300,0)
+	road_bubble.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.AMBER,3,UIkit.LG))
 	board.add_child(road_bubble)
 	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation",UIkit.SM)
 	road_bubble.add_child(content)
 	var edge: EdgeState = session.state.edges[selected_edge]
 	var row := HBoxContainer.new()
 	content.add_child(row)
-	var title := UIkit.label("ROAD "+selected_edge.replace("-"," — "),UIkit.BODY,UIkit.AMBER)
+	var title := UIkit.strong("Road "+selected_edge.replace("-"," — "),UIkit.BODY,UIkit.AMBER)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(title)
-	row.add_child(UIkit.quiet("×",func(): selected_edge = ""; board.selected_edge = ""; board.queue_redraw(); _clear_road_bubble()))
-	content.add_child(UIkit.label("CLOSED / BOTH DIRECTIONS" if edge.isolated else "Open · two-way route",UIkit.CAPTION,UIkit.MUTED))
-	UIkit.rule(content)
+	var close := UIkit.quiet("×",func(): selected_edge = ""; board.selected_edge = ""; board.queue_redraw(); _clear_road_bubble())
+	close.tooltip_text = "Close"
+	row.add_child(close)
+	content.add_child(UIkit.meta("Closed · both directions" if edge.isolated else "Open · two-way route"))
 	if session.phase == GameManager.Phase.ACTIONS: _action_button(content,"ISOLATE",selected_edge)
-	else: content.add_child(UIkit.paragraph("Road decisions unlock in the action phase.",UIkit.CAPTION))
+	else: content.add_child(UIkit.paragraph("Road decisions unlock in the action phase.",UIkit.BODY,UIkit.SECONDARY))
 	_position_road_bubble.call_deferred()
 
 func _position_road_bubble() -> void:
@@ -364,6 +419,10 @@ func _position_road_bubble() -> void:
 			var rect := Rect2(Vector2(x,y),extent)
 			var score := rect.get_center().distance_to(anchor)*0.01
 			if rect.grow(24).has_point(anchor): score += 10000
+			# Prefer corners that leave building names and status stamps readable.
+			for id in board.title_rects:
+				var plate: Rect2 = board.title_rects[id]
+				if rect.intersects(Rect2(plate.position,Vector2(plate.size.x,board.NAME_BLOCK))): score += 6
 			for id in board.road_geometry:
 				for step in 21:
 					if rect.grow(8).has_point(board._point_on_path(board.road_geometry[id],step/20.0)):
@@ -375,71 +434,86 @@ func _position_road_bubble() -> void:
 	road_pointer.position = anchor
 	road_pointer.queue_redraw()
 
-func _build_intel(parent: Node, compact: bool = false) -> void:
+# Public field reports: the latest stays beside the map; earlier ones open in a
+# readable dialog instead of pushing the map out of view.
+func _build_intel(parent: Node) -> void:
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation",UIkit.SM)
+	column.add_theme_constant_override("separation",UIkit.XS)
 	parent.add_child(column)
-	UIkit.rule(column)
-	column.add_child(UIkit.label("FIELD DISPATCH",UIkit.CAPTION,UIkit.MUTED))
 	var latest: Dictionary = session.public_intel.back()
-	column.add_child(UIkit.label("R%02d   ·   %s" % [latest.round,latest.time],UIkit.CAPTION,UIkit.MUTED))
-	column.add_child(UIkit.paragraph(latest.text,UIkit.CAPTION if compact else UIkit.BODY,UIkit.NORMAL))
-	if session.public_intel.size() > 1:
-		var archive := VBoxContainer.new()
-		archive.visible = false
-		column.add_child(UIkit.quiet("Earlier dispatches  +",func(): archive.visible = not archive.visible))
-		column.add_child(archive)
-		for index in session.public_intel.size()-1:
-			var report: Dictionary = session.public_intel[index]
-			archive.add_child(UIkit.label("R%02d   ·   %s" % [report.round,report.time],UIkit.CAPTION,UIkit.MUTED))
-			archive.add_child(UIkit.paragraph(report.text,UIkit.CAPTION,UIkit.MUTED))
+	var top := HBoxContainer.new()
+	column.add_child(top)
+	var title := UIkit.meta("Field dispatch · Round %d · %s" % [latest.round,latest.time])
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(title)
+	if session.public_intel.size() > 1: top.add_child(UIkit.quiet("Earlier dispatches",_show_dispatches))
+	column.add_child(UIkit.paragraph(latest.text))
+
+func _show_dispatches() -> void:
+	if session == null: return
+	var column := _modal_base("Field dispatches",760)
+	var wrapper := VBoxContainer.new()
+	wrapper.custom_minimum_size = Vector2(0,minf(150.0*session.public_intel.size(),minf(440,size.y-280)))
+	column.add_child(wrapper)
+	var list := UIkit.scroll_column(wrapper)
+	list.add_theme_constant_override("separation",UIkit.XL)
+	for report: Dictionary in session.public_intel:
+		var entry := VBoxContainer.new()
+		entry.add_theme_constant_override("separation",UIkit.XS)
+		list.add_child(entry)
+		entry.add_child(UIkit.meta("Round %d · %s" % [report.round,report.time]))
+		entry.add_child(UIkit.paragraph(report.text))
+	column.add_child(UIkit.button("Close",_close_modal,true))
 
 func _build_selection(parent: Node) -> void:
 	if selected_shelter == "": return
 	var shelter: ShelterState = session.state.shelters[selected_shelter]
 	var top := HBoxContainer.new()
 	parent.add_child(top)
-	var tag := UIkit.label("BUILDING "+selected_shelter,UIkit.CAPTION,UIkit.ACCENT)
-	tag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var tag := UIkit.meta("Building "+selected_shelter)
+	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(tag)
-	top.add_child(UIkit.quiet("×",_clear_selection))
-	parent.add_child(UIkit.paragraph(shelter.display_name,26,UIkit.TEXT))
-	UIkit.rule(parent)
-	parent.add_child(UIkit.label("INFORMATION",UIkit.CAPTION,UIkit.MUTED))
-	parent.add_child(UIkit.paragraph("Pressure: " + PresentationText.known_status(shelter),UIkit.BODY,UIkit.RED if shelter.is_overrun else UIkit.TEXT))
+	var close := UIkit.quiet("×",_clear_selection)
+	close.tooltip_text = "Close"
+	top.add_child(close)
+	parent.add_child(UIkit.heading(shelter.display_name))
+	var facts := VBoxContainer.new()
+	facts.add_theme_constant_override("separation",UIkit.SM)
+	parent.add_child(facts)
+	facts.add_child(UIkit.paragraph("Pressure: " + PresentationText.known_status(shelter),UIkit.BODY,UIkit.RED if shelter.is_overrun else UIkit.TEXT))
 	var access: Array[String] = []
 	for depot in session.action_manager.supply.eligible_depots(selected_shelter): access.append(session.scenario.shelter_names[depot])
-	parent.add_child(UIkit.paragraph("Supply access: " + ", ".join(access) if not access.is_empty() else "No stocked supply route",UIkit.BODY,UIkit.TEXT))
-	if session.state.depots.has(selected_shelter): parent.add_child(UIkit.label("%d supply remaining" % session.state.depots[selected_shelter].supply_remaining,UIkit.BODY,UIkit.ACCENT))
-	if shelter.is_monitored: parent.add_child(UIkit.label("MONITOR / active",UIkit.CAPTION,UIkit.TEAL))
-	if shelter.shielded_this_round: parent.add_child(UIkit.paragraph("SHIELD / this resolution only",UIkit.CAPTION,UIkit.TEAL))
+	facts.add_child(UIkit.paragraph("Supply access: " + ", ".join(access) if not access.is_empty() else "No stocked supply route"))
+	if session.state.depots.has(selected_shelter): facts.add_child(UIkit.strong("%d supply remaining" % session.state.depots[selected_shelter].supply_remaining))
+	if shelter.is_monitored: facts.add_child(UIkit.paragraph("Monitor active",UIkit.BODY,UIkit.TEAL))
+	if shelter.shielded_this_round: facts.add_child(UIkit.paragraph("Shield active · this resolution only",UIkit.BODY,UIkit.TEAL))
 	for record in shelter.verified_history:
-		parent.add_child(UIkit.paragraph("OBS R%d / Pressure %d at verification" % [record.round,record.pressure],UIkit.CAPTION,UIkit.MUTED))
-	if session.dev_mode and not _private_phase(): parent.add_child(UIkit.label("DEV · P%d" % shelter.zombie_pressure,UIkit.CAPTION,UIkit.RED))
+		facts.add_child(UIkit.paragraph("OBS R%d · Pressure %d at verification" % [record.round,record.pressure],UIkit.BODY,UIkit.SECONDARY))
+	if session.dev_mode and not _private_phase(): facts.add_child(UIkit.strong("DEV · P%d" % shelter.zombie_pressure,UIkit.SMALL,UIkit.RED))
 	UIkit.rule(parent)
 	if session.phase == GameManager.Phase.ACTIONS:
-		parent.add_child(UIkit.label("DECISIONS",UIkit.CAPTION,UIkit.ACCENT))
+		parent.add_child(UIkit.strong("Decisions"))
 		for kind in ["VERIFY","MONITOR","SHIELD"]: _action_button(parent,kind,selected_shelter)
-	else: parent.add_child(UIkit.paragraph("Inspect the district. Decisions unlock in the action phase.",UIkit.CAPTION))
+	else: parent.add_child(UIkit.paragraph("Decisions unlock in the action phase.",UIkit.BODY,UIkit.SECONDARY))
 
 func _action_button(parent: Node, kind: String, target: String) -> void:
 	var reason := session.action_manager.unavailable_reason(kind,target)
 	var group := VBoxContainer.new()
-	group.add_theme_constant_override("separation",UIkit.XS)
+	group.add_theme_constant_override("separation",UIkit.XS+2)
 	parent.add_child(group)
-	var button := UIkit.button("%s   /   %d SUPPLY" % [kind,2 if kind == "ISOLATE" else 1],func(): _request_action(kind,target))
+	var button := UIkit.button("%s  ·  %d supply" % [kind,2 if kind == "ISOLATE" else 1],func(): _request_action(kind,target))
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.disabled = reason != ""
-	button.tooltip_text = reason if reason != "" else PresentationText.ACTION_DETAILS[kind]
+	button.tooltip_text = PresentationText.unavailable_text(reason) if reason != "" else PresentationText.ACTION_DETAILS[kind]
 	group.add_child(button)
-	if reason != "": group.add_child(UIkit.paragraph(reason,UIkit.CAPTION,UIkit.MUTED))
+	if reason != "": group.add_child(UIkit.meta(PresentationText.unavailable_text(reason)))
 
 func _observation_card(parent: Node, observation: Dictionary) -> void:
 	var note := VBoxContainer.new()
-	note.add_theme_constant_override("separation",UIkit.SM)
+	note.add_theme_constant_override("separation",UIkit.MD)
 	parent.add_child(note)
 	UIkit.rule(note)
-	note.add_child(UIkit.paragraph(PresentationText.observation_text(observation),UIkit.BODY,UIkit.TEXT))
+	note.add_child(UIkit.paragraph(PresentationText.observation_text(observation)))
 
 func _build_phase_button() -> void:
 	match session.phase:
@@ -447,10 +521,9 @@ func _build_phase_button() -> void:
 			if session.is_sandbox(): footer.add_child(UIkit.button("Begin actions",session.begin_sandbox_actions,true))
 			else: footer.add_child(UIkit.button("Private judgment",session.start_private,true))
 		GameManager.Phase.DISCUSSION:
-			footer.add_child(UIkit.label("Discuss your next move.",UIkit.CAPTION,UIkit.MUTED))
-			footer.add_child(UIkit.label("Actions unlock after the discussion timer.",UIkit.CAPTION,UIkit.MUTED))
+			footer.add_child(UIkit.paragraph("Discuss your next move. Actions unlock after the discussion timer.",UIkit.BODY,UIkit.SECONDARY))
 		GameManager.Phase.INTERVENTION:
-			support_countdown = UIkit.label("Continue in %ds" % session.support_seconds_remaining(),UIkit.CAPTION,UIkit.MUTED)
+			support_countdown = UIkit.meta("Continue in %ds" % session.support_seconds_remaining())
 			footer.add_child(support_countdown)
 			support_continue = UIkit.button("Proceed to actions",session.proceed_to_actions,true)
 			support_continue.disabled = true
@@ -459,39 +532,44 @@ func _build_phase_button() -> void:
 			footer.add_child(UIkit.button("End round",_request_resolution,true))
 		GameManager.Phase.ROUND_COMPLETE:
 			var newly: Array = session.last_summary.newly_overrun
-			footer.add_child(UIkit.paragraph("Shelters lost: " + (", ".join(newly) if not newly.is_empty() else "None"),UIkit.CAPTION,UIkit.RED if not newly.is_empty() else UIkit.MUTED))
+			footer.add_child(UIkit.paragraph("Shelters lost: " + (", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED if not newly.is_empty() else UIkit.SECONDARY))
 			footer.add_child(UIkit.button("Results" if session.state.round==3 else "Next round",session.next_round,true))
-		GameManager.Phase.RESULTS:
-			footer.add_child(UIkit.label("MISSION COMPLETE",UIkit.CAPTION,UIkit.ACCENT))
 
 func _show_session_setup() -> void:
 	if not session.can_configure_condition(): return
 	var column := _modal_base("Session setup")
-	column.add_child(UIkit.label("FACILITATOR / EXPERIMENT CONFIGURATION",UIkit.CAPTION,UIkit.MUTED))
-	column.add_child(UIkit.paragraph("Condition remains fixed across all four missions.",UIkit.BODY))
+	column.add_child(UIkit.meta("Facilitator only · experiment configuration"))
+	column.add_child(UIkit.paragraph("Condition remains fixed across all four missions."))
 	var picker := OptionButton.new()
 	picker.name = "ConditionPicker"
+	picker.custom_minimum_size.y = 48
 	for label: String in SupportLibrary.LABELS: picker.add_item(label)
 	picker.select(session.intervention_type)
 	column.add_child(picker)
-	column.add_child(UIkit.paragraph("Every condition includes the same 15-second decision pause after initial discussion.",UIkit.CAPTION))
-	column.add_child(UIkit.button("Apply condition",func(): session.configure_condition(picker.selected),true))
-	column.add_child(UIkit.button("Cancel",_close_modal))
+	column.add_child(UIkit.paragraph("Every condition includes the same 15-second decision pause after initial discussion.",UIkit.BODY,UIkit.SECONDARY))
+	var buttons := _button_row(column)
+	buttons.add_child(_sized(UIkit.button("Cancel",_close_modal)))
+	buttons.add_child(_sized(UIkit.button("Apply condition",func(): session.configure_condition(picker.selected),true)))
 
 func _build_support(parent: Node) -> void:
-	support_card = UIkit.card(parent,UIkit.INNER)
+	support_card = UIkit.card(parent,UIkit.RAISED)
 	support_card.name = "SupportCard"
-	support_card.add_theme_constant_override("separation",UIkit.MD)
-	support_card.get_parent().custom_minimum_size.y = 440
+	support_card.add_theme_constant_override("separation",UIkit.XS)
+	support_card.get_parent().custom_minimum_size.y = SUPPORT_NOTE_HEIGHT
 	if session.support_message.is_empty():
-		support_card.add_child(UIkit.paragraph("Waiting for AI support…",UIkit.BODY))
+		support_card.add_child(UIkit.paragraph("Waiting for AI support…"))
 		return
-	# All completed messages use the same structure and actual-display timing.
+	# All completed messages use the same structure, fonts, and actual-display timing.
+	var first := true
 	for line: String in str(session.support_message.text).split("\n"):
 		var separator := line.find(":")
-		support_card.add_child(UIkit.label(line.substr(0,separator+1),UIkit.BODY))
-		support_card.add_child(UIkit.paragraph(line.substr(separator+1).strip_edges(),UIkit.BODY,UIkit.NORMAL))
-	for child in support_card.get_children(): child.add_theme_font_override("font",SUPPORT_FONT)
+		var head := UIkit.strong(line.substr(0,separator+1))
+		if not first:
+			head.custom_minimum_size.y = 42
+			head.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		support_card.add_child(head)
+		support_card.add_child(UIkit.paragraph(line.substr(separator+1).strip_edges()))
+		first = false
 	_mark_support_visible.call_deferred(session.run_token,session.state.round)
 
 func _mark_support_visible(token: int, round_number: int) -> void:
@@ -523,7 +601,7 @@ func _request_action(kind: String, target: String) -> void:
 	if options.is_empty(): return
 	var column := _modal_base("%s %s?" % [kind,target.replace("-"," — ")])
 	var picker := OptionButton.new()
-	picker.custom_minimum_size.y = 46
+	picker.custom_minimum_size.y = 48
 	for option in options:
 		var text: String = "1 supply · " + session.scenario.shelter_names[option[0]]
 		if kind == "ISOLATE":
@@ -531,13 +609,13 @@ func _request_action(kind: String, target: String) -> void:
 			text = "%s to %s  +  %s to %s" % [session.scenario.shelter_names[option[0]],edge.from,session.scenario.shelter_names[option[1]],edge.to]
 		picker.add_item(text)
 	column.add_child(picker)
-	column.add_child(UIkit.label("Cost: %d supply" % (2 if kind=="ISOLATE" else 1),UIkit.BODY,UIkit.ACCENT))
+	column.add_child(UIkit.strong("Cost: %d supply" % (2 if kind=="ISOLATE" else 1)))
 	if kind=="ISOLATE":
-		column.add_child(UIkit.paragraph("Stops zombie movement. Supply impact:",UIkit.BODY))
+		column.add_child(UIkit.paragraph("Stops zombie movement. Supply impact:"))
 		var losses := session.action_manager.preview_isolation(target)
 		for depot in losses:
 			column.add_child(UIkit.paragraph("%s: %s" % [session.scenario.shelter_names[depot],"no route loss" if losses[depot].is_empty() else ", ".join(losses[depot])+" lose access"],UIkit.BODY,UIkit.AMBER))
-		column.add_child(UIkit.paragraph("One unit to each endpoint. Road closes after both arrive.",UIkit.CAPTION))
+		column.add_child(UIkit.paragraph("One unit to each endpoint. Road closes after both arrive.",UIkit.BODY,UIkit.SECONDARY))
 		board.preview_edge = target
 		for lost: Array in losses.values():
 			for id in lost:
@@ -550,19 +628,17 @@ func _request_action(kind: String, target: String) -> void:
 		board.queue_redraw()
 	picker.item_selected.connect(func(_index: int): preview_paths.call())
 	preview_paths.call()
-	UIkit.rule(column)
-	var buttons := HBoxContainer.new()
-	column.add_child(buttons)
-	buttons.add_child(UIkit.button("Cancel",_close_modal))
-	buttons.add_child(UIkit.button("Confirm delivery",func():
+	var buttons := _button_row(column)
+	buttons.add_child(_sized(UIkit.button("Cancel",_close_modal)))
+	buttons.add_child(_sized(UIkit.button("Confirm delivery",func():
 		var assignments: Array[String] = []
 		assignments.assign(options[picker.selected])
 		_close_modal()
 		var result := session.dispatch_action(kind,target,assignments)
-		if not result.ok: _show_message("Unavailable",result.error),true))
+		if not result.ok: _show_message("Unavailable",PresentationText.unavailable_text(str(result.error))),true)))
 
 func _request_resolution() -> void:
-	_show_modal("End Round %d?" % session.state.round,"Unused supply carries forward. Active shields expire after resolution.","Resolve",func(): session.begin_resolution())
+	_show_modal("End round %d?" % session.state.round,"Unused supply carries forward. Active shields expire after resolution.","Resolve",func(): session.begin_resolution())
 
 func _animate_phase(token: int) -> void:
 	if session == null or token != session.run_token: return
@@ -581,12 +657,11 @@ func _animate_phase(token: int) -> void:
 			if session != null and token == session.run_token: session.finish_resolution(token)
 
 func _build_private(parent: Node) -> void:
-	parent.add_theme_constant_override("separation",UIkit.SM)
-	parent.add_child(UIkit.label("PRIVATE INPUT / PLAYER %d ONLY" % (session.private_player+1),UIkit.CAPTION,UIkit.AMBER))
+	parent.add_theme_constant_override("separation",UIkit.LG)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation",UIkit.XL)
-	grid.add_theme_constant_override("v_separation",UIkit.MD)
+	grid.add_theme_constant_override("v_separation",UIkit.LG)
 	parent.add_child(grid)
 	var locations: Array = session.state.shelters.keys()+session.state.edges.keys()
 	var danger := _survey_picker(grid,"Most immediate danger",locations)
@@ -599,6 +674,8 @@ func _build_private(parent: Node) -> void:
 		var belief := PlayerBelief.new(str(danger.get_selected_metadata()),str(action.get_selected_metadata()),str(target.get_selected_metadata()),int(confidence.get_selected_metadata()),"" if reason.selected==0 else str(reason.get_selected_metadata()))
 		session.submit_belief(belief),true)
 	submit.disabled = true
+	submit.custom_minimum_size.x = 320
+	submit.size_flags_horizontal = Control.SIZE_SHRINK_END
 	parent.add_child(submit)
 	var validate := func(_index: int): submit.disabled = danger.selected==0 or action.selected==0 or target.selected==0 or confidence.selected==0 or reason.selected==0
 	action.item_selected.connect(func(_index: int):
@@ -611,15 +688,16 @@ func _build_private(parent: Node) -> void:
 func _survey_picker(parent: Node, title: String, values: Array) -> OptionButton:
 	var field := VBoxContainer.new()
 	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	field.add_theme_constant_override("separation",UIkit.XS)
+	field.add_theme_constant_override("separation",UIkit.SM)
 	parent.add_child(field)
 	return _picker(field,title,values)
 
 func _picker(parent: Node, title: String, values: Array) -> OptionButton:
-	parent.add_child(UIkit.paragraph(title,UIkit.CAPTION,UIkit.TEXT))
+	var question := UIkit.text_label(title,UIkit.MEDIUM_FONT,UIkit.BODY)
+	question.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(question)
 	var picker := OptionButton.new()
-	picker.custom_minimum_size.y = 40
-	picker.add_theme_stylebox_override("normal",UIkit.box(UIkit.PANEL,UIkit.LINE,0,UIkit.SM))
+	picker.custom_minimum_size.y = 48
 	_fill_picker(picker,values)
 	parent.add_child(picker)
 	return picker
@@ -639,51 +717,61 @@ func _fill_picker(picker: OptionButton, values: Array) -> void:
 	picker.select(0)
 
 func _build_results(parent: Node) -> void:
-	parent.add_child(UIkit.label("%d / 8" % (8-session.state.overrun_ids().size()),UIkit.METRIC))
-	parent.add_child(UIkit.label("SHELTERS FUNCTIONING",UIkit.CAPTION))
-	UIkit.rule(parent,true)
+	var headline := VBoxContainer.new()
+	headline.add_theme_constant_override("separation",0)
+	parent.add_child(headline)
+	headline.add_child(UIkit.figure("%d / 8" % (8-session.state.overrun_ids().size()),UIkit.METRIC_LARGE))
+	headline.add_child(UIkit.meta("Shelters functioning"))
+	UIkit.rule(parent)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation",UIkit.SM)
+	parent.add_child(rows)
 	for entry in [["Shelters lost",str(session.state.overrun_ids().size())],["Supplies spent","%d / 6" % (6-session.state.total_supply())],["Roads closed",str(session.closed_road_count())]]:
 		var row := HBoxContainer.new()
-		parent.add_child(row)
-		var key := UIkit.label(entry[0],UIkit.BODY,UIkit.MUTED)
+		rows.add_child(row)
+		var key := UIkit.label(entry[0],UIkit.BODY,UIkit.SECONDARY)
 		key.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(key)
-		row.add_child(UIkit.label(entry[1],UIkit.SECTION))
+		row.add_child(UIkit.strong(entry[1]))
+	var lost := session.state.overrun_ids()
+	parent.add_child(UIkit.paragraph("Lost locations: " + (", ".join(lost) if not lost.is_empty() else "None"),UIkit.BODY,UIkit.RED if not lost.is_empty() else UIkit.SECONDARY))
+	if export_status != "" and session.is_sandbox(): parent.add_child(UIkit.meta(export_status))
 	UIkit.rule(parent)
-	parent.add_child(UIkit.paragraph("LOST LOCATIONS\n" + (", ".join(session.state.overrun_ids()) if not session.state.overrun_ids().is_empty() else "None"),UIkit.CAPTION,UIkit.RED))
-	if export_status != "" and session.is_sandbox(): parent.add_child(UIkit.paragraph(export_status,UIkit.CAPTION))
 	_build_result_controls(parent)
 
 func _build_result_controls(parent: Node) -> void:
 	mission_session.capture_result()
-	parent.add_child(UIkit.button("Export DEV JSON" if session.is_sandbox() else "Export session JSON",_export_session))
 	if session.is_sandbox():
 		parent.add_child(UIkit.button("Replay",_request_restart,true))
 		parent.add_child(UIkit.button("Choose another scenario",_show_level_picker))
 	elif mission_session.index+1 < mission_session.order.size():
 		parent.add_child(UIkit.button("Continue to next mission",_next_mission,true))
-	else: parent.add_child(UIkit.label("SESSION COMPLETE · 4 / 4 MISSIONS",UIkit.CAPTION,UIkit.ACCENT))
+	else: parent.add_child(UIkit.strong("Session complete · %d of %d missions" % [mission_session.order.size(),mission_session.order.size()]))
+	parent.add_child(UIkit.button("Export DEV JSON" if session.is_sandbox() else "Export session JSON",_export_session))
 	parent.add_child(UIkit.button("Main menu",_show_main_menu))
 
 func _show_help() -> void:
-	var column := _modal_base("Field guide")
+	var column := _modal_base("Field guide",820)
 	var wrapper := VBoxContainer.new()
-	wrapper.custom_minimum_size = Vector2(0,minf(450,size.y-270))
+	wrapper.custom_minimum_size = Vector2(0,minf(540,size.y-250))
 	column.add_child(wrapper)
-	UIkit.scroll_column(wrapper).add_child(UIkit.rich(PresentationText.RULES+PresentationText.MAP_KEY))
+	var guide := UIkit.rich(PresentationText.RULES+PresentationText.MAP_KEY)
+	# Guide section titles are the only bold runs; render them as headings.
+	guide.add_theme_font_override("bold_font",UIkit.HEADING_FONT)
+	guide.add_theme_font_size_override("bold_font_size",24)
+	UIkit.scroll_column(wrapper).add_child(guide)
 	column.add_child(UIkit.button("Close",_close_modal,true))
 
 func _show_inspector() -> void:
 	if not session.dev_mode or _private_phase() or _busy(): return
-	var column := _modal_base("DEV MODE / INSPECTOR")
+	var column := _modal_base("Dev mode · inspector")
 	var wrapper := VBoxContainer.new()
 	wrapper.custom_minimum_size = Vector2(0,minf(450,size.y-270))
 	column.add_child(wrapper)
-	UIkit.scroll_column(wrapper).add_child(UIkit.paragraph(PresentationText.debug(session),UIkit.CAPTION,UIkit.TEXT))
-	var buttons := HBoxContainer.new()
-	column.add_child(buttons)
-	buttons.add_child(UIkit.button("Export DEV JSON",_export_session))
-	buttons.add_child(UIkit.button("Close",_close_modal,true))
+	UIkit.scroll_column(wrapper).add_child(UIkit.paragraph(PresentationText.debug(session),UIkit.SMALL,UIkit.TEXT))
+	var buttons := _button_row(column)
+	buttons.add_child(_sized(UIkit.button("Export DEV JSON",_export_session)))
+	buttons.add_child(_sized(UIkit.button("Close",_close_modal,true)))
 
 func _request_dev_mode(enabled: bool) -> void:
 	if not session.is_sandbox(): return
@@ -724,40 +812,52 @@ func _export_session() -> void:
 	dialog.canceled.connect(func(): dialog.queue_free())
 	dialog.popup_centered()
 
-func _modal_base(title: String) -> VBoxContainer:
+func _modal_base(title: String, width: float = 640) -> VBoxContainer:
 	_close_modal()
 	modal = Control.new()
 	modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(modal)
 	var shade := ColorRect.new()
-	shade.color = Color(0,0,0,0.7)
+	shade.color = Color(0,0,0,0.6)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal.add_child(shade)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal.add_child(center)
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(640,0)
-	panel.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.TEXT,0,UIkit.XXL))
+	panel.custom_minimum_size = Vector2(minf(width,size.x-48),0)
+	panel.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,UIkit.XXL))
 	center.add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation",16)
+	column.add_theme_constant_override("separation",UIkit.LG)
 	panel.add_child(column)
-	column.add_child(UIkit.paragraph(title,UIkit.DISPLAY,UIkit.TEXT))
+	column.add_child(UIkit.heading(title))
 	return column
+
+func _button_row(parent: Node) -> HBoxContainer:
+	UIkit.spacer(parent,UIkit.XS)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_END
+	buttons.add_theme_constant_override("separation",UIkit.MD)
+	parent.add_child(buttons)
+	return buttons
+
+func _sized(button: Button) -> Button:
+	button.custom_minimum_size.x = 160
+	return button
 
 func _show_modal(title: String, body: String, confirm_text: String, confirm: Callable, cancel: Callable = Callable()) -> void:
 	var column := _modal_base(title)
-	column.add_child(UIkit.paragraph(body,UIkit.BODY,UIkit.MUTED))
-	var buttons := HBoxContainer.new()
-	column.add_child(buttons)
-	buttons.add_child(UIkit.button("Cancel",func(): _close_modal(); if cancel.is_valid(): cancel.call()))
-	buttons.add_child(UIkit.caution(UIkit.button(confirm_text,func(): _close_modal(); confirm.call())))
+	column.add_child(UIkit.paragraph(body))
+	var buttons := _button_row(column)
+	buttons.add_child(_sized(UIkit.button("Cancel",func(): _close_modal(); if cancel.is_valid(): cancel.call())))
+	buttons.add_child(_sized(UIkit.caution(UIkit.button(confirm_text,func(): _close_modal(); confirm.call()))))
 
 func _show_message(title: String, body: String) -> void:
 	var column := _modal_base(title)
-	column.add_child(UIkit.paragraph(body,UIkit.BODY))
-	column.add_child(UIkit.button("Close",_close_modal,true))
+	column.add_child(UIkit.paragraph(body))
+	var buttons := _button_row(column)
+	buttons.add_child(_sized(UIkit.button("Close",_close_modal,true)))
 
 func _close_modal() -> void:
 	if is_instance_valid(modal):
@@ -777,29 +877,28 @@ func _build_handoff(parent: Node) -> void:
 	parent.add_child(center)
 	var sheet := PanelContainer.new()
 	sheet.custom_minimum_size = Vector2(640,0)
-	sheet.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.PANEL,0,UIkit.XXL))
+	sheet.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,Color.TRANSPARENT,4,40))
 	center.add_child(sheet)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation",UIkit.XL)
+	column.add_theme_constant_override("separation",UIkit.LG)
 	sheet.add_child(column)
-	column.add_child(UIkit.label("ROUND %02d  /  PRIVATE INPUT" % session.state.round,UIkit.CAPTION,UIkit.MUTED))
-	UIkit.rule(column,true)
-	column.add_child(UIkit.label("PLAYER %d ONLY" % (session.private_player+1),UIkit.DISPLAY))
-	column.add_child(UIkit.paragraph("Pass the screen. Other players: look away.",UIkit.BODY,UIkit.TEXT))
+	column.add_child(UIkit.meta("Round %d · private input" % session.state.round))
+	column.add_child(UIkit.heading("Player %d only" % (session.private_player+1),UIkit.DISPLAY+2))
+	column.add_child(UIkit.paragraph("Pass the screen. Other players: look away."))
+	UIkit.spacer(column,UIkit.SM)
 	column.add_child(UIkit.button("Open my form",session.open_private_form,true))
 	phase_label = null
 
 func _build_operation(parent: Node) -> void:
 	if session.phase == GameManager.Phase.DELIVERY:
 		var action: GameAction = session.pending_action
-		parent.add_child(UIkit.label(action.type+" / "+action.target,UIkit.SECTION))
-		parent.add_child(UIkit.paragraph("Supply en route",UIkit.BODY))
+		parent.add_child(UIkit.heading(action.type+" · "+action.target))
+		parent.add_child(UIkit.paragraph("Supply en route."))
 	else:
-		parent.add_child(UIkit.label("OUTBREAK RESOLUTION",UIkit.CAPTION,UIkit.MUTED))
-		parent.add_child(UIkit.paragraph("Updating the district.",UIkit.SECTION,UIkit.TEXT))
+		parent.add_child(UIkit.heading("Updating the district"))
 		if session.resolution_applied:
 			var newly: Array = session.last_summary.newly_overrun
-			parent.add_child(UIkit.paragraph("Newly Overrun: "+(", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED))
+			parent.add_child(UIkit.paragraph("Newly Overrun: "+(", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED if not newly.is_empty() else UIkit.TEXT))
 
 func _dev_access_enabled() -> bool:
 	return not OS.has_feature("participant") and bool(ProjectSettings.get_setting("cascade/development_access",true))
@@ -833,10 +932,11 @@ func _menu_page() -> VBoxContainer:
 	add_child(background)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left","top","right","bottom"]: margin.add_theme_constant_override("margin_"+side,32)
+	for side in ["left","top","right","bottom"]: margin.add_theme_constant_override("margin_"+side,UIkit.XXL)
 	add_child(margin)
 	var scroll := ScrollContainer.new()
 	scroll.follow_focus = true
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	margin.add_child(scroll)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var center := CenterContainer.new()
@@ -845,19 +945,18 @@ func _menu_page() -> VBoxContainer:
 	scroll.add_child(center)
 	var column := VBoxContainer.new()
 	column.custom_minimum_size.x = 640
-	column.add_theme_constant_override("separation",16)
+	column.add_theme_constant_override("separation",UIkit.LG)
 	center.add_child(column)
 	return column
 
 func _show_main_menu() -> void:
 	var column := _menu_page()
-	column.add_child(UIkit.label("COOPERATIVE CONTAINMENT",UIkit.CAPTION,UIkit.ACCENT))
-	column.add_child(UIkit.label("Cascade Lab: Outbreak",UIkit.DISPLAY))
-	column.add_child(UIkit.paragraph("Keep the district functioning through three rounds of an uncertain outbreak.",UIkit.BODY))
-	UIkit.rule(column)
-	column.add_child(UIkit.paragraph("Four missions. Three people. One shared response.",UIkit.BODY,UIkit.TEXT))
+	column.add_child(UIkit.heading("Cascade Lab: Outbreak",UIkit.DISPLAY+6))
+	column.add_child(UIkit.paragraph("Keep the district functioning through three rounds of an uncertain outbreak."))
+	column.add_child(UIkit.paragraph("Four missions. Three people. One shared response.",UIkit.BODY,UIkit.SECONDARY))
+	UIkit.spacer(column,UIkit.SM)
 	var play := UIkit.button("Play",_start_normal,true)
-	play.custom_minimum_size.y = 64
+	play.custom_minimum_size.y = 56
 	if StudySync.access_required():
 		# Online builds: the facilitator enters the study access code before play.
 		var code := LineEdit.new()
@@ -865,8 +964,7 @@ func _show_main_menu() -> void:
 		code.placeholder_text = "Study access code"
 		code.secret = true
 		code.text = StudySync.access_code
-		code.custom_minimum_size.y = 48
-		code.add_theme_font_size_override("font_size",UIkit.BODY)
+		code.custom_minimum_size.y = 52
 		code.text_changed.connect(func(value: String):
 			StudySync.set_access_code(value)
 			play.disabled = StudySync.access_code.length() < 12)
@@ -874,23 +972,29 @@ func _show_main_menu() -> void:
 		column.add_child(code)
 	column.add_child(play)
 	if _dev_access_enabled(): column.add_child(UIkit.button("Dev Mode",_show_level_picker))
-	save_indicator = UIkit.paragraph(StudySync.status_text(),UIkit.CAPTION,UIkit.MUTED)
+	save_indicator = UIkit.meta("")
+	if not StudySync.sessions.is_empty(): save_indicator.set_meta("show_routine",true)
+	save_text = ""
 	column.add_child(save_indicator)
+	_refresh_save_notice()
 	if not StudySync.sessions.is_empty(): column.add_child(UIkit.button("Export pending recovery JSON",_export_session))
 	_focus_if_present.call_deferred(play)
 
 func _show_level_picker() -> void:
 	if not _dev_access_enabled(): return
 	var column := _menu_page()
-	column.add_child(UIkit.label("DEV MODE — NOT RESEARCH DATA",UIkit.CAPTION,UIkit.AMBER))
-	column.add_child(UIkit.label("Choose a district",UIkit.DISPLAY))
-	column.add_child(UIkit.paragraph("Play one mission with the same rules and supplies. Surveys, discussion timers, and decision support are skipped.",UIkit.BODY))
+	column.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
+	column.add_child(UIkit.heading("Choose a district",UIkit.DISPLAY))
+	column.add_child(UIkit.paragraph("Play one mission with the same rules and supplies. Surveys, discussion timers, and decision support are skipped."))
 	var first_start: Button
 	for entry in ScenarioData.registry().scenarios:
 		var card := UIkit.card(column,UIkit.PANEL)
-		card.add_child(UIkit.label(entry.title,UIkit.SECTION))
-		card.add_child(UIkit.paragraph(entry.blurb,UIkit.BODY))
-		var start := UIkit.button("Start · " + entry.title,func(): _start_dev(entry.id),true)
+		card.add_theme_constant_override("separation",UIkit.SM)
+		card.add_child(UIkit.heading(entry.title,24))
+		card.add_child(UIkit.paragraph(entry.blurb,UIkit.BODY,UIkit.SECONDARY))
+		var start := UIkit.button("Start · " + entry.title,func(): _start_dev(entry.id))
+		start.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		start.custom_minimum_size.x = 240
 		card.add_child(start)
 		if first_start == null: first_start = start
 	var back := UIkit.button("Back",_show_main_menu)

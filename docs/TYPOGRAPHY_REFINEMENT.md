@@ -1,5 +1,7 @@
 # Solid-core typography refinement
 
+> Superseded for typography and surface colors by [Option A typography](OPTION_A_TYPOGRAPHY.md) (Barlow, Barlow Semi Condensed, Noto Sans SC, neutral-black surfaces). The rendering audit below remains accurate.
+
 This second pass follows the requested printed-ink direction: opaque near-white primary text, distinct reading and metadata levels, and luminous effects confined to tactical map accents. Dark surfaces, interface structure, font sizes, camera behavior, and the green phase CTA are retained.
 
 ## Audit before editing

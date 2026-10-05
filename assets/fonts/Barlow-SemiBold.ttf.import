@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://b52on2u52jsw6"
-path="res://.godot/imported/IBMPlexSans-SemiBold.ttf-f99727d7fe8b757844d4be5f9599636c.fontdata"
+uid="uid://id3ms3i13mt6"
+path="res://.godot/imported/Barlow-SemiBold.ttf-ffc1670babb729243472f3abaa74e35c.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/IBMPlexSans-SemiBold.ttf"
-dest_files=["res://.godot/imported/IBMPlexSans-SemiBold.ttf-f99727d7fe8b757844d4be5f9599636c.fontdata"]
+source_file="res://assets/fonts/Barlow-SemiBold.ttf"
+dest_files=["res://.godot/imported/Barlow-SemiBold.ttf-ffc1670babb729243472f3abaa74e35c.fontdata"]
 
 [params]
 
