@@ -48,7 +48,7 @@ class Config:
                    host=os.getenv('CASCADE_HOST', cls.host),
                    port=int(os.getenv('PORT') or os.getenv('CASCADE_PORT') or cls.port),
                    allowed_hosts=_split(os.getenv('CASCADE_ALLOWED_HOSTS', ','.join(cls.allowed_hosts))),
-                   access_code=os.getenv('CASCADE_ACCESS_CODE', ''),
+                   access_code=os.getenv('CASCADE_ACCESS_CODE', '').strip(),
                    max_daily_sessions=int(os.getenv('CASCADE_MAX_DAILY_SESSIONS', cls.max_daily_sessions)),
                    max_daily_interventions=int(os.getenv('CASCADE_MAX_DAILY_INTERVENTIONS', cls.max_daily_interventions)))
 

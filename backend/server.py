@@ -123,6 +123,7 @@ def handler(service):
             origin = self.headers.get('Origin')
             status, response = 500, {'error':'internal_error'}
             allowed_origin = origin in service.config.origins
+            failure = ''
             try:
                 # Unauthenticated liveness probe for the host platform; reveals nothing.
                 if self.path == '/healthz' and self.command == 'GET' and not preflight:
@@ -149,7 +150,15 @@ def handler(service):
             except Unauthorized: status,response = 401,{'error':'unauthorized'}
             except Conflict: status,response = 409,{'error':'conflicting_reuse'}
             except (Invalid, ValueError, KeyError, TypeError, OverflowError): status,response = 400,{'error':'invalid_request'}
-            except Exception: status,response = 500,{'error':'internal_error'}
+            except Exception as exc:
+                status,response = 500,{'error':'internal_error'}
+                failure = type(exc).__name__ + (f" sqlstate={exc.sqlstate}" if getattr(exc,'sqlstate',None) else '')
+            if status >= 400:
+                # Diagnostics only: route shape, status, error code and exception class. No IDs, bodies,
+                # tokens, access codes or origins are logged.
+                route = re.sub(r'/v1/sessions/[^/]+', '/v1/sessions/:id', self.path.split('?')[0])
+                route = re.sub(r'/interventions/[^/]+/[^/]+$', '/interventions/:scenario/:round', route)
+                print(f"request_failed {self.command} {route[:80]} status={status} error={response.get('error','')} {failure}".rstrip(), flush=True)
             data = canonical(response).encode()
             try:
                 self.send_response(status)
