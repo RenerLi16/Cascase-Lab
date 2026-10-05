@@ -18,11 +18,6 @@
   "road_bends": {},
   "supply_depots": ["A", "H"],
   "supply_amounts": {"A": 3, "H": 3},
-  "public_intel": [
-    {"round": 1, "time": "09:30", "text": "Reports mention shouting at Market square (C) and an unattended radio at Canal gate (D). Both reports passed through the same dispatcher; neither confirms an exposure inside a shelter."},
-    {"round": 2, "time": "09:45", "text": "An archived 09:18 record identifies the shouting at Market square (C) as a loading dispute. The original Canal gate (D) radio report is still incomplete. These records describe events before the mission."},
-    {"round": 3, "time": "10:00", "text": "The recovered 09:24 East gate (E) log records a visitor arriving from Canal gate (D), without a health check. It does not establish the visitor's condition or East gate's current status."}
-  ],
   "original_source": "D",
   "exposure_progresses": true,
   "ground_truth_timeline": [

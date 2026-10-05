@@ -8,8 +8,8 @@ extends "res://tests/test_presentation.gd"
 # window size, as the shipped stretch settings do (tests otherwise lay out natively).
 # Sample AI messages below exist only to inspect layout; they are never shown in play.
 
-const SAMPLE_QWEN := "建议: 优先核实 E 的当前压力，再决定是否关闭 E-F。E 连接两个补给站的主要路线，若在没有证据的情况下关闭 E-F，F 和 G 可能失去补给通路。\n依据: 第一轮报告提到 E 附近的求救呼叫，但来源是同一个无线电中继，地点尚未确认。目前地图上没有失守的避难所，公开信息不足以判断 E 是否已经暴露。\n不确定性: 核实结果只代表送达时的状态；如果 E 已经暴露，下一次结算前仍可能恶化。请比较剩余物资与延迟保护的代价。"
-const SAMPLE_QWEN_LONG := "建议: 考虑使用剩余物资核实 E，并在核实结果出来之前暂缓关闭 E-F。E 位于四条道路交汇处，同时连接北部和南部补给站；一旦 E 失守，向东的补给通路会被切断，因此这里的信息最有价值。若核实显示压力为 1，再讨论是否用护盾保护 F 或关闭 E-F。\n依据: 第一轮的三个求救呼叫都经过同一个无线电中继，呼叫者位置未经确认；第二轮报告指出老市场的呼叫是重播录音，但东门附近的录像只显示有移动，没有显示进入避难所。这些信息都只描述过去的观察，不能证明任何避难所现在的状态。\n不确定性: 核实结果只是送达时的快照，不会自动更新；监测安装后也不会显示初始压力。如果判断错误，提前关闭道路可能让 F、G 和 H 之间的补给路线变长或中断。请在行动前确认哪个仓库仍可送达，并比较等待与立即保护的代价。"
+const SAMPLE_QWEN := "建议: 优先核实 E 的当前压力，再决定是否关闭 E-F。E 连接两个补给站的主要路线，若在没有证据的情况下关闭 E-F，F 和 G 可能失去补给通路。\n依据: E 是四条道路的交汇点，目前地图上没有失守的避难所，也还没有任何核实或监测记录，因此无法判断 E 是否已经暴露。两个补给站各剩三份物资。\n不确定性: 核实结果只代表送达时的状态；如果 E 已经暴露，下一次结算前仍可能恶化。请比较剩余物资与延迟保护的代价。"
+const SAMPLE_QWEN_LONG := "建议: 考虑使用剩余物资核实 E，并在核实结果出来之前暂缓关闭 E-F。E 位于四条道路交汇处，同时连接北部和南部补给站；一旦 E 失守，向东的补给通路会被切断，因此这里的信息最有价值。若核实显示压力为 1，再讨论是否用护盾保护 F 或关闭 E-F。\n依据: 第一轮核实记录显示 E 当时的压力为 1，但这只是送达时的快照；B 已安装监测，至今没有变化提醒。三位玩家的初始判断都把 E 视为最直接的危险，但理由不同：有人担心通路，有人担心连锁扩散。\n不确定性: 核实结果只是送达时的快照，不会自动更新；监测安装后也不会显示初始压力。如果判断错误，提前关闭道路可能让 F、G 和 H 之间的补给路线变长或中断。请在行动前确认哪个仓库仍可送达，并比较等待与立即保护的代价。"
 
 var sizes: Array[Vector2i] = [Vector2i(1440,900),Vector2i(1200,800)]
 
@@ -156,12 +156,9 @@ func run() -> void:
 		await create_timer(2.4).timeout
 		await shot(tag,"26-round-complete")
 		await click("Next round")
-		var archive := button_containing("Earlier dispatches")
-		if archive != null:
-			archive.pressed.emit()
-			await settle()
-		await shot(tag,"27-earlier-dispatches")
-		app._close_modal()
+		app._clear_selection()
+		await create_timer(0.7).timeout
+		await shot(tag,"27-round-two")
 		for round_number in 2:
 			app.session.phase = GameManager.Phase.ACTIONS
 			app.session.begin_resolution()

@@ -18,11 +18,6 @@
   "road_bends": {},
   "supply_depots": ["A", "H"],
   "supply_amounts": {"A": 3, "H": 3},
-  "public_intel": [
-    {"round": 1, "time": "09:30", "text": "Distress reports mention West arrival hall (B) and East arrival hall (F). Their wording is similar, so dispatch cannot yet tell whether one report was relayed twice or two incidents were reported."},
-    {"round": 2, "time": "09:45", "text": "The archived calls came from different devices, one registered at each arrival hall. This rules out an exact replay of a single recording; registration alone does not confirm where either caller was or the shelters' current conditions."},
-    {"round": 3, "time": "10:00", "text": "Archived route records show that North junction (D) and Transfer square (E) each received traffic from both arrival halls before the mission. No health checks were recorded. Route overlap does not itself establish current exposure."}
-  ],
   "original_source": "",
   "exposure_progresses": true,
   "ground_truth_timeline": [

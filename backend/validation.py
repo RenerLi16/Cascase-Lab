@@ -3,6 +3,13 @@ import json
 import re
 
 CONDITIONS = ('NONE', 'DIRECT_RECOMMENDATION', 'CONSTRUCTIVE_DISSENT')
+# Support-context contract. cascade-context-2 retired the narrative dispatches that context v1
+# carried as public_reports. The game sends this version with every intervention request.
+CONTEXT_VERSION = 'cascade-context-2'
+# Field names from the retired narrative-report contract. Any occurrence, at any depth, is
+# rejected explicitly instead of being dropped or forwarded to a model.
+DEPRECATED_FIELDS = frozenset({'public_reports', 'published_reports', 'public_intel', 'reports', 'report',
+                               'intel', 'dispatch', 'dispatches', 'field_dispatch', 'field_dispatches'})
 ACTIONS = ('VERIFY', 'MONITOR', 'SHIELD', 'ISOLATE', 'WAIT')
 REASONS = ('', 'visible outbreak', 'suspected hidden exposure', 'protect important route',
            'protect supply access', 'gather more information', 'prevent cascade', 'other / uncertain')
@@ -51,8 +58,31 @@ def canonical(value):
     return json.dumps(normalize(value), ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
 
 
+def reject_deprecated(value, depth=0):
+    require(depth <= 12)
+    if isinstance(value, dict):
+        for key, item in value.items():
+            require(key not in DEPRECATED_FIELDS, 'deprecated_report_field')
+            reject_deprecated(item, depth + 1)
+    elif isinstance(value, list):
+        for item in value: reject_deprecated(item, depth + 1)
+
+
+def validate_request(body):
+    """Intervention request envelope: condition, the current context version, and the context."""
+    reject_deprecated(body)
+    require(isinstance(body, dict) and set(body) == {'condition', 'context_version', 'context'}, 'deprecated_or_malformed_request')
+    require(body['context_version'] == CONTEXT_VERSION, 'deprecated_context_version')
+    require(body['condition'] in CONDITIONS)
+    validate_context(body['context'])
+    return body
+
+
 def validate_context(c):
-    keys(c, 'round remaining_budget shelters roads depots previous_actions public_reports responses public_rules display_names legal_actions')
+    # Explicit allowlist: network, supplies, actions, dated observations, anonymous structured
+    # responses, public rules and display names. Nothing else may reach a provider.
+    reject_deprecated(c)
+    keys(c, 'round remaining_budget shelters roads depots previous_actions responses public_rules display_names legal_actions')
     integer(c['round'], 1, 3)
     integer(c['remaining_budget'], 0, 6)
     require(isinstance(c['shelters'], dict) and len(c['shelters']) == 8)
@@ -78,10 +108,6 @@ def validate_context(c):
     keys(c['public_rules'], 'costs observations effects access resolution exposure_progresses')
     require({k:v for k,v in c['public_rules'].items() if k != 'exposure_progresses'} == RULES)
     require(type(c['public_rules']['exposure_progresses']) is bool)
-    require(isinstance(c['public_reports'], list) and len(c['public_reports']) <= 3)
-    for report in c['public_reports']:
-        keys(report, 'round time text'); integer(report['round'], 1, c['round'])
-        string(report['time'], 100); string(report['text'], 3000)
     require(isinstance(c['responses'], list) and len(c['responses']) == 3)
     for r in c['responses']:
         keys(r, 'danger_location preferred_action action_target confidence reason')

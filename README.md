@@ -27,9 +27,9 @@ OBSERVE → PRIVATE JUDGMENT → INITIAL DISCUSSION → DECISION PAUSE → ACTIO
         → SUPPLY DELIVERY → OUTBREAK RESOLUTION → NEXT ROUND
 ```
 
-The map and current decision lead the screen. The top header shows the phase and round, the right panel shows the selected building, and the bottom strip carries field dispatches. Supply balances appear on the two depots. **Menu → Field guide** opens the rules and map key. Private handoffs replace the board with an opaque screen; the blank private form restores only the public map as a reference.
+The map and current decision lead the screen. The top header shows the phase and round, the right panel shows the selected building, and a compact bar under the map holds the map hint and the phase action. Supply balances appear on the two depots. **Menu → Field guide** opens the rules and map key. Private handoffs replace the board with an opaque screen; the blank private form restores only the public map as a reference.
 
-The presentation uses a dark operations console, the illustrated Riverside city, green named building frames, amber road bubbles, and red confirmed losses. Building details open at the right, with decisions beneath a divider. The phase is centered above the map; timed phases have a red countdown. Private forms slide down into a bottom drawer for map inspection and retain unfinished answers. Earlier dispatches remain available below the map. See [the redesign report](docs/DARK_UI_REDESIGN.md) for details and previews.
+The presentation uses a dark operations console, the illustrated Riverside city, green named building frames, amber road bubbles, and red confirmed losses. Building details open at the right, with decisions beneath a divider. The phase is centered above the map; timed phases have a red countdown. Private forms slide down into a bottom drawer for map inspection and retain unfinished answers. See [the redesign report](docs/DARK_UI_REDESIGN.md) for details and previews.
 
 At scenario start, exactly one shelter is secretly `Pressure 1`; the other seven are `Pressure 0`, and there are no Overrun shelters. Pressure 0 and 1 are hidden in normal play. When an exposed shelter reaches 2 it becomes publicly Overrun and stays that way. Each Overrun shelter spreads to every active neighboring road at resolution. Roads are bidirectional for both supply and zombies.
 
@@ -44,7 +44,7 @@ The action meanings are:
 | `SHIELD` | 1 | Blocks incoming infection for the upcoming resolution, then expires. It does not cure an existing exposure or stop outgoing spread. |
 | `ISOLATE` | 2 | Delivers to both endpoints, warns about supply-route losses, then permanently closes the road in both directions. |
 
-The city-surveillance system publishes one concise, predefined report at the start of each round. Reports are shared, incomplete observations; they never state exact pressure. Verify and Monitor are the precise player-gathered information.
+There are no scripted narrative reports. Public evidence is the map itself: road connections and closures, depot supplies, visible Overrun shelters, and the dated observations the team buys with Verify and Monitor. See [No-dispatch context](docs/NO_DISPATCH_CONTEXT.md).
 
 Private surveys measure the current decision model: immediate danger (shelter or road), next action (`VERIFY`, `MONITOR`, `SHIELD`, `ISOLATE`, or `WAIT / SAVE SUPPLY`), action target, confidence 1–5, and a structured reason. Forms start blank and the handoff clears the previous form. Responses are kept out of normal gameplay. Dev Inspector and the research export contain anonymous records sorted within each round, with no participant identifiers or submission-order linkage. Survey event entries record submission receipts without answers.
 
@@ -58,9 +58,9 @@ A two-minute discussion timer starts after the third private response. Expiry, o
 - **Constructive-Dissent AI:** Decision check / Discuss / Evidence to seek. It distinguishes different decisions, different reasoning categories, and uncertainty in confidence. Agreement triggers a shared-assumption question. It never identifies respondents, reports vote counts, assigns majority/minority labels, or prescribes a final action.
 - **No AI:** Pause / Time / Continue. It describes the scheduled interval without suggesting a tactic or introducing a decision check.
 
-`SupportContext` is the only simulation-to-support adapter. Its whitelist contains public Overrun/monitor status, dated Verify observations, road topology/closures, depot supplies, previous team actions, already-published reports, current round, remaining budget, and anonymous structured responses. Unrevealed P0/P1 remain unknown; a historical Verify result is never silently upgraded to current pressure. No names, raw explanations, live discussion, source, hidden pressure, future reports, or ground-truth timeline enter the generator, even in Dev Mode.
+`SupportContext` is the only simulation-to-support adapter. Its whitelist contains public Overrun/monitor status, dated Verify observations, road topology/closures, depot supplies, previous team actions, current round, remaining budget, and anonymous structured responses (contract `cascade-context-2`). Unrevealed P0/P1 remain unknown; a historical Verify result is never silently upgraded to current pressure. No names, raw explanations, live discussion, source, hidden pressure, narrative reports, or ground-truth timeline enter the generator, even in Dev Mode.
 
-`SupportLibrary` version **support-1.0.0** is a pure local template/ranking function. It has no file, network, random, clock, scenario, or simulator access. Both modes receive the same projection. Reports and prior actions are available in that projection; this version does not interpret report prose with a language model. Templates and deterministic selection rules must receive a new version if wording or ranking changes.
+`SupportLibrary` version **support-1.1.0** is a pure local template/ranking function. It has no file, network, random, clock, scenario, or simulator access. Both modes receive the same projection, including prior actions and dated observations. Templates and deterministic selection rules must receive a new version if wording or ranking changes.
 
 The `SUPPORT_SHOWN` event stores condition, scenario ID, round, permitted input categories, exact displayed text, template ID/version, and display time (UTC plus elapsed milliseconds). It intentionally does not store the input payload or any individual response. Replay of the displayed message uses the stored text; regenerating from inputs requires the same permitted snapshot and library version. Existing anonymous survey records and detailed simulation logs remain separate research data and are never fed wholesale into support. The export schema is now **3**.
 
@@ -70,13 +70,13 @@ See [the support implementation notes](docs/AI_SUPPORT.md) for selection, privac
 
 `scenarios/scenario_01.json` is a hand-authored Riverside district map. It has a four-way central hub at E, a west loop through A–B–E–D, an east branch through F–G–H, and the E–F crossing that can split the city. A and H are the supply depots. Positions are irregular and include curved road bends, district labels, building silhouettes, a river, and a faded planning-grid treatment. Decorative geometry has no gameplay effect.
 
-The initial hidden exposure is E. The three public reports describe ambiguous radio calls, a replayed recording and a patrol photo. Good play can identify the hub, preserve a depot route, and isolate or shield the dangerous crossing. The deterministic rule suite also compares informed play with a seeded random legal-action baseline.
+The initial hidden exposure is E. Good play can identify the hub, preserve a depot route, and isolate or shield the dangerous crossing. The deterministic rule suite also compares informed play with a seeded random legal-action baseline.
 
 ## Dev Mode and export
 
 Dev Mode is explicitly labeled and asks before showing hidden pressure (`P0`, `P1`, `P2`) and the hidden source. The Inspector exposes supply paths, road state, anonymous survey records, next-resolution calculations, and the internal event stream. Enabling Dev Mode permanently sets `dev_used` in the session export. Dev Mode controls are disabled during private handoffs, decision pauses, and delivery/resolution animations. Its hidden simulation view is separate from the support input whitelist.
 
-Results stay simple for normal players: survivors, supply used, roads closed, and shelters lost. Research details remain in the local event logger and can be exported as structured JSON from the results screen or Dev Inspector. Native builds open a save dialog; Web builds request a browser download. Event records include ordered types, round, elapsed milliseconds, UTC timestamp, target, before/after values, and metadata. Logged events include surveys, public intelligence, action selection, shortest delivery paths, supply spent and delivered, Verify/Monitor observations, shields, isolation, pressure changes, Overrun transitions, damage, phase transitions, and completion.
+Results stay simple for normal players: survivors, supply used, roads closed, and shelters lost. Research details remain in the local event logger and can be exported as structured JSON from the results screen or Dev Inspector. Native builds open a save dialog; Web builds request a browser download. Event records include ordered types, round, elapsed milliseconds, UTC timestamp, target, before/after values, and metadata. Logged events include surveys, action selection, shortest delivery paths, supply spent and delivered, Verify/Monitor observations, shields, isolation, pressure changes, Overrun transitions, damage, phase transitions, and completion.
 
 ## Project layout
 
@@ -86,7 +86,7 @@ export_presets.cfg
 scenes/Main.tscn
 scenarios/scenario_01.json
 scripts/
-  game_manager.gd       phases, surveys, intel, delivery/resolution flow
+  game_manager.gd       phases, surveys, support timing, delivery/resolution flow
   game_state.gd         shelters, roads, depots and observations
   network_manager.gd    bidirectional shortest-path routing
   supply_manager.gd     delivery eligibility and endpoint assignments
@@ -136,7 +136,7 @@ Player 2 ─┼─→ authoritative server ─→ filtered shared GameState
 Player 3 ─┘
 ```
 
-The server should own hidden pressure, scenario ground truth, resource counts, action validation, shortest-path delivery, outbreak resolution, experiment condition, private survey storage, and logging. Clients should receive only a public projection: visible Overrun state, roads, supplies, shields, monitors, scheduled public intelligence, and observations permitted to that participant. Hidden pressure and the full scenario should eventually leave the client. Use authenticated room and participant IDs, idempotent commands, ordered round barriers, reconnect handling, and WSS/WebRTC or WebSocket transport as appropriate.
+The server should own hidden pressure, scenario ground truth, resource counts, action validation, shortest-path delivery, outbreak resolution, experiment condition, private survey storage, and logging. Clients should receive only a public projection: visible Overrun state, roads, supplies, shields, monitors, and observations permitted to that participant. Hidden pressure and the full scenario should eventually leave the client. Use authenticated room and participant IDs, idempotent commands, ordered round barriers, reconnect handling, and WSS/WebRTC or WebSocket transport as appropriate.
 
 The support boundary is `PRIVATE SURVEY → DISCUSSION → INTERVENTION → ACTION`. A future authoritative server should own condition assignment and deliver only the same permitted projection to the support generator. The current facilitator selector is local session configuration, not an authentication or study-assignment service.
 
@@ -153,7 +153,7 @@ Nothing is deployed by this project. `export_presets.cfg` contains a Web preset 
 7. Create an itch.io HTML/browser project and upload the ZIP.
 8. Mark “This file will be played in the browser.”
 9. Configure a responsive 1440 × 900 or laptop-sized embed and fullscreen.
-10. Test Chrome and another browser: map input, building focus, road bubbles, survey drawer, all actions, private handoffs, all three reports, delivery/resolution animation, JSON download, restart, and fullscreen.
+10. Test Chrome and another browser: map input, building focus, road bubbles, survey drawer, all actions, private handoffs, all three rounds, delivery/resolution animation, JSON download, restart, and fullscreen.
 
 Matching Web export templates are installed on this machine. Re-export after source changes and replace the itch.io upload to update the hosted game. Desktop suites do not replace a browser smoke test.
 

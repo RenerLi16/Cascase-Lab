@@ -1,6 +1,6 @@
 # Cascade Lab: Outbreak — Fixed Message Library
 
-Version: `support-1.0.0`
+Version: `support-1.1.0` (1.1.0 removed references to the retired narrative reports from two templates)
 
 This is the complete currently implemented template library. Wording is fixed and generated locally without a language model. `%s` is replaced only by a shelter ID or road ID. One message is selected after initial discussion in each round, before final action selection. All conditions use the same 15-second minimum pause.
 
@@ -14,7 +14,7 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 **Recommendation:** Verify Shelter %s next.
 
-**Why:** A precise observation can test concerns about this location before more supplies are committed. Public reports and the map alone do not establish its current pressure.
+**Why:** A precise observation can test concerns about this location before more supplies are committed. The public map and earlier observations do not establish its current pressure.
 
 **Check:** Confirm which stocked depot can reach it, and remember that the result is only a snapshot.
 
@@ -54,7 +54,7 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 **Recommendation:** Wait; save supply across the district this round.
 
-**Why:** The structured proposals agree on waiting. Retaining resources leaves them available later, although the public map and reports cannot establish every shelter's current condition.
+**Why:** The structured proposals agree on waiting. Retaining resources leaves them available later, although the public map and dated observations cannot establish every shelter's current condition.
 
 **Check:** Consider whether delaying protection could make an important endpoint unreachable after resolution.
 

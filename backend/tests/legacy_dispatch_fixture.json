@@ -1,0 +1,73 @@
+{
+  "note": "TEST-ONLY canaries. These retired narrative dispatches were removed from active scenario data (context cascade-context-2). Tests use them to prove that no dispatch sentence reaches the participant interface, model inputs, prompts, or outbound Qwen requests. Never load this file in gameplay.",
+  "retired_public_intel": {
+    "riverside_01_v2": [
+      {
+        "round": 1,
+        "time": "09:30",
+        "text": "Distress calls mention Old Market, Tram Interchange and East Gate. All used the same radio relay; caller locations are unconfirmed."
+      },
+      {
+        "round": 2,
+        "time": "09:45",
+        "text": "The Old Market call was a replayed recording. Archived camera footage shows movement near East Gate, but no entry into the shelter."
+      },
+      {
+        "round": 3,
+        "time": "10:00",
+        "text": "A recovered patrol photo shows a group on West School’s service road. Its direction and destination are unclear."
+      }
+    ],
+    "twin_districts_02_v1": [
+      {
+        "round": 1,
+        "time": "09:30",
+        "text": "Reports mention shouting at Market square (C) and an unattended radio at Canal gate (D). Both reports passed through the same dispatcher; neither confirms an exposure inside a shelter."
+      },
+      {
+        "round": 2,
+        "time": "09:45",
+        "text": "An archived 09:18 record identifies the shouting at Market square (C) as a loading dispute. The original Canal gate (D) radio report is still incomplete. These records describe events before the mission."
+      },
+      {
+        "round": 3,
+        "time": "10:00",
+        "text": "The recovered 09:24 East gate (E) log records a visitor arriving from Canal gate (D), without a health check. It does not establish the visitor's condition or East gate's current status."
+      }
+    ],
+    "lifeline_03_v1": [
+      {
+        "round": 1,
+        "time": "09:30",
+        "text": "An alarm was reported at Dispatch yard (D), while Hill clinic (F) sent an interrupted request for help. No inside-shelter check accompanied either report. Both supply depots are west of road D-E."
+      },
+      {
+        "round": 2,
+        "time": "09:45",
+        "text": "The archived 09:16 alarm at Dispatch yard (D) was a scheduled equipment test. Hill clinic's (F) original request contains no diagnosis. The alarm correction alone does not establish any shelter's current condition."
+      },
+      {
+        "round": 3,
+        "time": "10:00",
+        "text": "A recovered pre-mission inventory confirms that Service junction (E), Hill clinic (F), Terrace shelter (G), and East hall (H) held no local supply stock. This report adds no supplies and does not reveal current exposure."
+      }
+    ],
+    "crossfire_04_v1": [
+      {
+        "round": 1,
+        "time": "09:30",
+        "text": "Distress reports mention West arrival hall (B) and East arrival hall (F). Their wording is similar, so dispatch cannot yet tell whether one report was relayed twice or two incidents were reported."
+      },
+      {
+        "round": 2,
+        "time": "09:45",
+        "text": "The archived calls came from different devices, one registered at each arrival hall. This rules out an exact replay of a single recording; registration alone does not confirm where either caller was or the shelters' current conditions."
+      },
+      {
+        "round": 3,
+        "time": "10:00",
+        "text": "Archived route records show that North junction (D) and Transfer square (E) each received traffic from both arrival halls before the mission. No health checks were recorded. Route overlap does not itself establish current exposure."
+      }
+    ]
+  }
+}

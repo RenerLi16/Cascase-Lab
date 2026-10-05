@@ -59,7 +59,7 @@ func _initialize() -> void:
 		sandbox.reset()
 		check(sandbox.is_sandbox() and sandbox.dev_used and not sandbox.dev_mode,"Purpose survives reset; reveal defaults off")
 		for round_number in 3:
-			check(sandbox.public_intel.size() == round_number+1,"Sandbox releases each public report")
+			check(not sandbox.logger.to_array().any(func(e): return e.type == "PUBLIC_INTEL_SHOWN"),"Sandbox rounds publish no narrative report")
 			sandbox.start_private()
 			check(sandbox.phase == GameManager.Phase.OBSERVE,"Sandbox cannot start forms")
 			check(sandbox.begin_sandbox_actions(),"Sandbox begins actions")
@@ -76,7 +76,7 @@ func _initialize() -> void:
 	check(ScenarioData.load_by_id("missing") == null and not ScenarioData.last_error.is_empty(),"Unknown ID returns useful error")
 	check(ScenarioData.load_path("res://scenarios/missing.json") == null and not ScenarioData.last_error.is_empty(),"Missing path returns useful error")
 	var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(registry.scenarios[0].path))
-	for mutation in ["pressure","duplicate","disconnected","coordinate","depot","reports","missing"]:
+	for mutation in ["pressure","duplicate","disconnected","coordinate","depot","rounds","missing"]:
 		var bad := raw.duplicate(true)
 		match mutation:
 			"pressure": bad.initial_pressures.A = 2
@@ -84,9 +84,19 @@ func _initialize() -> void:
 			"disconnected": bad.edges = [["A","B"]]
 			"coordinate": bad.node_positions.A = [9999,4]
 			"depot": bad.supply_depots = ["A","A"]
-			"reports": bad.public_intel[1].round = 1
+			"rounds": bad.rounds = 2
 			"missing": bad.erase("shelter_names")
 		check(ScenarioData.from_dictionary(bad) == null and not ScenarioData.last_error.is_empty(),"Reject malformed " + mutation)
+	# Older scenario files may still carry retired dispatches; the loader ignores them explicitly.
+	var legacy := raw.duplicate(true)
+	legacy.public_intel = [{"round":1,"time":"LEGACY_TIME_CANARY","text":"LEGACY_DISPATCH_CANARY"}]
+	var legacy_scenario := ScenarioData.from_dictionary(legacy)
+	check(legacy_scenario != null and legacy_scenario.get("public_intel") == null,"Deprecated report field is ignored, never loaded")
+	var legacy_game := GameManager.new(legacy_scenario,GameManager.InterventionType.DIRECT_RECOMMENDATION,Callable(),GameManager.RunPurpose.DEV_SANDBOX)
+	for round_number in 3:
+		legacy_game.begin_sandbox_actions()
+		resolve(legacy_game)
+	check(legacy_game.phase == GameManager.Phase.RESULTS and not JSON.stringify(legacy_game.export_dictionary()).contains("CANARY"),"Legacy dispatch text never enters play, events, or export")
 	var batch := MissionSession.new(GameManager.RunPurpose.NORMAL,GameManager.InterventionType.CONSTRUCTIVE_DISSENT)
 	var session_id := batch.session_id
 	for index in 4:

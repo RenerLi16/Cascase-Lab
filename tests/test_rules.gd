@@ -196,7 +196,7 @@ func canonical(payload: Dictionary) -> Dictionary:
 
 func test_private_flow_and_logging() -> void:
 	var game := fresh()
-	check(game.public_intel.size()==1 and game.public_intel[0].round==1,"Round 1 intel shown on Observe")
+	check(game.get("public_intel")==null and game.scenario.get("public_intel")==null,"No narrative report exists at Observe")
 	check(not game.begin_resolution() and not game.dispatch_action("VERIFY","E",["H"]).ok,"Phase guards prevent premature actions")
 	game.start_private()
 	game.open_private_form()
@@ -215,7 +215,7 @@ func test_private_flow_and_logging() -> void:
 		check(game.state.total_supply()==6,"No supply regeneration or involuntary spending")
 	check(game.phase==GameManager.Phase.RESULTS and game.state.round==3,"Ends exactly after Round 3")
 	check(not game.begin_resolution(),"No fourth resolution")
-	check(game.public_intel.size()==3,"One predefined report at each round boundary")
+	check(game.logger.events.all(func(e): return e.type!="PUBLIC_INTEL_SHOWN"),"Round boundaries publish no narrative report")
 	var exported := game.export_dictionary()
 	check(exported.private_surveys.size()==9,"All nine surveys retained in research export")
 	check(not exported.private_surveys[0].response.has("suspected_source"),"Retired source question absent from new schema")
@@ -227,7 +227,7 @@ func test_private_flow_and_logging() -> void:
 		check(event.order==index+1,"Contiguous event order")
 		if event.type=="PUBLIC_INTEL_SHOWN": intel_events+=1
 		if event.type=="PRIVATE_SURVEY_SUBMITTED": survey_events+=1
-	check(intel_events==3 and survey_events==9,"Exact standardized intel and survey counts")
+	check(intel_events==0 and survey_events==9,"No narrative report events; exact survey count")
 	var timed := EventLogger.new()
 	timed.record(1,"TEST")
 	check(timed.events[0].elapsed_ms>=0 and timed.events[0].timestamp_utc.ends_with("Z"),"Research events include elapsed and UTC timing")
@@ -236,7 +236,7 @@ func test_private_flow_and_logging() -> void:
 	check(not game.dev_used and not game.dev_mode,"Normal sessions reject hidden-state reveal")
 	game.reset()
 	check(game.state.total_supply()==6 and game.private_surveys.is_empty() and game.state.actions.is_empty(),"Restart clears supplies, surveys and actions")
-	check(game.public_intel.size()==1 and not game.dev_used and game.state.overrun_ids().is_empty(),"Restart resets intel, dev flag and initial hidden state")
+	check(not game.dev_used and game.state.overrun_ids().is_empty(),"Restart resets dev flag and initial hidden state")
 	var first := fresh()
 	var second := fresh()
 	for round_number in 3:

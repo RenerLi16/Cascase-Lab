@@ -21,6 +21,7 @@ class Storage(Protocol):
     def ingest(self, sid, events): ...
     def create_job(self, sid, scenario, round_number, request, audit): ...
     def job(self, sid, scenario, round_number): ...
+    def job_audit(self, sid, scenario, round_number): ...
     def finish_job(self, sid, scenario, round_number, result, error, rejected): ...
     def complete(self, sid, status, last_seq): ...
 
@@ -87,6 +88,12 @@ class SQLStorage:
         # No input snapshot, credentials, private responses, or research logs returned.
         return {'intervention_id':f'{sid}:{scenario}:{round_number}', 'status':row['status'],
                 'message':json.loads(row['result']) if row['result'] else None, 'error':row['error']}
+
+    def job_audit(self, sid, scenario, round_number):
+        """Server-side job metadata (versions, provider settings); never returned to clients."""
+        with self.connect() as db:
+            row = db.execute('SELECT audit FROM interventions WHERE session_id=? AND scenario=? AND round=?', (sid,scenario,round_number)).fetchone()
+        return json.loads(row['audit']) if row else {}
 
     def finish_job(self, sid, scenario, round_number, result=None, error=None, rejected=None):
         with self.connect() as db:

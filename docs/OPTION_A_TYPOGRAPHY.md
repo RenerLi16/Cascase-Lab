@@ -61,7 +61,7 @@ Action costs, unavailable-action explanations (now in plain sentences, e.g. “A
 
 - The countdown sits beside the phase title, keeping the header to one line during timed phases.
 - Header readouts show shelters functioning and supply remaining as large figures.
-- The latest field dispatch stays under the map; **Earlier dispatches** opens a dialog instead of pushing the map down.
+- Field dispatches were later removed entirely; see [No-dispatch context](NO_DISPATCH_CONTEXT.md).
 - The decision-pause sidebar is 460 px wide with one fixed note height (480 px) for every condition and template. Longer AI messages scroll inside the sidebar.
 - The road bubble avoids covering building name plates when another corner is free.
 - The north arrow has an opaque plate so it stays legible over zoomed artwork.

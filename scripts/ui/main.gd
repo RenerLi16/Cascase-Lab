@@ -140,19 +140,24 @@ func _render() -> void:
 	inspector_column = UIkit.scroll_column(inspector)
 	inspector_column.get_parent().follow_focus = true
 	_refresh_inspector()
-	var mission := HBoxContainer.new()
-	mission.add_theme_constant_override("separation",UIkit.XL)
-	page.add_child(mission)
-	var intel := VBoxContainer.new()
-	intel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mission.add_child(intel)
-	_build_intel(intel)
+	# One compact action bar under the map: map instructions on the left, the phase action on the right.
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation",UIkit.XL)
+	page.add_child(bar)
+	var notes := VBoxContainer.new()
+	notes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	notes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	notes.add_theme_constant_override("separation",UIkit.XS)
+	bar.add_child(notes)
+	notes.add_child(UIkit.meta("Select a building or road to inspect it. Dashed lines mark playable roads."))
+	if session.dev_mode and not _private_phase(): notes.add_child(UIkit.meta("Dev mode · hidden state visible",UIkit.RED))
+	if session.is_sandbox(): notes.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
 	footer = VBoxContainer.new()
-	footer.custom_minimum_size.x = 300
+	footer.custom_minimum_size.x = 360
+	footer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_theme_constant_override("separation",UIkit.SM)
-	mission.add_child(footer)
+	bar.add_child(footer)
 	_build_phase_button()
-	if session.is_sandbox(): page.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
 	if session.phase == GameManager.Phase.PRIVATE_FORM: _build_survey_drawer()
 	if selected_edge != "": _build_road_bubble()
 	if _busy(): _animate_phase.call_deferred(session.run_token)
@@ -297,9 +302,6 @@ func _build_map(parent: Node) -> void:
 	board.shelter_selected.connect(_select_shelter)
 	board.edge_selected.connect(_select_edge)
 	board.background_selected.connect(_clear_selection)
-	left.add_child(UIkit.meta("Select a building or road to inspect it. Dashed lines mark playable roads."))
-	if session.dev_mode and not _private_phase():
-		left.add_child(UIkit.meta("Dev mode · hidden state visible",UIkit.RED))
 
 func _build_survey_drawer() -> void:
 	survey_collapsed = false
@@ -433,37 +435,6 @@ func _position_road_bubble() -> void:
 	road_bubble.position = best
 	road_pointer.position = anchor
 	road_pointer.queue_redraw()
-
-# Public field reports: the latest stays beside the map; earlier ones open in a
-# readable dialog instead of pushing the map out of view.
-func _build_intel(parent: Node) -> void:
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation",UIkit.XS)
-	parent.add_child(column)
-	var latest: Dictionary = session.public_intel.back()
-	var top := HBoxContainer.new()
-	column.add_child(top)
-	var title := UIkit.meta("Field dispatch · Round %d · %s" % [latest.round,latest.time])
-	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	top.add_child(title)
-	if session.public_intel.size() > 1: top.add_child(UIkit.quiet("Earlier dispatches",_show_dispatches))
-	column.add_child(UIkit.paragraph(latest.text))
-
-func _show_dispatches() -> void:
-	if session == null: return
-	var column := _modal_base("Field dispatches",760)
-	var wrapper := VBoxContainer.new()
-	wrapper.custom_minimum_size = Vector2(0,minf(150.0*session.public_intel.size(),minf(440,size.y-280)))
-	column.add_child(wrapper)
-	var list := UIkit.scroll_column(wrapper)
-	list.add_theme_constant_override("separation",UIkit.XL)
-	for report: Dictionary in session.public_intel:
-		var entry := VBoxContainer.new()
-		entry.add_theme_constant_override("separation",UIkit.XS)
-		list.add_child(entry)
-		entry.add_child(UIkit.meta("Round %d · %s" % [report.round,report.time]))
-		entry.add_child(UIkit.paragraph(report.text))
-	column.add_child(UIkit.button("Close",_close_modal,true))
 
 func _build_selection(parent: Node) -> void:
 	if selected_shelter == "": return

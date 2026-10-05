@@ -5,7 +5,7 @@
     {"id": "riverside_01_v2", "path": "res://scenarios/scenario_01.json", "title": "Riverside", "included_in_pack": false, "blurb": "Manage an outbreak across a district with a busy central interchange."},
     {"id": "twin_districts_02_v1", "path": "res://scenarios/scenario_02.json", "title": "Twin Districts: The Bridge", "included_in_pack": true, "blurb": "Two neighborhoods share a narrow crossing. Decide where to investigate, protect, and close routes."},
     {"id": "lifeline_03_v1", "path": "res://scenarios/scenario_03.json", "title": "Lifeline: The Cost of Containment", "included_in_pack": true, "blurb": "Both depots sit on one side of the district. Every road closure also changes where help can travel."},
-    {"id": "crossfire_04_v1", "path": "res://scenarios/scenario_04.json", "title": "Crossfire: Converging Threats", "included_in_pack": true, "blurb": "Conflicting reports arrive from opposite sides. Shared junctions connect the district's response routes."}
+    {"id": "crossfire_04_v1", "path": "res://scenarios/scenario_04.json", "title": "Crossfire: Converging Threats", "included_in_pack": true, "blurb": "Shared junctions connect response routes from opposite sides of the district."}
   ],
   "development_default_order": ["riverside_01_v2", "twin_districts_02_v1", "lifeline_03_v1", "crossfire_04_v1"],
   "order_note": "Development convenience only, not an approved research order or randomization schedule."

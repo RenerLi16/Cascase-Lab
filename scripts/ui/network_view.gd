@@ -229,7 +229,7 @@ func _draw() -> void:
 	for edge: EdgeState in state.edges.values(): _draw_road(edge)
 	for id in positions: _draw_shelter(id)
 	_draw_animation()
-	# North arrow on an opaque plate: reports refer to compass directions.
+	# North arrow on an opaque plate for map orientation.
 	draw_rect(Rect2(size.x-44,14,32,68),UIkit.MAP)
 	draw_line(Vector2(size.x-28,40),Vector2(size.x-28,74),UIkit.SECONDARY,1.5,true)
 	draw_line(Vector2(size.x-34,49),Vector2(size.x-28,40),UIkit.SECONDARY,1.5,true)

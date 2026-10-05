@@ -19,6 +19,10 @@ var base_url := "http://127.0.0.1:8787"
 # Shared study access code for online builds. Sent only when starting a session, then discarded.
 var access_code := ""
 var outbox_path := "user://synthetic_pending_v1.json"
+# Schema 6 / cascade-development-6: sessions use the no-dispatch support context (SupportContext.VERSION).
+# Older queued schema-5 records keep their own metadata and still upload as historical records.
+const SESSION_SCHEMA := 6
+const GAME_VERSION := "cascade-development-6"
 var storage_key := "cascade.synthetic.outbox.v1"
 
 func _ready() -> void:
@@ -86,7 +90,7 @@ func _bind_after_reset() -> void:
 func _ensure_active() -> void:
 	if not active.is_empty() or game == null: return
 	active = {"session_id":mission.session_id,"client_secret":Crypto.new().generate_random_bytes(32).hex_encode(),"credential":"","access_code":access_code,"next_seq":1,"pending":[],"closing":"","closed":false,
-		"metadata":{"schema_version":5,"game_version":"cascade-development-5","scenario_order":mission.order.duplicate(),"order_source":mission.order_source,"condition":game.condition_name(),"participant_slots":["P1","P2","P3"],"record_mode":"synthetic-development","research_eligible":false}}
+		"metadata":{"schema_version":SESSION_SCHEMA,"game_version":GAME_VERSION,"scenario_order":mission.order.duplicate(),"order_source":mission.order_source,"condition":game.condition_name(),"participant_slots":["P1","P2","P3"],"record_mode":"synthetic-development","research_eligible":false}}
 	sessions.append(active)
 	# Include setup and all events emitted before the first private form opens.
 	for event in observed_logger.to_array(): _enqueue("game",event)
@@ -226,13 +230,16 @@ func request_support(context: Dictionary, condition: String, identity: Dictionar
 		if item.credential == "":
 			await get_tree().create_timer(0.25).timeout
 			continue
-		var response := await _http(HTTPClient.METHOD_GET if posted else HTTPClient.METHOD_POST,path,{} if posted else {"condition":condition,"context":context},item.credential)
+		var response := await _http(HTTPClient.METHOD_GET if posted else HTTPClient.METHOD_POST,path,{} if posted else {"condition":condition,"context_version":SupportContext.VERSION,"context":context},item.credential)
 		if response.code == 200:
 			posted = true
 			var result: Dictionary = response.body
 			if result.get("status","") == "completed":
 				var message = result.get("message")
-				return message if message is Dictionary else {"error":"invalid_backend_response"}
+				if not message is Dictionary: return {"error":"invalid_backend_response"}
+				# Never display a cached or older-protocol result in a no-dispatch session.
+				if message.get("context_version","") != SupportContext.VERSION: return {"error":"context_version_mismatch"}
+				return message
 			if result.get("status","") == "failed": return {"error":str(result.get("error","provider_failed"))}
 		elif response.code != 0 and response.code != 429 and response.code < 500:
 			return {"error":"backend_rejected"}

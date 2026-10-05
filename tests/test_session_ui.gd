@@ -17,6 +17,7 @@ func run() -> void:
 			support_time += 120000
 			await settle(8)
 			check(app.session.phase == GameManager.Phase.INTERVENTION,"Normal UI shows intervention")
+			check(not dispatch_ui_visible(),"No dispatch beside the intervention: mission %d round %d" % [mission+1,round_number+1])
 			support_time += 15000
 			await settle()
 			await click("Proceed to actions")
@@ -25,6 +26,7 @@ func run() -> void:
 			app.session.apply_resolution(app.session.run_token)
 			app.session.finish_resolution(app.session.run_token)
 			await click("Results" if round_number == 2 else "Next round")
+			check(not dispatch_ui_visible() and button_containing("Earlier") == null,"No dispatch history: mission %d round %d" % [mission+1,round_number+1])
 		check(app.mission_session.records.size() == mission+1,"Results capture exactly one complete mission")
 		app._select_shelter("A")
 		await settle()

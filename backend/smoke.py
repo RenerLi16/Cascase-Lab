@@ -4,7 +4,7 @@ import json
 import time
 import urllib.request
 import uuid
-from .tests.fixtures import context, start, event, SCENARIO
+from .tests.fixtures import request, start, event, SCENARIO
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
     prefix='/v1/sessions/'+session['session_id']
     call(prefix+'/events',{'events':[event()]})
     path=prefix+'/interventions/'+SCENARIO+'/1'
-    result=call(path,{'condition':'DIRECT_RECOMMENDATION','context':context()})
+    result=call(path,request())
     deadline=time.monotonic()+150
     while result['status']=='pending' and time.monotonic()<deadline:
         time.sleep(1); result=call(path)

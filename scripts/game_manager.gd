@@ -24,11 +24,12 @@ var support_message: Dictionary = {}
 var support_shown := false
 var support_deadline_ms := 0
 const DISCUSSION_SECONDS := 120
+# Export schema 5: narrative dispatches retired (no public_intel, no PUBLIC_INTEL_SHOWN events).
+const EXPORT_SCHEMA := 5
 var discussion_deadline_ms := 0
 var _support_clock: Callable
 var private_player := 0
 var private_surveys: Dictionary = {}
-var public_intel: Array = []
 var dev_mode := false
 var dev_used := false
 static var _generation := 0
@@ -72,7 +73,6 @@ func reset(emit_change: bool = true) -> void:
 	phase = Phase.OBSERVE
 	private_player = 0
 	private_surveys.clear()
-	public_intel.clear()
 	dev_mode = false
 	dev_used = is_sandbox()
 	support_message = {}
@@ -87,8 +87,7 @@ func reset(emit_change: bool = true) -> void:
 	resolution_applied = false
 	last_summary = {}
 	latest_observation = {}
-	logger.record(0,"MISSION_STARTED",scenario.scenario_id,null,null,{"schema_version":4,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"surveys_skipped":is_sandbox(),"dev_used":dev_used,"condition":condition_name(),"support_version":SupportLibrary.VERSION})
-	_publish_intel()
+	logger.record(0,"MISSION_STARTED",scenario.scenario_id,null,null,{"schema_version":EXPORT_SCHEMA,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"surveys_skipped":is_sandbox(),"dev_used":dev_used,"condition":condition_name(),"support_version":SupportLibrary.VERSION,"context_version":SupportContext.VERSION})
 	logger.record(state.round,"PHASE_STARTED","OBSERVE")
 	if emit_change: changed.emit()
 
@@ -114,12 +113,6 @@ func configure_condition(condition: int) -> bool:
 	_intervention_type = condition as InterventionType
 	reset()
 	return true
-
-func _publish_intel() -> void:
-	for report in scenario.public_intel:
-		if int(report.round) == state.round:
-			public_intel.append(report.duplicate(true))
-			logger.record(state.round,"PUBLIC_INTEL_SHOWN","city_surveillance",null,null,report)
 
 func start_private() -> void:
 	if is_sandbox() or phase != Phase.OBSERVE: return
@@ -177,12 +170,12 @@ func _prepare_support() -> void:
 	support_message = {}
 	support_shown = false
 	support_deadline_ms = 0
-	frozen_support_context = SupportContext.build(state,public_intel,private_surveys.get(state.round,[]),scenario.exposure_progresses)
+	frozen_support_context = SupportContext.build(state,private_surveys.get(state.round,[]),scenario.exposure_progresses)
 	intervention_identity = {"session":support_session_id,"scenario":scenario.scenario_id,"round":state.round}
 	if intervention_type == InterventionType.NONE:
 		support_message = SupportLibrary.generate(frozen_support_context,"NONE")
 		return
-	_confidential("audit", {"type":"AI_REQUESTED","identity":intervention_identity.duplicate(),"context":frozen_support_context.duplicate(true),"requested_utc":Time.get_datetime_string_from_system(true)+"Z"})
+	_confidential("audit", {"type":"AI_REQUESTED","identity":intervention_identity.duplicate(),"context_version":SupportContext.VERSION,"context":frozen_support_context.duplicate(true),"requested_utc":Time.get_datetime_string_from_system(true)+"Z"})
 	var token := run_token
 	var round_number := state.round
 	support_provider.request(frozen_support_context.duplicate(true),condition_name(),intervention_identity.duplicate(),func(result: Dictionary): _receive_support(result,token,round_number))
@@ -207,7 +200,7 @@ func mark_support_shown() -> bool:
 	logger.record(state.round,"SUPPORT_SHOWN","",null,null,{
 		"condition":condition_name(),"scenario_id":scenario.scenario_id,"round":state.round,
 		"allowed_inputs":SupportContext.CATEGORIES.duplicate(),"displayed_text":support_message.text,
-		"template_id":support_message.template_id,"template_version":support_message.version})
+		"template_id":support_message.template_id,"template_version":support_message.version,"context_version":SupportContext.VERSION})
 	return true
 
 func support_seconds_remaining() -> int:
@@ -320,7 +313,6 @@ func next_round() -> void:
 		_set_phase(Phase.RESULTS)
 	else:
 		state.round += 1
-		_publish_intel()
 		_set_phase(Phase.OBSERVE)
 
 func set_dev_mode(enabled: bool) -> void:
@@ -340,13 +332,13 @@ func closed_road_count() -> int:
 func anonymous_surveys() -> Array:
 	var surveys: Array = []
 	for round_number in private_surveys:
-		var responses: Array = SupportContext.build(state,[],private_surveys[round_number]).responses
+		var responses: Array = SupportContext.build(state,private_surveys[round_number]).responses
 		for response in responses: surveys.append({"round":round_number,"response":response})
 	return surveys
 
 func export_dictionary() -> Dictionary:
-	return {"schema_version":4,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
-		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"development_private_audit":confidential_records.duplicate(true),"public_intel":public_intel.duplicate(true),
+	return {"schema_version":EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
+		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"development_private_audit":confidential_records.duplicate(true),
 		"observations":state.observations.duplicate(true),"final_state":state.to_dictionary(),
 		"ground_truth":{"initial_exposure_ids":scenario.initial_exposure_ids(),"original_source":scenario.original_source,"initial_pressures":scenario.initial_pressures,"timeline":scenario.ground_truth_timeline}}
 

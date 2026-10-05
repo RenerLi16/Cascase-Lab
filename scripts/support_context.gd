@@ -2,13 +2,17 @@ class_name SupportContext
 extends RefCounted
 
 # Sole adapter between the simulation and support. Never serialize GameState wholesale.
+# cascade-context-2: network, supplies, actions, dated Verify/Monitor observations and
+# anonymous structured responses only. Narrative dispatches (v1 "public_reports") are retired;
+# the backend rejects any request that still carries them.
+const VERSION := "cascade-context-2"
 const CATEGORIES := ["public_shelter_status_and_dated_observations", "public_roads",
-	"depot_supplies", "previous_team_actions", "published_reports", "current_round",
+	"depot_supplies", "previous_team_actions", "current_round",
 	"remaining_budget", "anonymous_structured_responses", "public_rules_costs_and_display_names"]
 
-static func build(state: GameState, published_reports: Array, responses: Array, exposure_progresses: bool = true) -> Dictionary:
+static func build(state: GameState, responses: Array, exposure_progresses: bool = true) -> Dictionary:
 	var result := {"round":state.round, "remaining_budget":state.total_supply(),
-		"shelters":{}, "roads":{}, "depots":{}, "previous_actions":[], "public_reports":[], "responses":[]}
+		"shelters":{}, "roads":{}, "depots":{}, "previous_actions":[], "responses":[]}
 	for id in state.shelters:
 		var shelter: ShelterState = state.shelters[id]
 		var history: Array = []
@@ -26,9 +30,6 @@ static func build(state: GameState, published_reports: Array, responses: Array, 
 		if action.round > state.round or not action.completed: continue
 		result.previous_actions.append({"type":action.type, "target":action.target,
 			"round":action.round, "cost":action.cost, "depots":action.endpoint_depots.duplicate()})
-	for report in published_reports:
-		if int(report.round) <= state.round:
-			result.public_reports.append({"round":int(report.round), "time":str(report.time), "text":str(report.text)})
 	# Whitelist fields, enums and map IDs; never include respondent IDs or free text.
 	for response in responses:
 		var danger := str(response.get("danger_location",""))
