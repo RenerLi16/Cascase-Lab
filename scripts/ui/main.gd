@@ -868,7 +868,7 @@ func _show_main_menu() -> void:
 		code.custom_minimum_size.y = 48
 		code.add_theme_font_size_override("font_size",UIkit.BODY)
 		code.text_changed.connect(func(value: String):
-			StudySync.access_code = value.strip_edges()
+			StudySync.set_access_code(value)
 			play.disabled = StudySync.access_code.length() < 12)
 		play.disabled = StudySync.access_code.length() < 12
 		column.add_child(code)

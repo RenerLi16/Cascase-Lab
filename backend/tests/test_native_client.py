@@ -48,4 +48,21 @@ class NativeClientTests(unittest.TestCase):
             finally:
                 server.shutdown();server.server_close();thread.join();service.close()
 
+    def test_rejected_access_code_recovers_queued_records(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service=Service(Config(database=str(Path(temp)/'test.sqlite3'),access_code='synthetic-code-123'))
+            server=ThreadingHTTPServer(('127.0.0.1',0),handler(service))
+            thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start()
+            try:
+                env=os.environ | {'CASCADE_TEST_URL':f'http://127.0.0.1:{server.server_port}', 'CASCADE_TEST_OUTBOX':str(Path(temp)/'outbox.json')}
+                result=subprocess.run([GODOT,'--headless','--log-file',str(Path(temp)/'godot.log'),'--path',str(ROOT),'--script','tests/test_access_code_recovery.gd','--','--offline-tests'],env=env,capture_output=True,text=True,timeout=65)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertIn('0 failures',result.stdout)
+                print(result.stdout.strip().splitlines()[-1])
+                with service.store.connect() as db:
+                    self.assertEqual(db.execute('SELECT count(*) FROM sessions').fetchone()[0],1)
+                    self.assertGreater(db.execute('SELECT count(*) FROM receipts').fetchone()[0],0)
+            finally:
+                server.shutdown();server.server_close();thread.join();service.close()
+
 if __name__=='__main__': unittest.main()

@@ -146,7 +146,9 @@ func _flush() -> void:
 	if item.credential == "":
 		stage = "start"
 		var start := {"session_id":item.session_id,"client_secret":item.client_secret,"metadata":item.metadata}
-		if str(item.get("access_code","")) != "": start.access_code = item.access_code
+		# A code re-entered at the menu replaces a previously rejected one for unstarted sessions.
+		var code := access_code if access_code != "" else str(item.get("access_code",""))
+		if code != "": start.access_code = code
 		response = await _http(HTTPClient.METHOD_POST,"/v1/sessions",start)
 	elif not item.pending.is_empty():
 		stage = "events"
@@ -184,7 +186,13 @@ func _flush() -> void:
 		retry_count = mini(retry_count+1,6)
 		retry_at = Time.get_ticks_msec() + int(minf(pow(2,retry_count),30)*1000)
 		status = "Offline / unsent records" if response.code == 0 or response.code >= 500 else "Save error"
-		if stage == "start" and response.code == 401: status = "Save error — access code rejected"
+		if stage == "start" and response.code == 401:
+			status = "Save error — access code rejected"
+			# Don't let one rejected session block uploads for the others: move it to the back.
+			if sessions.size() > 1 and sessions.has(item):
+				sessions.erase(item)
+				sessions.append(item)
+				_persist()
 	busy = false
 
 func _http(method: int, path: String, payload: Dictionary = {}, credential: String = "") -> Dictionary:
@@ -233,6 +241,14 @@ func request_support(context: Dictionary, condition: String, identity: Dictionar
 			if attempts >= 5: return {"error":"backend_unavailable"}
 		await get_tree().create_timer(minf(pow(2,attempts),8)).timeout
 	return {"error":"intervention_timeout"}
+
+func set_access_code(value: String) -> void:
+	value = value.strip_edges()
+	if value == access_code: return
+	access_code = value
+	# Retry rejected session starts promptly with the corrected code.
+	retry_count = 0
+	retry_at = 0
 
 func access_required() -> bool:
 	return enabled and bool(ProjectSettings.get_setting("cascade/require_access_code",false))
