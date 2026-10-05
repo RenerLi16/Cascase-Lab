@@ -1,5 +1,6 @@
 extends Control
 
+var mission_session: MissionSession
 var session: GameManager
 var board: NetworkView
 var sidebar: VBoxContainer
@@ -25,13 +26,13 @@ var map_center := Vector2(500,350)
 var footer: VBoxContainer
 var support_card: VBoxContainer
 var support_countdown: Label
+const SUPPORT_FONT := preload("res://assets/fonts/SupportChinese.tres")
 var support_continue: Button
+var save_indicator: Label
 
 func _ready() -> void:
 	theme = UIkit.make_theme()
-	session = GameManager.new()
-	session.changed.connect(_render)
-	_render()
+	_show_main_menu()
 
 func _private_phase() -> bool:
 	return session.phase in [GameManager.Phase.PRIVATE_GATE,GameManager.Phase.PRIVATE_FORM]
@@ -40,6 +41,7 @@ func _busy() -> bool:
 	return session.phase in [GameManager.Phase.DELIVERY,GameManager.Phase.RESOLUTION]
 
 func _process(_delta: float) -> void:
+	if is_instance_valid(save_indicator): save_indicator.text = StudySync.status_text()
 	if session == null: return
 	if session.phase == GameManager.Phase.DISCUSSION:
 		_update_timer(session.discussion_seconds_remaining())
@@ -49,6 +51,7 @@ func _process(_delta: float) -> void:
 		_update_timer(seconds)
 		if is_instance_valid(support_countdown) and is_instance_valid(support_continue):
 			support_countdown.text = "Continue in %ds" % seconds if seconds > 0 else "Ready to continue"
+			if session.support_message.is_empty(): support_countdown.text = "Waiting for AI support…"
 			support_continue.disabled = not session.support_shown or seconds > 0
 	if is_instance_valid(road_bubble): _position_road_bubble()
 
@@ -58,7 +61,7 @@ func _update_timer(seconds: int) -> void:
 func _render() -> void:
 	if map_token != session.run_token:
 		map_zoom = 1.0
-		map_center = Vector2(500,350)
+		map_center = Vector2(session.scenario.world_size[0],session.scenario.world_size[1])*0.5
 		selected_shelter = ""
 		selected_edge = ""
 		map_token = session.run_token
@@ -69,7 +72,7 @@ func _render() -> void:
 		selected_shelter = ""
 		selected_edge = ""
 		map_zoom = 1.0
-		map_center = Vector2(500,350)
+		map_center = Vector2(session.scenario.world_size[0],session.scenario.world_size[1])*0.5
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -112,6 +115,7 @@ func _render() -> void:
 	inspector.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,0,UIkit.XL))
 	body.add_child(inspector)
 	inspector_column = UIkit.scroll_column(inspector)
+	inspector_column.get_parent().follow_focus = true
 	_refresh_inspector()
 	var mission := HBoxContainer.new()
 	mission.add_theme_constant_override("separation",UIkit.XL)
@@ -124,7 +128,7 @@ func _render() -> void:
 	footer.custom_minimum_size.x = 280
 	mission.add_child(footer)
 	_build_phase_button()
-	var footnote := UIkit.label("CASCADE LAB  /  OUTBREAK     ·     COOPERATIVE CONTAINMENT",11,UIkit.FAINT)
+	var footnote := UIkit.label("DEV MODE — NOT RESEARCH DATA" if session.is_sandbox() else "CASCADE LAB  /  OUTBREAK     ·     COOPERATIVE CONTAINMENT",12,UIkit.AMBER if session.is_sandbox() else UIkit.FAINT)
 	page.add_child(footnote)
 	if session.phase == GameManager.Phase.PRIVATE_FORM: _build_survey_drawer()
 	if selected_edge != "": _build_road_bubble()
@@ -167,8 +171,8 @@ func _build_header(parent: Node) -> void:
 	context.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	context.add_theme_constant_override("separation",UIkit.XS)
 	left.add_child(context)
-	context.add_child(UIkit.label("SCENARIO 01",UIkit.SECTION))
-	context.add_child(UIkit.label("ROUND %d / %d  ·  RIVERSIDE" % [session.state.round,session.scenario.rounds],UIkit.CAPTION,UIkit.MUTED))
+	context.add_child(UIkit.label("MISSION %02d / %02d" % [mission_session.index+1,mission_session.order.size()],UIkit.SECTION))
+	context.add_child(UIkit.label("ROUND %d / %d" % [session.state.round,session.scenario.rounds],UIkit.CAPTION,UIkit.MUTED))
 	var heading := VBoxContainer.new()
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_theme_constant_override("separation",0)
@@ -194,24 +198,31 @@ func _build_header(parent: Node) -> void:
 		var line := UIkit.label(text,UIkit.CAPTION,UIkit.ACCENT)
 		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		status.add_child(line)
+	save_indicator = UIkit.paragraph(StudySync.status_text(),UIkit.CAPTION,UIkit.MUTED)
+	save_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	status.add_child(save_indicator)
+	var source_label := "MOCK / DEVELOPMENT" if session.support_provider is MockSupportProvider else "BACKEND / DEVELOPMENT"
+	status.add_child(UIkit.label(source_label,12,UIkit.AMBER))
 
 func _show_menu() -> void:
 	var column := _modal_base("Session menu")
 	column.add_child(UIkit.button("Field guide",_show_help))
+	column.add_child(UIkit.button("Export recovery JSON",_export_session))
 	if session.can_configure_condition(): column.add_child(UIkit.button("Session setup",_show_session_setup))
-	var dev := CheckButton.new()
-	dev.text = "Dev mode"
-	dev.button_pressed = session.dev_mode
-	dev.disabled = _private_phase() or _busy() or session.phase == GameManager.Phase.INTERVENTION
-	dev.toggled.connect(_request_dev_mode)
-	column.add_child(dev)
-	if session.dev_mode and not _private_phase():
-		var inspect := UIkit.button("Inspect",_show_inspector)
-		inspect.disabled = _busy() or session.phase == GameManager.Phase.INTERVENTION
-		column.add_child(inspect)
-	var restart := UIkit.button("Restart",_request_restart)
-	restart.disabled = _busy()
-	column.add_child(restart)
+	if session.is_sandbox():
+		var dev := CheckButton.new()
+		dev.text = "Reveal hidden state"
+		dev.button_pressed = session.dev_mode
+		dev.disabled = _busy()
+		dev.toggled.connect(_request_dev_mode)
+		column.add_child(dev)
+		if session.dev_mode:
+			var inspect := UIkit.button("Inspect",_show_inspector)
+			inspect.disabled = _busy()
+			column.add_child(inspect)
+		column.add_child(UIkit.button("Restart",_request_restart))
+		column.add_child(UIkit.button("Choose another scenario",func(): _request_leave(_show_level_picker)))
+	column.add_child(UIkit.button("Main menu",func(): _request_leave(_show_main_menu)))
 	column.add_child(UIkit.button("Close",_close_modal,true))
 
 func _build_map(parent: Node) -> void:
@@ -221,7 +232,7 @@ func _build_map(parent: Node) -> void:
 	parent.add_child(left)
 	var top := HBoxContainer.new()
 	left.add_child(top)
-	var title := UIkit.label("DISTRICT SURVEILLANCE  /  LIVE MAP",UIkit.CAPTION,UIkit.MUTED)
+	var title := UIkit.label(session.scenario.scenario_title.to_upper(),UIkit.CAPTION,UIkit.MUTED)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(title)
 	var overview := UIkit.quiet("↖ Overview",_clear_selection)
@@ -293,6 +304,7 @@ func _clear_selection() -> void:
 	_refresh_inspector()
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if session == null: return
 	if event.is_action_pressed("ui_cancel"):
 		if is_instance_valid(modal): _close_modal()
 		else: _clear_selection()
@@ -313,10 +325,14 @@ func _build_road_bubble() -> void:
 	road_pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	board.add_child(road_pointer)
 	road_pointer.draw.connect(func():
-		road_pointer.draw_colored_polygon(PackedVector2Array([Vector2.ZERO,Vector2(18,-20),Vector2(36,-20)]),UIkit.AMBER))
+		var rect := Rect2(road_bubble.position,road_bubble.size)
+		var end := road_pointer.position.clamp(rect.position,rect.end)-road_pointer.position
+		road_pointer.draw_line(Vector2.ZERO,end,Color(UIkit.AMBER,0.7),1,true)
+		road_pointer.draw_circle(Vector2.ZERO,3,UIkit.AMBER))
 	road_bubble = PanelContainer.new()
 	road_bubble.name = "RoadBubble"
 	road_bubble.custom_minimum_size.x = 270
+	road_bubble.size = Vector2(270,0)
 	road_bubble.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.AMBER,0,UIkit.LG))
 	board.add_child(road_bubble)
 	var content := VBoxContainer.new()
@@ -337,10 +353,27 @@ func _build_road_bubble() -> void:
 func _position_road_bubble() -> void:
 	if not is_instance_valid(road_bubble) or selected_edge == "": return
 	board._refresh_geometry()
-	var anchor := board._point_on_path(board.road_geometry[selected_edge],0.5)
+	road_bubble.reset_size()
+	var anchor := board._point_on_path(board.road_geometry[selected_edge],board.closure_fraction(selected_edge))
 	anchor = anchor.clamp(Vector2(24,24),board.size-Vector2(24,24))
-	road_bubble.position = (anchor-Vector2(24,road_bubble.size.y+20)).clamp(Vector2(8,8),(board.size-road_bubble.size-Vector2(8,8)).max(Vector2(8,8)))
-	road_pointer.position = Vector2(clampf(anchor.x,road_bubble.position.x,road_bubble.position.x+road_bubble.size.x-36),road_bubble.position.y+road_bubble.size.y+20)
+	var extent := road_bubble.size
+	var best := Vector2(8,8)
+	var best_score := INF
+	for x in [8.0,maxf(8,board.size.x-extent.x-8)]:
+		for y in [8.0,maxf(8,board.size.y-extent.y-8)]:
+			var rect := Rect2(Vector2(x,y),extent)
+			var score := rect.get_center().distance_to(anchor)*0.01
+			if rect.grow(24).has_point(anchor): score += 10000
+			for id in board.road_geometry:
+				for step in 21:
+					if rect.grow(8).has_point(board._point_on_path(board.road_geometry[id],step/20.0)):
+						score += 10 if id == selected_edge else 1
+			if score < best_score:
+				best_score = score
+				best = rect.position
+	road_bubble.position = best
+	road_pointer.position = anchor
+	road_pointer.queue_redraw()
 
 func _build_intel(parent: Node, compact: bool = false) -> void:
 	var column := VBoxContainer.new()
@@ -411,10 +444,11 @@ func _observation_card(parent: Node, observation: Dictionary) -> void:
 func _build_phase_button() -> void:
 	match session.phase:
 		GameManager.Phase.OBSERVE:
-			footer.add_child(UIkit.button("Private judgment",session.start_private,true))
+			if session.is_sandbox(): footer.add_child(UIkit.button("Begin actions",session.begin_sandbox_actions,true))
+			else: footer.add_child(UIkit.button("Private judgment",session.start_private,true))
 		GameManager.Phase.DISCUSSION:
 			footer.add_child(UIkit.label("Discuss your next move.",UIkit.CAPTION,UIkit.MUTED))
-			footer.add_child(UIkit.button("Finish initial discussion",session.begin_support,true))
+			footer.add_child(UIkit.label("Actions unlock after the discussion timer.",UIkit.CAPTION,UIkit.MUTED))
 		GameManager.Phase.INTERVENTION:
 			support_countdown = UIkit.label("Continue in %ds" % session.support_seconds_remaining(),UIkit.CAPTION,UIkit.MUTED)
 			footer.add_child(support_countdown)
@@ -428,14 +462,13 @@ func _build_phase_button() -> void:
 			footer.add_child(UIkit.paragraph("Shelters lost: " + (", ".join(newly) if not newly.is_empty() else "None"),UIkit.CAPTION,UIkit.RED if not newly.is_empty() else UIkit.MUTED))
 			footer.add_child(UIkit.button("Results" if session.state.round==3 else "Next round",session.next_round,true))
 		GameManager.Phase.RESULTS:
-			footer.add_child(UIkit.button("Export session JSON",_export_session))
-			footer.add_child(UIkit.button("Play again",_request_restart,true))
+			footer.add_child(UIkit.label("MISSION COMPLETE",UIkit.CAPTION,UIkit.ACCENT))
 
 func _show_session_setup() -> void:
 	if not session.can_configure_condition(): return
 	var column := _modal_base("Session setup")
 	column.add_child(UIkit.label("FACILITATOR / EXPERIMENT CONFIGURATION",UIkit.CAPTION,UIkit.MUTED))
-	column.add_child(UIkit.paragraph("Condition remains fixed for three rounds and on restart.",UIkit.BODY))
+	column.add_child(UIkit.paragraph("Condition remains fixed across all four missions.",UIkit.BODY))
 	var picker := OptionButton.new()
 	picker.name = "ConditionPicker"
 	for label: String in SupportLibrary.LABELS: picker.add_item(label)
@@ -450,16 +483,20 @@ func _build_support(parent: Node) -> void:
 	support_card.name = "SupportCard"
 	support_card.add_theme_constant_override("separation",UIkit.MD)
 	support_card.get_parent().custom_minimum_size.y = 440
-	# No condition-dependent styling, timing, wording or hierarchy.
+	if session.support_message.is_empty():
+		support_card.add_child(UIkit.paragraph("Waiting for AI support…",UIkit.BODY))
+		return
+	# All completed messages use the same structure and actual-display timing.
 	for line: String in str(session.support_message.text).split("\n"):
 		var separator := line.find(":")
 		support_card.add_child(UIkit.label(line.substr(0,separator+1),UIkit.BODY))
 		support_card.add_child(UIkit.paragraph(line.substr(separator+1).strip_edges(),UIkit.BODY,UIkit.NORMAL))
+	for child in support_card.get_children(): child.add_theme_font_override("font",SUPPORT_FONT)
 	_mark_support_visible.call_deferred(session.run_token,session.state.round)
 
 func _mark_support_visible(token: int, round_number: int) -> void:
 	await get_tree().process_frame
-	if token != session.run_token or round_number != session.state.round: return
+	if session == null or token != session.run_token or round_number != session.state.round: return
 	if session.phase == GameManager.Phase.INTERVENTION and is_instance_valid(support_card) and support_card.is_visible_in_tree():
 		session.mark_support_shown()
 
@@ -528,20 +565,20 @@ func _request_resolution() -> void:
 	_show_modal("End Round %d?" % session.state.round,"Unused supply carries forward. Active shields expire after resolution.","Resolve",func(): session.begin_resolution())
 
 func _animate_phase(token: int) -> void:
-	if token != session.run_token: return
+	if session == null or token != session.run_token: return
 	var current_board := board
 	if session.phase == GameManager.Phase.DELIVERY:
 		await current_board.play_deliveries(session.pending_action.deliveries)
-		if token == session.run_token and session.pending_action.type == "ISOLATE":
+		if session != null and token == session.run_token and session.pending_action.type == "ISOLATE":
 			await current_board.play_closure(session.pending_action.target)
-		if token == session.run_token: session.complete_delivery(token)
+		if session != null and token == session.run_token: session.complete_delivery(token)
 	elif session.phase == GameManager.Phase.RESOLUTION:
 		if not session.resolution_applied:
 			await current_board.play_outbreak(session.pending_resolution.movements)
-			if token == session.run_token: session.apply_resolution(token)
+			if session != null and token == session.run_token: session.apply_resolution(token)
 		else:
 			await current_board.play_reveal(session.last_summary.newly_overrun)
-			if token == session.run_token: session.finish_resolution(token)
+			if session != null and token == session.run_token: session.finish_resolution(token)
 
 func _build_private(parent: Node) -> void:
 	parent.add_theme_constant_override("separation",UIkit.SM)
@@ -557,19 +594,19 @@ func _build_private(parent: Node) -> void:
 	var target := _survey_picker(grid,"Action target",[])
 	target.disabled = true
 	var confidence := _survey_picker(grid,"Confidence · 1 low / 5 high",["1","2","3","4","5"])
-	var reason := _survey_picker(grid,"Main reason · optional",PlayerBelief.REASONS.slice(1))
+	var reason := _survey_picker(grid,"Main reason · required",PlayerBelief.REASONS.slice(1))
 	var submit := UIkit.button("Submit & pass screen",func():
 		var belief := PlayerBelief.new(str(danger.get_selected_metadata()),str(action.get_selected_metadata()),str(target.get_selected_metadata()),int(confidence.get_selected_metadata()),"" if reason.selected==0 else str(reason.get_selected_metadata()))
 		session.submit_belief(belief),true)
 	submit.disabled = true
 	parent.add_child(submit)
-	var validate := func(_index: int): submit.disabled = danger.selected==0 or action.selected==0 or target.selected==0 or confidence.selected==0
+	var validate := func(_index: int): submit.disabled = danger.selected==0 or action.selected==0 or target.selected==0 or confidence.selected==0 or reason.selected==0
 	action.item_selected.connect(func(_index: int):
 		_fill_picker(target,session.survey_targets(str(action.get_selected_metadata())))
 		target.disabled = str(action.get_selected_metadata())=="WAIT"
 		if target.disabled: target.select(1)
 		validate.call(0))
-	for picker in [danger,target,confidence]: picker.item_selected.connect(validate)
+	for picker in [danger,target,confidence,reason]: picker.item_selected.connect(validate)
 
 func _survey_picker(parent: Node, title: String, values: Array) -> OptionButton:
 	var field := VBoxContainer.new()
@@ -614,7 +651,19 @@ func _build_results(parent: Node) -> void:
 		row.add_child(UIkit.label(entry[1],UIkit.SECTION))
 	UIkit.rule(parent)
 	parent.add_child(UIkit.paragraph("LOST LOCATIONS\n" + (", ".join(session.state.overrun_ids()) if not session.state.overrun_ids().is_empty() else "None"),UIkit.CAPTION,UIkit.RED))
-	if export_status != "" and session.dev_mode: parent.add_child(UIkit.paragraph(export_status,UIkit.CAPTION))
+	if export_status != "" and session.is_sandbox(): parent.add_child(UIkit.paragraph(export_status,UIkit.CAPTION))
+	_build_result_controls(parent)
+
+func _build_result_controls(parent: Node) -> void:
+	mission_session.capture_result()
+	parent.add_child(UIkit.button("Export DEV JSON" if session.is_sandbox() else "Export session JSON",_export_session))
+	if session.is_sandbox():
+		parent.add_child(UIkit.button("Replay",_request_restart,true))
+		parent.add_child(UIkit.button("Choose another scenario",_show_level_picker))
+	elif mission_session.index+1 < mission_session.order.size():
+		parent.add_child(UIkit.button("Continue to next mission",_next_mission,true))
+	else: parent.add_child(UIkit.label("SESSION COMPLETE · 4 / 4 MISSIONS",UIkit.CAPTION,UIkit.ACCENT))
+	parent.add_child(UIkit.button("Main menu",_show_main_menu))
 
 func _show_help() -> void:
 	var column := _modal_base("Field guide")
@@ -633,22 +682,25 @@ func _show_inspector() -> void:
 	UIkit.scroll_column(wrapper).add_child(UIkit.paragraph(PresentationText.debug(session),UIkit.CAPTION,UIkit.TEXT))
 	var buttons := HBoxContainer.new()
 	column.add_child(buttons)
-	buttons.add_child(UIkit.button("Export research JSON",_export_session))
+	buttons.add_child(UIkit.button("Export DEV JSON",_export_session))
 	buttons.add_child(UIkit.button("Close",_close_modal,true))
 
 func _request_dev_mode(enabled: bool) -> void:
+	if not session.is_sandbox(): return
 	if not enabled: session.set_dev_mode(false); return
 	_show_modal("Enable Dev mode?","Reveals hidden state and private records. Flags this session as a development run.","Enable Dev mode",func(): session.set_dev_mode(true),func(): _render())
 
 func _request_restart() -> void:
-	_show_modal("Restart scenario?","Current progress will be cleared.","Restart scenario",func(): export_status = ""; session.reset())
+	_show_modal("Restart scenario?","Current progress will be cleared.","Restart scenario",func(): _start_dev(session.scenario.scenario_id))
 func _export_session() -> void:
-	var filename := "cascade_session_"+Time.get_datetime_string_from_system().replace(":","-")+".json"
-	var text := JSON.stringify(session.export_dictionary(),"\t")
+	var filename := ("cascade_recovery_" if session == null else "cascade_DEV_" if session.is_sandbox() else "cascade_session_")+Time.get_datetime_string_from_system().replace(":","-")+".json"
+	var exported := mission_session.export_dictionary() if mission_session != null else {"record_mode":"synthetic-development","research_eligible":false}
+	exported["upload_recovery"] = StudySync.recovery_export()
+	var text := JSON.stringify(exported,"\t")
 	if OS.has_feature("web"):
 		JavaScriptBridge.download_buffer(text.to_utf8_buffer(),filename,"application/json")
 		export_status = "Session JSON download requested."
-		_render()
+		if session != null: _render()
 		return
 	var dialog := FileDialog.new()
 	dialog.title = "Export session JSON"
@@ -667,7 +719,8 @@ func _export_session() -> void:
 			file.store_string(text)
 			file.close()
 			export_status = "Saved session JSON: "+path
-			_render())
+			if session != null: _render()
+			else: dialog.queue_free())
 	dialog.canceled.connect(func(): dialog.queue_free())
 	dialog.popup_centered()
 
@@ -747,3 +800,137 @@ func _build_operation(parent: Node) -> void:
 		if session.resolution_applied:
 			var newly: Array = session.last_summary.newly_overrun
 			parent.add_child(UIkit.paragraph("Newly Overrun: "+(", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED))
+
+func _dev_access_enabled() -> bool:
+	return not OS.has_feature("participant") and bool(ProjectSettings.get_setting("cascade/development_access",true))
+
+func _dispose_run() -> void:
+	StudySync.detach()
+	if session != null:
+		session.invalidate()
+		if session.changed.is_connected(_render): session.changed.disconnect(_render)
+	session = null
+	mission_session = null
+	map_token = 0
+	selected_shelter = ""
+	selected_edge = ""
+	export_status = ""
+	if is_instance_valid(board) and board.camera_tween: board.camera_tween.kill()
+	if survey_tween: survey_tween.kill()
+	for child in get_children():
+		remove_child(child)
+		child.queue_free()
+	board = null
+	modal = null
+	road_bubble = null
+	support_card = null
+
+func _menu_page() -> VBoxContainer:
+	_dispose_run()
+	var background := ColorRect.new()
+	background.color = UIkit.BG
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(background)
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left","top","right","bottom"]: margin.add_theme_constant_override("margin_"+side,32)
+	add_child(margin)
+	var scroll := ScrollContainer.new()
+	scroll.follow_focus = true
+	margin.add_child(scroll)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
+	var column := VBoxContainer.new()
+	column.custom_minimum_size.x = 640
+	column.add_theme_constant_override("separation",16)
+	center.add_child(column)
+	return column
+
+func _show_main_menu() -> void:
+	var column := _menu_page()
+	column.add_child(UIkit.label("COOPERATIVE CONTAINMENT",UIkit.CAPTION,UIkit.ACCENT))
+	column.add_child(UIkit.label("Cascade Lab: Outbreak",UIkit.DISPLAY))
+	column.add_child(UIkit.paragraph("Keep the district functioning through three rounds of an uncertain outbreak.",UIkit.BODY))
+	UIkit.rule(column)
+	column.add_child(UIkit.paragraph("Four missions. Three people. One shared response.",UIkit.BODY,UIkit.TEXT))
+	var play := UIkit.button("Play",_start_normal,true)
+	play.custom_minimum_size.y = 64
+	if StudySync.access_required():
+		# Online builds: the facilitator enters the study access code before play.
+		var code := LineEdit.new()
+		code.name = "AccessCode"
+		code.placeholder_text = "Study access code"
+		code.secret = true
+		code.text = StudySync.access_code
+		code.custom_minimum_size.y = 48
+		code.add_theme_font_size_override("font_size",UIkit.BODY)
+		code.text_changed.connect(func(value: String):
+			StudySync.access_code = value.strip_edges()
+			play.disabled = StudySync.access_code.length() < 12)
+		play.disabled = StudySync.access_code.length() < 12
+		column.add_child(code)
+	column.add_child(play)
+	if _dev_access_enabled(): column.add_child(UIkit.button("Dev Mode",_show_level_picker))
+	save_indicator = UIkit.paragraph(StudySync.status_text(),UIkit.CAPTION,UIkit.MUTED)
+	column.add_child(save_indicator)
+	if not StudySync.sessions.is_empty(): column.add_child(UIkit.button("Export pending recovery JSON",_export_session))
+	_focus_if_present.call_deferred(play)
+
+func _show_level_picker() -> void:
+	if not _dev_access_enabled(): return
+	var column := _menu_page()
+	column.add_child(UIkit.label("DEV MODE — NOT RESEARCH DATA",UIkit.CAPTION,UIkit.AMBER))
+	column.add_child(UIkit.label("Choose a district",UIkit.DISPLAY))
+	column.add_child(UIkit.paragraph("Play one mission with the same rules and supplies. Surveys, discussion timers, and decision support are skipped.",UIkit.BODY))
+	var first_start: Button
+	for entry in ScenarioData.registry().scenarios:
+		var card := UIkit.card(column,UIkit.PANEL)
+		card.add_child(UIkit.label(entry.title,UIkit.SECTION))
+		card.add_child(UIkit.paragraph(entry.blurb,UIkit.BODY))
+		var start := UIkit.button("Start · " + entry.title,func(): _start_dev(entry.id),true)
+		card.add_child(start)
+		if first_start == null: first_start = start
+	var back := UIkit.button("Back",_show_main_menu)
+	column.add_child(back)
+	_focus_if_present.call_deferred(first_start)
+
+func _start_normal() -> void:
+	if StudySync.access_required() and StudySync.access_code.length() < 12: return
+	_dispose_run()
+	var configured: Array = ProjectSettings.get_setting("cascade/scenario_order",[])
+	mission_session = MissionSession.new(GameManager.RunPurpose.NORMAL,GameManager.InterventionType.NONE,configured)
+	_connect_mission()
+
+func _start_dev(id: String) -> void:
+	if not _dev_access_enabled(): return
+	_dispose_run()
+	mission_session = MissionSession.new(GameManager.RunPurpose.DEV_SANDBOX,GameManager.InterventionType.NONE,[id])
+	_connect_mission()
+
+func _connect_mission() -> void:
+	if mission_session.current == null:
+		var message := mission_session.error
+		_show_main_menu()
+		_show_message("Could not start mission",message)
+		return
+	session = mission_session.current
+	StudySync.attach(mission_session)
+	session.changed.connect(_render)
+	_render()
+
+func _next_mission() -> void:
+	if session.phase != GameManager.Phase.RESULTS: return
+	if session.changed.is_connected(_render): session.changed.disconnect(_render)
+	if mission_session.advance(): _connect_mission()
+
+func _request_leave(destination: Callable) -> void:
+	if session == null or session.phase == GameManager.Phase.RESULTS:
+		destination.call()
+		return
+	_show_modal("Leave this mission?","This unfinished mission will be discarded. Export any records you need before leaving.","Leave mission",destination)
+
+func _focus_if_present(button: Button) -> void:
+	if is_instance_valid(button) and button.is_inside_tree(): button.grab_focus()

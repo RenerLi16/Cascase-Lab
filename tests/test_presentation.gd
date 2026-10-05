@@ -38,6 +38,7 @@ func run() -> void:
 			var tag := "%d-%d" % [viewport_size.x,condition]
 			app = load("res://scenes/Main.tscn").instantiate()
 			root.add_child(app)
+			app._start_normal()
 			app.session._support_clock = func(): return support_time
 			app.session.configure_condition(condition)
 			await snapshot(tag+"-observe")
@@ -63,11 +64,13 @@ func run() -> void:
 					choose(pickers[1],"VERIFY")
 					choose(pickers[2],"E")
 					choose(pickers[3],str(index+2))
+					choose(pickers[4],"prevent cascade")
 					if index==0:
 						await snapshot(tag+"-r%d-form" % round_number)
 						check_layout(tag+"-form")
 					await click("Submit & pass screen")
-				await click("Finish initial discussion")
+				support_time += GameManager.DISCUSSION_SECONDS * 1000
+				await settle(8)
 				await snapshot(tag+"-r%d-support" % round_number)
 				check_layout(tag+"-support")
 				check(app.support_card.get_global_rect().end.y < app.support_continue.global_position.y,"All support text fits above continue")

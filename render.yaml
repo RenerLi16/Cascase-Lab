@@ -1,0 +1,49 @@
+# Render Blueprint for the Cascade Lab synthetic-development backend.
+# Secrets marked `sync: false` are entered privately in the Render dashboard, never here.
+services:
+  - type: web
+    name: cascade-lab-backend
+    runtime: python
+    plan: free            # fine for synthetic testing (sleeps after 15 idle minutes); use a paid plan for real sessions
+    region: oregon        # choose the region closest to your RDS database
+    buildCommand: >-
+      pip install -r backend/requirements.txt &&
+      python3 -m backend.fetch_rds_ca
+    startCommand: python3 -m backend.server
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: CASCADE_HOST
+        value: 0.0.0.0
+      - key: CASCADE_ALLOWED_HOSTS
+        sync: false       # your-service.onrender.com
+      - key: CASCADE_ORIGINS
+        value: https://html-classic.itch.zone,https://html.itch.zone
+      - key: CASCADE_DATABASE_URL
+        sync: false       # postgresql://cascade_app:PASSWORD@your-db.xxxx.rds.amazonaws.com:5432/cascade
+      - key: CASCADE_ACCESS_CODE
+        sync: false
+      - key: CASCADE_MAX_DAILY_SESSIONS
+        value: "50"
+      - key: CASCADE_MAX_DAILY_INTERVENTIONS
+        value: "300"
+      - key: CASCADE_PROVIDER
+        value: qwen
+      - key: CASCADE_ALLOW_LIVE
+        value: "1"
+      - key: QWEN_ENDPOINT
+        sync: false
+      - key: QWEN_MODEL
+        value: qwen-flash
+      - key: DASHSCOPE_API_KEY
+        sync: false
+      - key: QWEN_TEMPERATURE
+        value: "0.3"
+      - key: QWEN_MAX_TOKENS
+        value: "700"
+      - key: QWEN_TIMEOUT_SECONDS
+        value: "30"
+      - key: QWEN_MAX_ATTEMPTS
+        value: "2"

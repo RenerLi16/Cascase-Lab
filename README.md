@@ -1,4 +1,9 @@
+> **Development backend update:** See [local Qwen integration, automatic saving, tests, and setup](docs/BACKEND_SETUP.md). Qwen is implemented but not live-verified; all runs remain synthetic and non-research-eligible.
+
 # CASCADE LAB: OUTBREAK
+
+> **Current build: four missions + main menu.** Play runs the four-mission normal workflow; Dev Mode below Play offers a survey-free level picker. See [implementation and validation notes](docs/SCENARIO_PACK_IMPLEMENTATION.md) for the current behavior, local web packages, and participant-build configuration. Older single-scenario descriptions below are historical.
+
 
 Cascade Lab is a deterministic cooperative zombie strategy game for three people sharing one computer. The map is the main interface: inspect a small city district, discuss danger, spend a fixed supply budget, and watch the outbreak develop over three rounds.
 
@@ -155,3 +160,5 @@ Matching Web export templates are installed on this machine. Re-export after sou
 The current dark-theme release is `build/dark-web/`. Upload **`build/cascade-lab-dark.zip`**, replacing the older archive on itch.io. Its `index.html` and companion files are at the ZIP root. Older root-level ZIPs are separate snapshots and do not receive source updates.
 
 For current browser limitations, see the [Godot Web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html).
+
+Online pilot deployment (itch.io + Render + AWS RDS + Qwen): see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Local backend setup: [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md).

@@ -1,3 +1,5 @@
+> **Current implementation:** The asynchronous backend integration supersedes the deterministic-only runtime described below. See [BACKEND_SETUP.md](BACKEND_SETUP.md). `SupportLibrary` remains as a public-rule/mock fixture; the default game uses the backend. No live Qwen call has been verified.
+
 # Controlled support — support-1.0.0
 
 This is a reproducible experimental manipulation implemented with local templates, not a conversational model. No credentials, API calls, participant names, microphones, chat boxes, or external knowledge are used.

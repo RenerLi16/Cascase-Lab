@@ -1,0 +1,421 @@
+{
+  "schema_version": 1,
+  "scenario_id": "crossfire_04_v1",
+  "world_size": [
+    1000,
+    700
+  ],
+  "image_size": [
+    1500,
+    1049
+  ],
+  "texture": "res://assets/maps/crossfire.png",
+  "nodes": {
+    "A": {
+      "anchor": [
+        110.6667,
+        350.3337
+      ],
+      "junction_radius": 10,
+      "building": [
+        23.3333,
+        320.9724,
+        64.0,
+        52.7169
+      ],
+      "selection": [
+        23.3333,
+        320.9724,
+        64.0,
+        52.7169
+      ],
+      "entrance": [
+        87.3333,
+        350.3337
+      ],
+      "label_anchor": [
+        23.3333,
+        314.9666
+      ]
+    },
+    "B": {
+      "anchor": [
+        299.3333,
+        173.4986
+      ],
+      "junction_radius": 10,
+      "building": [
+        270.0,
+        85.4147,
+        58.0,
+        46.0439
+      ],
+      "selection": [
+        270.0,
+        85.4147,
+        58.0,
+        46.0439
+      ],
+      "entrance": [
+        299.3333,
+        131.4585
+      ],
+      "label_anchor": [
+        270.0,
+        79.409
+      ]
+    },
+    "C": {
+      "anchor": [
+        299.3333,
+        530.5052
+      ],
+      "junction_radius": 10,
+      "building": [
+        270.0,
+        580.5529,
+        57.3333,
+        43.3746
+      ],
+      "selection": [
+        270.0,
+        580.5529,
+        57.3333,
+        43.3746
+      ],
+      "entrance": [
+        299.3333,
+        580.5529
+      ],
+      "label_anchor": [
+        270.0,
+        574.5472
+      ]
+    },
+    "D": {
+      "anchor": [
+        500.0,
+        228.2173
+      ],
+      "junction_radius": 10,
+      "building": [
+        472.0,
+        137.4643,
+        54.6667,
+        43.3746
+      ],
+      "selection": [
+        472.0,
+        137.4643,
+        54.6667,
+        43.3746
+      ],
+      "entrance": [
+        500.0,
+        180.8389
+      ],
+      "label_anchor": [
+        472.0,
+        131.4585
+      ]
+    },
+    "E": {
+      "anchor": [
+        500.0,
+        460.4385
+      ],
+      "junction_radius": 10,
+      "building": [
+        472.0,
+        519.1611,
+        55.3333,
+        42.7073
+      ],
+      "selection": [
+        472.0,
+        519.1611,
+        55.3333,
+        42.7073
+      ],
+      "entrance": [
+        500.0,
+        519.1611
+      ],
+      "label_anchor": [
+        472.0,
+        513.1554
+      ]
+    },
+    "F": {
+      "anchor": [
+        700.6667,
+        173.4986
+      ],
+      "junction_radius": 10,
+      "building": [
+        672.6667,
+        85.4147,
+        58.0,
+        46.7112
+      ],
+      "selection": [
+        672.6667,
+        85.4147,
+        58.0,
+        46.7112
+      ],
+      "entrance": [
+        700.6667,
+        132.1258
+      ],
+      "label_anchor": [
+        672.6667,
+        79.409
+      ]
+    },
+    "G": {
+      "anchor": [
+        700.6667,
+        530.5052
+      ],
+      "junction_radius": 10,
+      "building": [
+        672.6667,
+        580.5529,
+        56.6667,
+        42.7073
+      ],
+      "selection": [
+        672.6667,
+        580.5529,
+        56.6667,
+        42.7073
+      ],
+      "entrance": [
+        700.6667,
+        580.5529
+      ],
+      "label_anchor": [
+        672.6667,
+        574.5472
+      ]
+    },
+    "H": {
+      "anchor": [
+        886.0,
+        350.3337
+      ],
+      "junction_radius": 10,
+      "building": [
+        913.3333,
+        320.9724,
+        64.0,
+        52.7169
+      ],
+      "selection": [
+        913.3333,
+        320.9724,
+        64.0,
+        52.7169
+      ],
+      "entrance": [
+        913.3333,
+        350.3337
+      ],
+      "label_anchor": [
+        913.3333,
+        314.9666
+      ]
+    }
+  },
+  "edges": {
+    "A-B": {
+      "from": "A",
+      "to": "B",
+      "centerline": [
+        [
+          110.6667,
+          350.3337
+        ],
+        [
+          299.3333,
+          173.4986
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "A-C": {
+      "from": "A",
+      "to": "C",
+      "centerline": [
+        [
+          110.6667,
+          350.3337
+        ],
+        [
+          299.3333,
+          530.5052
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "B-D": {
+      "from": "B",
+      "to": "D",
+      "centerline": [
+        [
+          299.3333,
+          173.4986
+        ],
+        [
+          500.0,
+          228.2173
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "B-E": {
+      "from": "B",
+      "to": "E",
+      "centerline": [
+        [
+          299.3333,
+          173.4986
+        ],
+        [
+          500.0,
+          460.4385
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "C-E": {
+      "from": "C",
+      "to": "E",
+      "centerline": [
+        [
+          299.3333,
+          530.5052
+        ],
+        [
+          500.0,
+          460.4385
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "D-E": {
+      "from": "D",
+      "to": "E",
+      "centerline": [
+        [
+          500.0,
+          228.2173
+        ],
+        [
+          500.0,
+          460.4385
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "D-F": {
+      "from": "D",
+      "to": "F",
+      "centerline": [
+        [
+          500.0,
+          228.2173
+        ],
+        [
+          700.6667,
+          173.4986
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "E-F": {
+      "from": "E",
+      "to": "F",
+      "centerline": [
+        [
+          500.0,
+          460.4385
+        ],
+        [
+          700.6667,
+          173.4986
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "E-G": {
+      "from": "E",
+      "to": "G",
+      "centerline": [
+        [
+          500.0,
+          460.4385
+        ],
+        [
+          700.6667,
+          530.5052
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "F-H": {
+      "from": "F",
+      "to": "H",
+      "centerline": [
+        [
+          700.6667,
+          173.4986
+        ],
+        [
+          886.0,
+          350.3337
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    },
+    "G-H": {
+      "from": "G",
+      "to": "H",
+      "centerline": [
+        [
+          700.6667,
+          530.5052
+        ],
+        [
+          886.0,
+          350.3337
+        ]
+      ],
+      "width": 16,
+      "corridor_width": 34,
+      "closure_fraction": 0.5
+    }
+  },
+  "artwork_notes": "Guide-only generation followed by modern rooftop edit, preserving clear road corridors. No changes to simulation coordinates or costs."
+}

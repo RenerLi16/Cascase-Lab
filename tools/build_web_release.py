@@ -1,0 +1,53 @@
+"""Build the itch.io web upload pointed at the online backend, without editing the project.
+
+Example:
+  python3 tools/build_web_release.py --godot /Applications/Godot.app/Contents/MacOS/Godot \
+      --backend-url https://cascade-lab-backend.onrender.com
+
+Produces build/itch/ and build/cascade-lab-itch.zip (upload the zip to itch.io as an HTML game).
+The build contains no secrets: the access code is typed in at the menu, never baked in.
+"""
+from pathlib import Path
+import argparse
+import re
+import shutil
+import subprocess
+import tempfile
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--godot', default='godot')
+    parser.add_argument('--backend-url', required=True)
+    parser.add_argument('--preset', default='Web Participant')
+    parser.add_argument('--output', default='build/itch')
+    parser.add_argument('--no-access-code', action='store_true', help='only for a backend without CASCADE_ACCESS_CODE')
+    args = parser.parse_args()
+    url = args.backend_url.rstrip('/')
+    if not re.fullmatch(r'https://[A-Za-z0-9.-]+(:\d+)?', url):
+        parser.error('--backend-url must be an https:// origin such as https://name.onrender.com (browsers block http from itch.io)')
+    root = Path(__file__).resolve().parents[1]
+    output = (root / args.output).resolve()
+    if output.exists(): shutil.rmtree(output)
+    output.mkdir(parents=True)
+    with tempfile.TemporaryDirectory(prefix='cascade-itch-') as temp:
+        copy = Path(temp)
+        for name in ('assets', 'scenarios', 'scripts', 'scenes'):
+            shutil.copytree(root / name, copy / name)
+        for name in ('project.godot', 'export_presets.cfg'):
+            shutil.copy2(root / name, copy / name)
+        project = copy / 'project.godot'
+        text = project.read_text()
+        text = re.sub(r'^backend_url=.*$', f'backend_url="{url}"', text, flags=re.M)
+        text = re.sub(r'^support_provider=.*$', 'support_provider="backend"', text, flags=re.M)
+        text = re.sub(r'^development_access=.*$', 'development_access=false', text, flags=re.M)
+        text = text.replace('[cascade]', '[cascade]\nrequire_access_code=' + ('false' if args.no_access_code else 'true'), 1)
+        project.write_text(text)
+        subprocess.run([args.godot, '--headless', '--log-file', str(copy / 'import.log'), '--path', temp, '--editor', '--import', '--quit'], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run([args.godot, '--headless', '--log-file', str(copy / 'export.log'), '--path', temp, '--export-release', args.preset, str(output / 'index.html')], check=True, stdout=subprocess.DEVNULL)
+    archive = shutil.make_archive(str(output.parent / 'cascade-lab-itch'), 'zip', output)
+    print(f'itch.io build: {output}\nUpload this zip to itch.io (Kind of project: HTML): {archive}')
+
+
+if __name__ == '__main__':
+    main()

@@ -1,6 +1,8 @@
 class_name EventLogger
 extends RefCounted
 
+signal recorded(event: Dictionary)
+
 var events: Array[GameEvent] = []
 var capture_timing := true
 var started_ticks := Time.get_ticks_msec()
@@ -17,6 +19,7 @@ func record(round_number: int, kind: String, target: String = "", old_value: Var
 	event.new_value = new_value
 	event.metadata = metadata.duplicate(true)
 	events.append(event)
+	recorded.emit(event.to_dictionary())
 
 func to_array() -> Array:
 	var output: Array = []

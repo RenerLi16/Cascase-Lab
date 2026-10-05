@@ -36,7 +36,7 @@ static func observation_text(observation: Dictionary) -> String:
 	return "MONITOR ALERT · %s\nPressure %d to %d · Round %d" % [observation.target,observation.old,observation.new,observation.round]
 
 static func debug(session: GameManager) -> String:
-	var text := "DEV MODE · HIDDEN STATE\nSource: %s\n\n" % session.scenario.original_source
+	var text := "DEV MODE · HIDDEN STATE\nInitial exposures: %s\n\n" % ", ".join(session.scenario.initial_exposure_ids())
 	for id in session.state.shelters:
 		var shelter: ShelterState = session.state.shelters[id]
 		text += "%s: P%d · shield %s · monitor %s\n" % [id,shelter.zombie_pressure,shelter.shielded_this_round,shelter.is_monitored]

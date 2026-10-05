@@ -1,0 +1,13 @@
+{
+  "note": "Researcher-only engineering fixtures. Never display these plans or hidden states to participants or include them in AI context. Actions list depot assignments in the existing edge-endpoint order. Empty action lists mean end the round without spending supplies.",
+  "cases": [
+    {"name": "Twin Districts / no actions", "file": "scenario_02.json", "round_actions": [[], [], []], "survivors": [7, 7, 5], "supplies": [6, 6, 6], "final_pressures": {"A": 0, "B": 0, "C": 2, "D": 2, "E": 2, "F": 0, "G": 0, "H": 0}},
+    {"name": "Twin Districts / verified protection", "file": "scenario_02.json", "round_actions": [[["VERIFY", "D", ["A"]]], [["SHIELD", "C", ["A"]], ["SHIELD", "E", ["H"]]], []], "survivors": [7, 7, 7], "supplies": [5, 3, 3], "final_pressures": {"A": 0, "B": 0, "C": 1, "D": 2, "E": 1, "F": 0, "G": 0, "H": 0}},
+    {"name": "Twin Districts / close bridge only", "file": "scenario_02.json", "round_actions": [[["ISOLATE", "D-E", ["A", "H"]]], [], []], "survivors": [7, 7, 6], "supplies": [4, 4, 4], "final_pressures": {"A": 0, "B": 0, "C": 2, "D": 2, "E": 0, "F": 0, "G": 0, "H": 0}},
+    {"name": "Lifeline / no actions", "file": "scenario_03.json", "round_actions": [[], [], []], "survivors": [7, 7, 4], "supplies": [6, 6, 6], "final_pressures": {"A": 0, "B": 0, "C": 0, "D": 0, "E": 2, "F": 2, "G": 2, "H": 2}},
+    {"name": "Lifeline / keep access and protect", "file": "scenario_03.json", "round_actions": [[["VERIFY", "F", ["A"]]], [["SHIELD", "E", ["A"]], ["SHIELD", "G", ["C"]], ["SHIELD", "H", ["C"]]], []], "survivors": [7, 7, 7], "supplies": [5, 2, 2], "final_pressures": {"A": 0, "B": 0, "C": 0, "D": 0, "E": 1, "F": 2, "G": 1, "H": 1}},
+    {"name": "Lifeline / close supply crossing only", "file": "scenario_03.json", "round_actions": [[["ISOLATE", "D-E", ["A", "A"]]], [], []], "survivors": [7, 7, 4], "supplies": [4, 4, 4], "final_pressures": {"A": 0, "B": 0, "C": 0, "D": 0, "E": 2, "F": 2, "G": 2, "H": 2}},
+    {"name": "Crossfire / no actions", "file": "scenario_04.json", "round_actions": [[], [], []], "survivors": [6, 4, 2], "supplies": [6, 6, 6], "final_pressures": {"A": 2, "B": 2, "C": 1, "D": 2, "E": 2, "F": 2, "G": 1, "H": 2}},
+    {"name": "Crossfire / coordinated repeated protection", "file": "scenario_04.json", "round_actions": [[], [["SHIELD", "A", ["A"]], ["SHIELD", "D", ["A"]], ["SHIELD", "H", ["H"]], ["SHIELD", "E", ["H"]]], [["SHIELD", "D", ["A"]], ["SHIELD", "E", ["H"]]]], "survivors": [6, 6, 6], "supplies": [6, 2, 0], "final_pressures": {"A": 1, "B": 2, "C": 0, "D": 0, "E": 0, "F": 2, "G": 0, "H": 1}}
+  ]
+}

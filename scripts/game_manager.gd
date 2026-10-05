@@ -2,6 +2,13 @@ class_name GameManager
 extends RefCounted
 
 signal changed
+signal confidential_recorded(record: Dictionary)
+var confidential_records: Array = []
+var support_provider: SupportProvider = MockSupportProvider.new()
+var support_session_id := "local-" + Crypto.new().generate_random_bytes(16).hex_encode()
+var frozen_support_context: Dictionary = {}
+var intervention_identity: Dictionary = {}
+
 enum Phase { OBSERVE, PRIVATE_GATE, PRIVATE_FORM, DISCUSSION, INTERVENTION, ACTIONS, DELIVERY, RESOLUTION, ROUND_COMPLETE, RESULTS }
 enum InterventionType { NONE, DIRECT_RECOMMENDATION, CONSTRUCTIVE_DISSENT }
 
@@ -24,21 +31,41 @@ var private_surveys: Dictionary = {}
 var public_intel: Array = []
 var dev_mode := false
 var dev_used := false
+static var _generation := 0
 var run_token := 0
+enum RunPurpose { NORMAL, DEV_SANDBOX }
+var _run_purpose := RunPurpose.NORMAL
+var run_purpose: RunPurpose:
+	get: return _run_purpose
+var condition_locked := false
+
+func is_sandbox() -> bool:
+	return _run_purpose == RunPurpose.DEV_SANDBOX
+
+func begin_sandbox_actions() -> bool:
+	if not is_sandbox() or phase != Phase.OBSERVE: return false
+	_set_phase(Phase.ACTIONS)
+	return true
+
+func invalidate() -> void:
+	_generation += 1
+	run_token = _generation
+
 var pending_action: GameAction
 var pending_resolution: Dictionary = {}
 var resolution_applied := false
 var last_summary: Dictionary = {}
 var latest_observation: Dictionary = {}
 
-func _init(data: ScenarioData = null, condition: InterventionType = InterventionType.NONE, clock: Callable = Callable()) -> void:
+func _init(data: ScenarioData = null, condition: InterventionType = InterventionType.NONE, clock: Callable = Callable(), purpose: RunPurpose = RunPurpose.NORMAL) -> void:
+	_run_purpose = purpose
 	scenario = data if data != null else ScenarioData.load_default()
 	_intervention_type = condition if condition in InterventionType.values() else InterventionType.NONE
 	_support_clock = clock if clock.is_valid() else func(): return Time.get_ticks_msec()
 	reset(false)
 
 func reset(emit_change: bool = true) -> void:
-	run_token += 1
+	invalidate()
 	state = GameState.new(scenario)
 	logger = EventLogger.new()
 	action_manager = ActionManager.new(state,logger)
@@ -47,8 +74,11 @@ func reset(emit_change: bool = true) -> void:
 	private_surveys.clear()
 	public_intel.clear()
 	dev_mode = false
-	dev_used = false
+	dev_used = is_sandbox()
 	support_message = {}
+	frozen_support_context = {}
+	intervention_identity = {}
+	confidential_records.clear()
 	support_shown = false
 	support_deadline_ms = 0
 	discussion_deadline_ms = 0
@@ -57,7 +87,7 @@ func reset(emit_change: bool = true) -> void:
 	resolution_applied = false
 	last_summary = {}
 	latest_observation = {}
-	logger.record(0,"SESSION_STARTED",scenario.scenario_id,null,null,{"schema_version":3,"condition":condition_name(),"support_version":SupportLibrary.VERSION})
+	logger.record(0,"MISSION_STARTED",scenario.scenario_id,null,null,{"schema_version":4,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"surveys_skipped":is_sandbox(),"dev_used":dev_used,"condition":condition_name(),"support_version":SupportLibrary.VERSION})
 	_publish_intel()
 	logger.record(state.round,"PHASE_STARTED","OBSERVE")
 	if emit_change: changed.emit()
@@ -77,7 +107,7 @@ func condition_name() -> String:
 	return InterventionType.keys()[_intervention_type]
 
 func can_configure_condition() -> bool:
-	return phase == Phase.OBSERVE and state.round == 1 and private_surveys.is_empty() and state.actions.is_empty()
+	return not is_sandbox() and not condition_locked and phase == Phase.OBSERVE and state.round == 1 and private_surveys.is_empty() and state.actions.is_empty()
 
 func configure_condition(condition: int) -> bool:
 	if not can_configure_condition() or not condition in InterventionType.values(): return false
@@ -92,7 +122,7 @@ func _publish_intel() -> void:
 			logger.record(state.round,"PUBLIC_INTEL_SHOWN","city_surveillance",null,null,report)
 
 func start_private() -> void:
-	if phase != Phase.OBSERVE: return
+	if is_sandbox() or phase != Phase.OBSERVE: return
 	private_player = 0
 	private_surveys[state.round] = []
 	_set_phase(Phase.PRIVATE_GATE)
@@ -109,10 +139,11 @@ func submit_belief(belief: PlayerBelief) -> bool:
 	if not state.shelters.has(belief.danger_location) and not state.edges.has(belief.danger_location): return false
 	if not PlayerBelief.ACTIONS.has(belief.preferred_action): return false
 	if not survey_targets(belief.preferred_action).has(belief.action_target): return false
-	if belief.confidence < 1 or belief.confidence > 5 or not PlayerBelief.REASONS.has(belief.reason): return false
+	if belief.confidence < 1 or belief.confidence > 5 or belief.reason.is_empty() or not PlayerBelief.REASONS.has(belief.reason): return false
 	# Snapshot prevents later form changes from mutating a submitted measurement.
 	var response := belief.to_dictionary()
 	private_surveys[state.round].append(response)
+	_confidential("private", {"type":"PRIVATE_RESPONSE","round":state.round,"slot":"P%d" % (private_player+1),"response":response.duplicate(true)})
 	# A receipt contains neither the answer nor a participant identifier.
 	logger.record(state.round,"PRIVATE_SURVEY_SUBMITTED")
 	private_player += 1
@@ -120,6 +151,7 @@ func submit_belief(belief: PlayerBelief) -> bool:
 		_set_phase(Phase.PRIVATE_GATE)
 	else:
 		discussion_deadline_ms = int(_support_clock.call()) + DISCUSSION_SECONDS * 1000
+		_prepare_support()
 		_set_phase(Phase.DISCUSSION)
 	return true
 
@@ -130,18 +162,47 @@ func tick_discussion() -> void:
 	if phase == Phase.DISCUSSION and discussion_seconds_remaining() == 0: begin_support()
 
 func begin_support() -> bool:
-	if phase != Phase.DISCUSSION: return false
-	var context := SupportContext.build(state,public_intel,private_surveys.get(state.round,[]))
-	support_message = SupportLibrary.generate(context,condition_name())
+	if is_sandbox() or phase != Phase.DISCUSSION or discussion_seconds_remaining() > 0: return false
 	support_shown = false
 	support_deadline_ms = 0
 	_set_phase(Phase.INTERVENTION)
 	return true
 
+func _confidential(channel: String, payload: Dictionary) -> void:
+	var record := {"channel":channel,"payload":payload.duplicate(true)}
+	confidential_records.append(record)
+	confidential_recorded.emit(record)
+
+func _prepare_support() -> void:
+	support_message = {}
+	support_shown = false
+	support_deadline_ms = 0
+	frozen_support_context = SupportContext.build(state,public_intel,private_surveys.get(state.round,[]),scenario.exposure_progresses)
+	intervention_identity = {"session":support_session_id,"scenario":scenario.scenario_id,"round":state.round}
+	if intervention_type == InterventionType.NONE:
+		support_message = SupportLibrary.generate(frozen_support_context,"NONE")
+		return
+	_confidential("audit", {"type":"AI_REQUESTED","identity":intervention_identity.duplicate(),"context":frozen_support_context.duplicate(true),"requested_utc":Time.get_datetime_string_from_system(true)+"Z"})
+	var token := run_token
+	var round_number := state.round
+	support_provider.request(frozen_support_context.duplicate(true),condition_name(),intervention_identity.duplicate(),func(result: Dictionary): _receive_support(result,token,round_number))
+
+func _receive_support(result: Dictionary, token: int, round_number: int) -> void:
+	if token != run_token or round_number != state.round or support_shown: return
+	if result.has("error") or not result.has("text"):
+		var reason := str(result.get("error","invalid_response"))
+		support_message = {"text":"提示: AI support unavailable / AI 支持暂不可用。\n说明: 本轮未提供 AI 建议，请依据现有公开信息判断。\n暂停: 阅读暂停仍然保留。此开发故障处理政策须经批准后方可用于研究。", "template_id":"failure.unavailable","version":"development-failure-1","provider":"unavailable","error":reason}
+		_confidential("audit", {"type":"AI_FAILURE","identity":intervention_identity.duplicate(),"error":reason})
+	else:
+		support_message = result.duplicate(true)
+	_confidential("audit", {"type":"AI_RESULT","identity":intervention_identity.duplicate(),"result":support_message.duplicate(true),"received_utc":Time.get_datetime_string_from_system(true)+"Z"})
+	if phase == Phase.INTERVENTION: changed.emit()
+
 func mark_support_shown() -> bool:
-	if phase != Phase.INTERVENTION or support_shown: return false
+	if phase != Phase.INTERVENTION or support_shown or support_message.is_empty(): return false
 	support_shown = true
 	support_deadline_ms = int(_support_clock.call()) + SupportLibrary.PAUSE_SECONDS * 1000
+	_confidential("audit", {"type":"AI_DISPLAYED" if intervention_type != InterventionType.NONE else "NEUTRAL_PAUSE_DISPLAYED","identity":intervention_identity.duplicate(),"displayed_text":support_message.text,"displayed_utc":Time.get_datetime_string_from_system(true)+"Z","elapsed_ms":Time.get_ticks_msec()-logger.started_ticks,"provider":support_message.get("provider","none")})
 	# Categories only: never persist the support input payload or individual views here.
 	logger.record(state.round,"SUPPORT_SHOWN","",null,null,{
 		"condition":condition_name(),"scenario_id":scenario.scenario_id,"round":state.round,
@@ -255,7 +316,7 @@ func finish_resolution(token: int) -> bool:
 func next_round() -> void:
 	if phase != Phase.ROUND_COMPLETE: return
 	if state.round >= scenario.rounds:
-		logger.record(state.round,"SESSION_COMPLETED","",null,null,{"survivors":state.shelters.size()-state.overrun_ids().size(),"supply_used":6-state.total_supply(),"dev_used":dev_used})
+		logger.record(state.round,"MISSION_COMPLETED","",null,null,{"survivors":state.shelters.size()-state.overrun_ids().size(),"supply_used":6-state.total_supply(),"dev_used":dev_used})
 		_set_phase(Phase.RESULTS)
 	else:
 		state.round += 1
@@ -263,7 +324,7 @@ func next_round() -> void:
 		_set_phase(Phase.OBSERVE)
 
 func set_dev_mode(enabled: bool) -> void:
-	if phase in [Phase.DELIVERY,Phase.RESOLUTION,Phase.PRIVATE_GATE,Phase.PRIVATE_FORM,Phase.INTERVENTION]: return
+	if not is_sandbox() or phase in [Phase.DELIVERY,Phase.RESOLUTION,Phase.PRIVATE_GATE,Phase.PRIVATE_FORM,Phase.INTERVENTION]: return
 	var previous := dev_mode
 	dev_mode = enabled
 	dev_used = dev_used or enabled
@@ -284,7 +345,11 @@ func anonymous_surveys() -> Array:
 	return surveys
 
 func export_dictionary() -> Dictionary:
-	return {"schema_version":3,"scenario_id":scenario.scenario_id,"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
-		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"public_intel":public_intel.duplicate(true),
+	return {"schema_version":4,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
+		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"development_private_audit":confidential_records.duplicate(true),"public_intel":public_intel.duplicate(true),
 		"observations":state.observations.duplicate(true),"final_state":state.to_dictionary(),
-		"ground_truth":{"original_source":scenario.original_source,"initial_pressures":scenario.initial_pressures,"timeline":scenario.ground_truth_timeline}}
+		"ground_truth":{"initial_exposure_ids":scenario.initial_exposure_ids(),"original_source":scenario.original_source,"initial_pressures":scenario.initial_pressures,"timeline":scenario.ground_truth_timeline}}
+
+# Local debug exports are allowed. No research backend is configured in this build.
+func research_submission() -> Dictionary:
+	return {"ok":false,"error":"Development runs cannot be submitted as research." if is_sandbox() or dev_used else "No approved research submission configured."}

@@ -35,6 +35,8 @@ func survey_round(game: GameManager) -> void:
 		game.open_private_form()
 		check(game.submit_belief(PlayerBelief.new("E-F","WAIT","NONE",index+2,"protect supply access")),"Decision survey accepts road danger and wait")
 	check(game.phase==GameManager.Phase.DISCUSSION,"No comparison; directly to discussion")
+	check(not game.begin_support(),"Discussion cannot finish early")
+	support_time += 120000
 	check(game.begin_support(),"Initial discussion leads to controlled pause")
 	game.mark_support_shown()
 	support_time += SupportLibrary.PAUSE_SECONDS * 1000
@@ -187,6 +189,9 @@ func canonical(payload: Dictionary) -> Dictionary:
 	for event in copy.events:
 		event.erase("timestamp_utc")
 		event.erase("elapsed_ms")
+	for record in copy.get("development_private_audit",[]):
+		for field in ["requested_utc","received_utc","displayed_utc","elapsed_ms"]: record.payload.erase(field)
+		if record.payload.has("identity"): record.payload.identity.erase("session")
 	return copy
 
 func test_private_flow_and_logging() -> void:
@@ -195,6 +200,7 @@ func test_private_flow_and_logging() -> void:
 	check(not game.begin_resolution() and not game.dispatch_action("VERIFY","E",["H"]).ok,"Phase guards prevent premature actions")
 	game.start_private()
 	game.open_private_form()
+	check(not game.submit_belief(PlayerBelief.new("E","WAIT","NONE",3,"")),"Brief reason is required")
 	check(not game.submit_belief(PlayerBelief.new("Z","VERIFY","E",3)),"Reject unknown danger location")
 	check(not game.submit_belief(PlayerBelief.new("E","ISOLATE","A",3)),"Isolation survey target must be road")
 	check(not game.submit_belief(PlayerBelief.new("E","WAIT","E",3)),"Wait requires no target")
@@ -227,7 +233,7 @@ func test_private_flow_and_logging() -> void:
 	check(timed.events[0].elapsed_ms>=0 and timed.events[0].timestamp_utc.ends_with("Z"),"Research events include elapsed and UTC timing")
 	game.set_dev_mode(true)
 	game.set_dev_mode(false)
-	check(game.dev_used,"Dev exposure remains flagged")
+	check(not game.dev_used and not game.dev_mode,"Normal sessions reject hidden-state reveal")
 	game.reset()
 	check(game.state.total_supply()==6 and game.private_surveys.is_empty() and game.state.actions.is_empty(),"Restart clears supplies, surveys and actions")
 	check(game.public_intel.size()==1 and not game.dev_used and game.state.overrun_ids().is_empty(),"Restart resets intel, dev flag and initial hidden state")

@@ -1,0 +1,33 @@
+{
+  "scenario_id": "crossfire_04_v1",
+  "scenario_title": "Crossfire: Converging Threats",
+  "rounds": 3,
+  "world_size": [1000, 700],
+  "node_positions": {
+    "A": [110, 350], "B": [300, 180], "C": [300, 530],
+    "D": [500, 230], "E": [500, 460], "F": [700, 180],
+    "G": [700, 530], "H": [890, 350]
+  },
+  "shelter_names": {
+    "A": "West depot", "B": "West arrival hall", "C": "Canal school",
+    "D": "North junction", "E": "Transfer square", "F": "East arrival hall",
+    "G": "Garden shelter", "H": "East depot"
+  },
+  "initial_pressures": {"A": 0, "B": 1, "C": 0, "D": 0, "E": 0, "F": 1, "G": 0, "H": 0},
+  "edges": [["A", "B"], ["A", "C"], ["B", "D"], ["B", "E"], ["C", "E"], ["D", "E"], ["D", "F"], ["E", "F"], ["E", "G"], ["F", "H"], ["G", "H"]],
+  "road_bends": {},
+  "supply_depots": ["A", "H"],
+  "supply_amounts": {"A": 3, "H": 3},
+  "public_intel": [
+    {"round": 1, "time": "09:30", "text": "Distress reports mention West arrival hall (B) and East arrival hall (F). Their wording is similar, so dispatch cannot yet tell whether one report was relayed twice or two incidents were reported."},
+    {"round": 2, "time": "09:45", "text": "The archived calls came from different devices, one registered at each arrival hall. This rules out an exact replay of a single recording; registration alone does not confirm where either caller was or the shelters' current conditions."},
+    {"round": 3, "time": "10:00", "text": "Archived route records show that North junction (D) and Transfer square (E) each received traffic from both arrival halls before the mission. No health checks were recorded. Route overlap does not itself establish current exposure."}
+  ],
+  "original_source": "",
+  "exposure_progresses": true,
+  "ground_truth_timeline": [
+    {"time": "09:21", "text": "West arrival hall (B) becomes exposed."},
+    {"time": "09:23", "text": "East arrival hall (F) independently becomes exposed. B and F are both pressure 1 at the start; every other shelter is pressure 0. There is no unique original source for this scenario."},
+    {"time": "09:30", "text": "Both calls are original reports. Archived traffic observations do not inject exposure. Subsequent pressures use the unchanged simultaneous-resolution rules, including additive incoming pressure from multiple already-Overrun neighbors."}
+  ]
+}

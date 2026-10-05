@@ -1,5 +1,8 @@
 # Cascade Lab: Outbreak — developer handoff
 
+> Updated implementation: [four-mission menu and development sandbox](SCENARIO_PACK_IMPLEMENTATION.md). That document supersedes this handoff’s single-scenario loader, optional-reason, early discussion-finish, reveal-toggle, and schema-3 descriptions.
+
+
 ## Game description
 
 Cascade Lab: Outbreak is a playable cooperative strategy and decision-making research game for three people sharing one computer. Players coordinate the containment of a zombie outbreak across eight connected shelters in the Riverside district. The objective is to keep as many shelters functioning as possible over three rounds while managing incomplete information and a fixed, shared supply budget. There is no real-time combat: players inspect the map, make private judgments, discuss evidence, and decide which interventions to fund.

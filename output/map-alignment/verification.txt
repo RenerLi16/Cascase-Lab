@@ -1,0 +1,46 @@
+Cascade Lab map alignment verification — 2026-10-03
+Engine: Godot 4.7.1 stable, macOS Apple M4, compatibility renderer
+
+rules:
+RULE TESTS: 510 checks, 0 failures
+support:
+SUPPORT TESTS: 2003 checks, 0 failures
+ui:
+UI TESTS: 192 checks, 0 failures
+scenario_fixtures:
+CASE: Twin Districts / no actions | functioning=[7.0, 7.0, 5.0] | supplies=[6.0, 6.0, 6.0]
+CASE: Twin Districts / verified protection | functioning=[7.0, 7.0, 7.0] | supplies=[5.0, 3.0, 3.0]
+CASE: Twin Districts / close bridge only | functioning=[7.0, 7.0, 6.0] | supplies=[4.0, 4.0, 4.0]
+CASE: Lifeline / no actions | functioning=[7.0, 7.0, 4.0] | supplies=[6.0, 6.0, 6.0]
+CASE: Lifeline / keep access and protect | functioning=[7.0, 7.0, 7.0] | supplies=[5.0, 2.0, 2.0]
+CASE: Lifeline / close supply crossing only | functioning=[7.0, 7.0, 4.0] | supplies=[4.0, 4.0, 4.0]
+CASE: Crossfire / no actions | functioning=[6.0, 4.0, 2.0] | supplies=[6.0, 6.0, 6.0]
+CASE: Crossfire / coordinated repeated protection | functioning=[6.0, 6.0, 6.0] | supplies=[6.0, 2.0, 0.0]
+RESULT: 263 checks; 0 failures. Production loader and scenario fixtures tested. Research balance is not tested.
+missions:
+MISSION TESTS: 660 checks, 0 failures
+session_ui:
+SESSION UI TESTS: 144 checks, 0 failures
+presentation:
+PRESENTATION TESTS: 5794 checks, 0 failures
+redesign:
+REDESIGN TESTS: 1416 checks, 0 failures
+mission_ui:
+MISSION UI TESTS: 2356 checks, 0 failures
+
+Windowed geometry + action + screenshots:
+CITY ALIGNMENT TESTS: 134808 checks, 0 failures
+
+Browser: local exported game rendered its menu. Dev Mode click blocked by automatic approval review usage limit. Browser interactions NOT verified.
+Native game: all four maps, overview and zoom 2.6, 1440x900 and 1200x800, real multi-edge VERIFY and ISOLATE delivery completion.
+Screenshot sets: before 16 images; after 72 images (9 views x 4 scenarios x 2 sizes).
+
+Scenario SHA-256 (simulation files untouched by alignment work):
+8b83d6ce23e21e3c71e25c28f180ccbe1f52ff23e01fc022c3522eb720eaa264  scenarios/scenario_01.json
+3115b15eb0f63e8c2b498e0140ba926e422304a8e80d3e8c4f6178d5786772b7  scenarios/scenario_02.json
+6c97e5eb0f5129e8aba2d871880260f32914b791ee2fcd9207eb8bdfbf3e21a9  scenarios/scenario_03.json
+be778ce4be92ac34f6054c8efef9f2dfb0df322c6abcc661d837a142729e51c2  scenarios/scenario_04.json
+
+Nonfatal environment messages: macOS certificate lookup and sandboxed editor-settings save warnings during headless tooling. No game parse/runtime/test errors.
+
+Both Web and Web Participant final exports completed (exit 0). Both rebuilt ZIPs passed CRC verification. Each export contains all four assets/maps/layouts/*.json resources.

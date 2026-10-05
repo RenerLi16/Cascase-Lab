@@ -8,6 +8,7 @@ func run() -> void:
 		root.size = viewport_size
 		app = load("res://scenes/Main.tscn").instantiate()
 		root.add_child(app)
+		app._start_normal()
 		app.session._support_clock = func(): return support_time
 		await snapshot("%d-overview" % viewport_size.x)
 		check_layout("overview")
@@ -30,6 +31,7 @@ func run() -> void:
 		choose(fields[1],"VERIFY")
 		choose(fields[2],"E")
 		choose(fields[3],"4")
+		choose(fields[4],"prevent cascade")
 		await snapshot("%d-survey" % viewport_size.x)
 		check_layout("survey")
 		check(app.survey_content.size.y > 250,"Expanded survey has room for the actual form")
@@ -47,7 +49,7 @@ func run() -> void:
 		await click("Submit & pass screen")
 		for index in 2:
 			app.session.open_private_form()
-			app.session.submit_belief(PlayerBelief.new("E","VERIFY","E",4,""))
+			app.session.submit_belief(PlayerBelief.new("E","VERIFY","E",4,"prevent cascade"))
 		check(app.session.discussion_seconds_remaining()==120,"Discussion starts at two minutes")
 		var deadline: int = app.session.discussion_deadline_ms
 		app._select_shelter("E")

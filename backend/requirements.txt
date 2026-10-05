@@ -1,0 +1,3 @@
+# Only needed for the online deployment (PostgreSQL / AWS RDS). Local SQLite development
+# uses the Python standard library alone.
+psycopg[binary,pool]>=3.2,<4

@@ -4,9 +4,9 @@ extends RefCounted
 # Sole adapter between the simulation and support. Never serialize GameState wholesale.
 const CATEGORIES := ["public_shelter_status_and_dated_observations", "public_roads",
 	"depot_supplies", "previous_team_actions", "published_reports", "current_round",
-	"remaining_budget", "anonymous_structured_responses"]
+	"remaining_budget", "anonymous_structured_responses", "public_rules_costs_and_display_names"]
 
-static func build(state: GameState, published_reports: Array, responses: Array) -> Dictionary:
+static func build(state: GameState, published_reports: Array, responses: Array, exposure_progresses: bool = true) -> Dictionary:
 	var result := {"round":state.round, "remaining_budget":state.total_supply(),
 		"shelters":{}, "roads":{}, "depots":{}, "previous_actions":[], "public_reports":[], "responses":[]}
 	for id in state.shelters:
@@ -47,4 +47,11 @@ static func build(state: GameState, published_reports: Array, responses: Array) 
 			"reason":reason if PlayerBelief.REASONS.has(reason) else ""})
 	# Stable order carries no relationship to handoff order or participant identity.
 	result.responses.sort_custom(func(a: Dictionary,b: Dictionary): return JSON.stringify(a) < JSON.stringify(b))
+	result.public_rules = JSON.parse_string(FileAccess.get_file_as_string("res://scripts/public_support_rules.json"))
+	result.public_rules.exposure_progresses = exposure_progresses
+	result.display_names = {}
+	for id in state.shelters: result.display_names[id] = state.shelters[id].display_name
+	for id in state.edges: result.display_names[id] = "Road " + id
+	result.legal_actions = SupportLibrary.legal_actions(result)
+	result.legal_actions.append({"action":"WAIT","target":"NONE"})
 	return result

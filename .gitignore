@@ -20,3 +20,16 @@ build/
 test-output/
 cascade_session_*.json
 .DS_Store
+
+# Private development backend configuration and durable synthetic records
+.env
+.env.*
+!.env.example
+backend/data/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+__pycache__/
+*.pyc
+
+backend/certs/*.pem

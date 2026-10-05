@@ -176,6 +176,8 @@ func test_lifecycle() -> void:
 			check(game.phase==GameManager.Phase.DISCUSSION and support_events(game).size()==round_number-1,"No support before initial discussion")
 			check(not game.configure_condition((condition+1)%3),"Condition cannot change mid-session")
 			check(not game.proceed_to_actions(),"Discussion cannot bypass support")
+			check(not game.begin_support(),"Discussion cannot finish early")
+			now_ms += 120000
 			check(game.begin_support() and not game.begin_support(),"Exactly one support per round")
 			check(support_events(game).size()==round_number-1,"Generated but unseen text is not logged as shown")
 			now_ms+=30000
@@ -202,7 +204,7 @@ func test_lifecycle() -> void:
 			game.next_round()
 		check(game.phase==GameManager.Phase.RESULTS,"All three conditions finish all three rounds")
 		var exported := game.export_dictionary()
-		check(exported.intervention==game.condition_name() and exported.schema_version==3,"Export uses actual condition and schema")
+		check(exported.intervention==game.condition_name() and exported.schema_version==4,"Export uses actual condition and schema")
 		check(exported.private_surveys.size()==9 and not JSON.stringify(exported).contains("participant_"),"Research answers retained without respondent identifiers")
 		for event in game.logger.events:
 			if event.type=="PRIVATE_SURVEY_SUBMITTED": check(event.metadata.is_empty() and event.target=="","Survey receipt cannot link an answer to handoff timing")
@@ -213,6 +215,7 @@ func test_lifecycle() -> void:
 func test_ui_conditions() -> void:
 	var app: Control = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(app)
+	app._start_normal()
 	app.session._support_clock=func(): return now_ms
 	for condition in 3:
 		app.session.reset()
@@ -222,6 +225,7 @@ func test_ui_conditions() -> void:
 		picker.select(condition)
 		app.session.configure_condition(picker.selected)
 		submit_round(app.session)
+		now_ms += 120000
 		app.session.begin_support()
 		for frame in 5: await process_frame
 		check(app.support_card.is_visible_in_tree() and app.support_card.get_child_count()==6,"Same sidebar note and three heading/body pairs for every condition")

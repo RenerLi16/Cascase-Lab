@@ -1,0 +1,32 @@
+{
+  "scenario_id": "twin_districts_02_v1",
+  "scenario_title": "Twin Districts: The Bridge",
+  "rounds": 3,
+  "world_size": [1000, 700],
+  "node_positions": {
+    "A": [120, 200], "B": [120, 500], "C": [320, 350],
+    "D": [450, 350], "E": [590, 350], "F": [760, 190],
+    "G": [760, 510], "H": [910, 350]
+  },
+  "shelter_names": {
+    "A": "West depot", "B": "Arcade school", "C": "Market square",
+    "D": "Canal gate", "E": "East gate", "F": "Ridge clinic",
+    "G": "East court", "H": "East depot"
+  },
+  "initial_pressures": {"A": 0, "B": 0, "C": 0, "D": 1, "E": 0, "F": 0, "G": 0, "H": 0},
+  "edges": [["A", "B"], ["A", "C"], ["B", "C"], ["C", "D"], ["D", "E"], ["E", "F"], ["E", "G"], ["F", "G"], ["F", "H"], ["G", "H"]],
+  "road_bends": {},
+  "supply_depots": ["A", "H"],
+  "supply_amounts": {"A": 3, "H": 3},
+  "public_intel": [
+    {"round": 1, "time": "09:30", "text": "Reports mention shouting at Market square (C) and an unattended radio at Canal gate (D). Both reports passed through the same dispatcher; neither confirms an exposure inside a shelter."},
+    {"round": 2, "time": "09:45", "text": "An archived 09:18 record identifies the shouting at Market square (C) as a loading dispute. The original Canal gate (D) radio report is still incomplete. These records describe events before the mission."},
+    {"round": 3, "time": "10:00", "text": "The recovered 09:24 East gate (E) log records a visitor arriving from Canal gate (D), without a health check. It does not establish the visitor's condition or East gate's current status."}
+  ],
+  "original_source": "D",
+  "exposure_progresses": true,
+  "ground_truth_timeline": [
+    {"time": "09:22", "text": "Canal gate (D) is the only initially exposed shelter. All other shelters begin at pressure 0. No shelter begins Overrun."},
+    {"time": "09:30", "text": "The market incident was unrelated to exposure. The archived East gate visitor record does not represent a second initial exposure or add pressure to the simulation. Later pressures depend exclusively on player actions and the existing resolution rules."}
+  ]
+}
