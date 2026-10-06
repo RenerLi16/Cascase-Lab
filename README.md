@@ -1,3 +1,5 @@
+> **First-play review:** Local implementation, screenshots, validation, and protocol-sensitive changes are in [First-play and readability review](docs/FIRST_PLAY_REVIEW.md). Practice is a proposed addition and remains off by default in participant builds pending supervisor review.
+
 > **Development backend update:** See [local Qwen integration, automatic saving, tests, and setup](docs/BACKEND_SETUP.md). Qwen is implemented but not live-verified; all runs remain synthetic and non-research-eligible.
 
 # CASCADE LAB: OUTBREAK

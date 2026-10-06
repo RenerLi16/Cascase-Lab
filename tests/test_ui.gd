@@ -104,13 +104,20 @@ func submit_private(round_number: int, index: int) -> void:
 	await click("Submit & pass screen")
 	check(app.session.private_surveys[round_number].size()==index+1,"Private response stored internally only")
 
+# Await the public phase instead of assuming a fixed vehicle/arrival duration.
+func wait_delivery() -> void:
+	var deadline := Time.get_ticks_msec()+4000
+	while app.session.phase == GameManager.Phase.DELIVERY and Time.get_ticks_msec() < deadline:
+		await create_timer(0.05).timeout
+	check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery completes within four seconds")
+
 func dispatch(kind: String, target: String, assignments: Array[String]) -> void:
 	var result: Dictionary = app.session.dispatch_action(kind,target,assignments)
 	check(result.ok,"Dispatch "+kind+" "+target)
 	if not result.ok: return
 	check(app.session.phase == GameManager.Phase.DELIVERY,"Delivery phase shown")
 	check(app.session.pending_action.deliveries.size()==assignments.size(),"Delivery count matches action")
-	await create_timer(2.2).timeout
+	await wait_delivery()
 	await settle()
 	check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery returns to action phase")
 
@@ -147,7 +154,7 @@ func run() -> void:
 	await create_timer(0.65).timeout
 	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Overview restores district")
 	check(not app.inspector.visible,"Overview closes building panel")
-	await click("Private judgment")
+	await click("Choose your")
 	for index in 3: await submit_private(1,index)
 	check(app.session.phase == GameManager.Phase.DISCUSSION,"Private submissions lead directly to discussion")
 	check(button_containing("Beliefs")==null,"Normal UI has no Beliefs tab")
@@ -181,7 +188,7 @@ func run() -> void:
 	await click("Confirm delivery")
 	check(app.session.phase==GameManager.Phase.DELIVERY,"Isolation begins two-endpoint delivery")
 	check(app.session.pending_action.deliveries.size()==2,"Isolation sends one unit to each endpoint")
-	await create_timer(2.2).timeout
+	await wait_delivery()
 	check(app.session.state.edges["E-F"].isolated,"Road closes only after both deliveries arrive")
 	check(app.session.state.total_supply()==1,"Fixed supply is deducted, never regenerated")
 	await click("End round")

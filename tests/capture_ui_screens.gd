@@ -76,7 +76,7 @@ func run() -> void:
 		app._show_session_setup()
 		await shot(tag,"07-session-setup")
 		app._close_modal()
-		await click("Private judgment")
+		await click("Choose your")
 		await shot(tag,"08-handoff")
 		await click("Open my form")
 		await shot(tag,"09-form-blank")
@@ -139,7 +139,7 @@ func run() -> void:
 		app.session.dispatch_action("MONITOR","E",["A"] as Array[String])
 		await create_timer(0.3).timeout
 		await shot(tag,"21-delivery")
-		await create_timer(2.2).timeout
+		await wait_delivery()
 		app._select_shelter("E")
 		await create_timer(0.7).timeout
 		await shot(tag,"22-actions-disabled-reason")

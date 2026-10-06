@@ -33,6 +33,7 @@ var animation_kind := ""
 var animation_paths: Array = []
 var flash_nodes: Array = []
 var closing_edge := ""
+var delivery_targets: Array[String] = []
 # QA can inspect the city and deterministic streets without operational annotations.
 var show_annotations := true
 # Map name plate geometry: plate height, status baseline, and total block height.
@@ -194,7 +195,7 @@ func _free_annotation(preferred: Rect2, occupied: Array[Rect2], landmark: Vector
 	return best
 
 func _annotation_hides_road(rect: Rect2) -> bool:
-	var area := rect.grow(3+8*map_scale())
+	var area := rect.grow(road_core_width()*0.5+4)
 	var corners := [area.position,Vector2(area.end.x,area.position.y),area.end,Vector2(area.position.x,area.end.y)]
 	for points: PackedVector2Array in road_geometry.values():
 		for i in points.size()-1:
@@ -242,23 +243,42 @@ func _draw_city() -> void:
 	var texture: Texture2D = CityMapProfiles.TEXTURES[scenario.scenario_id]
 	draw_texture_rect(texture,rect,false,Color.WHITE)
 
+# Screen-space widths: 4–6px core (previously 1.5px), with 2px dark casing.
+# Visual geometry and logical path costs are unchanged.
+func road_core_width() -> float:
+	return clampf(4.0*map_scale(),4.0,6.0)
+
+func road_hit_radius() -> float:
+	return maxf(10.0,(road_core_width()+4.0)*0.5+4.0)
+
+func shelter_ink(id: String) -> Color:
+	if state.shelters[id].is_overrun: return UIkit.RED
+	return UIkit.AMBER if id == selected_shelter or id == hover_target else UIkit.SECONDARY
+
 func _draw_road(edge: EdgeState) -> void:
 	var points: PackedVector2Array = road_geometry[edge.id]
 	var selected := edge.id == selected_edge or edge.id == hover_target
 	var closed := edge.isolated
 	var no_supply: bool = state.shelters[edge.from].is_overrun or state.shelters[edge.to].is_overrun or not (reachable.has(edge.from) and reachable.has(edge.to))
-	if selected: draw_polyline(points,Color(UIkit.AMBER,0.25),12,true)
-	for index in points.size()-1:
-		draw_dashed_line(points[index],points[index+1],UIkit.RED if closed else (UIkit.AMBER if selected else Color(0.23,0.39,0.33,0.65)),1.5,7,true)
+	var width := road_core_width()
+	# Casing separates the playable overlay from both pale streets and dark roofs.
+	draw_polyline(points,UIkit.MAP,width+4.0,true)
+	var ink := UIkit.RED if closed else (UIkit.AMBER if selected else UIkit.TEXT)
+	if closed or no_supply:
+		for index in points.size()-1:
+			draw_dashed_line(points[index],points[index+1],ink,width,9.0 if closed else 3.0,true)
+	else: draw_polyline(points,ink,width,true)
+	if selected:
+		_brackets(_point_on_path(points,closure_fraction(edge.id)),13,UIkit.AMBER,2)
 	for path: Array in supply_paths:
 		for index in maxi(0,path.size()-1):
-			if edge.other_endpoint(path[index]) == path[index+1]: draw_polyline(points,UIkit.AMBER,3,true)
+			if edge.other_endpoint(path[index]) == path[index+1]: draw_polyline(points,UIkit.AMBER,width,true)
 	if closed or edge.id == preview_edge or edge.id == closing_edge:
 		var fraction := closure_fraction(edge.id)
 		var center := _point_on_path(points,fraction)
 		var direction := (_point_on_path(points,fraction+0.02)-_point_on_path(points,fraction-0.02)).angle()
 		var drop := 10.0*(1.0-animation_progress) if edge.id == closing_edge else 0.0
-		draw_set_transform(center-Vector2(0,drop),direction,Vector2.ONE*map_scale()*0.65)
+		draw_set_transform(center-Vector2(0,drop),direction,Vector2.ONE*clampf(map_scale()*0.8,0.85,1.25))
 		draw_rect(Rect2(-17,-13,34,26),UIkit.MAP)
 		draw_line(Vector2(-13,-14),Vector2(-13,14),UIkit.RED if closed else UIkit.AMBER,5,true)
 		draw_line(Vector2(13,-14),Vector2(13,14),UIkit.RED if closed else UIkit.AMBER,5,true)
@@ -276,7 +296,7 @@ func _draw_shelter(id: String) -> void:
 	var rect := building_rect(id)
 	if not Rect2(Vector2.ZERO,size).intersects(rect): return
 	var selected := selected_shelter == id or hover_target == id
-	var ink := UIkit.RED if shelter.is_overrun else UIkit.ACCENT
+	var ink := shelter_ink(id)
 	if selected: draw_rect(rect.grow(5),Color(ink,0.12))
 	if has_city_art(): draw_rect(rect.grow(1),Color(0.02,0.02,0.02,0.85),false,3)
 	draw_rect(rect,Color(ink,0.65),false,1)
@@ -317,10 +337,10 @@ func _draw_schematic_shelter(id: String) -> void:
 	var shelter: ShelterState = state.shelters[id]
 	var rect := building_rect(id)
 	var center := rect.get_center()
-	var ink := UIkit.RED if shelter.is_overrun else UIkit.ACCENT
+	var ink := shelter_ink(id)
 	if id == selected_shelter or id == hover_target: draw_rect(rect.grow(7),Color(ink,0.2))
 	draw_rect(rect,UIkit.PANEL)
-	if state.depots.has(id): draw_rect(rect,Color(UIkit.TEAL,0.22))
+	if state.depots.has(id): draw_rect(rect,Color(UIkit.SECONDARY,0.12))
 	draw_rect(rect,ink,false,2)
 	_text(center+Vector2(0,6),id,20,ink)
 	if shelter.is_overrun: _draw_overrun_mark(center,14)
@@ -346,7 +366,7 @@ func hit_test(point: Vector2) -> String:
 		var selection := CityMapProfiles.rectangle(CityMapProfiles.node(scenario,id).selection) if has_city_art() else world_building(id)
 		if selection.has_point(to_world(point)): return id
 	var nearest := ""
-	var distance := maxf(5.0,8.0*map_scale())
+	var distance := road_hit_radius()
 	for id in road_geometry:
 		var points: PackedVector2Array = road_geometry[id]
 		for index in points.size()-1:
@@ -394,14 +414,17 @@ func _point_on_path(points: PackedVector2Array, progress: float) -> Vector2:
 
 func play_deliveries(deliveries: Array) -> void:
 	animation_paths.clear()
+	delivery_targets.clear()
 	var longest := 0.0
 	for delivery in deliveries:
+		delivery_targets.append(delivery.target)
 		var path := world_path_for_nodes(delivery.path)
 		animation_paths.append(path)
 		var length := 0.0
 		for index in path.size()-1: length += path[index].distance_to(path[index+1])
 		longest = maxf(longest,length)
-	await _animate("delivery",clampf(0.5+longest/900.0,0.5,1.5))
+	await _animate("delivery",clampf(0.7+longest/900.0,0.7,1.5))
+	await _animate("arrival",0.55)
 
 func play_outbreak(movements: Array) -> void:
 	animation_paths.clear()
@@ -438,13 +461,17 @@ func _draw_animation() -> void:
 			for point in path: route.append(to_screen(point))
 			if route.size() > 1: draw_polyline(route,Color(0.65,0.40,0.21,0.5),2,true)
 			var behind := to_screen(_point_on_path(path,maxf(0.0,animation_progress-0.002)))
-			draw_set_transform(at,(next_point-behind).angle(),Vector2.ONE*map_scale()*0.48)
+			draw_set_transform(at,(next_point-behind).angle(),Vector2.ONE*clampf(map_scale()*0.6,0.65,1.0))
 			draw_rect(Rect2(-13,-8,26,16),UIkit.TEXT)
 			draw_rect(Rect2(4,-6,6,12),UIkit.LINE)
 			draw_rect(Rect2(-11,-5,10,10),UIkit.PANEL)
 			draw_line(Vector2(-6,-5),Vector2(-6,5),UIkit.AMBER,2)
 			for wheel in [Vector2(-8,-9),Vector2(-8,9),Vector2(8,-9),Vector2(8,9)]: draw_rect(Rect2(wheel-Vector2(3,2),Vector2(6,4)),UIkit.TEXT)
 			draw_set_transform(Vector2.ZERO)
+	elif animation_kind == "arrival":
+		for id in delivery_targets:
+			_brackets(positions[id],radius+6,UIkit.AMBER,3)
+			_stamp(positions[id]+Vector2(0,-radius-12),"DELIVERED",UIkit.AMBER)
 	elif animation_kind == "outbreak":
 		for path: PackedVector2Array in animation_paths:
 			var source := to_screen(path[0])
@@ -458,11 +485,16 @@ func _draw_animation() -> void:
 			# Only react to the public installed shield, never to a hidden calculation.
 			for id in positions:
 				if state.shelters[id].shielded_this_round and network_anchor(id).distance_to(path[path.size()-1]) < 0.01 and animation_progress > 0.7:
-					_stamp(positions[id]+Vector2(0,-radius-34),"BLOCKED",UIkit.TEAL)
+					var center: Vector2 = positions[id]
+					var shield := PackedVector2Array([center+Vector2(-19,-22),center+Vector2(19,-22),center+Vector2(17,5),center+Vector2(0,20),center+Vector2(-17,5),center+Vector2(-19,-22)])
+					draw_colored_polygon(shield,UIkit.MAP)
+					draw_polyline(shield,UIkit.TEAL,3,true)
+					_stamp(center+Vector2(0,-radius-34),"BLOCKED",UIkit.TEAL)
 	elif animation_kind == "reveal":
 		for id in flash_nodes:
 			var at: Vector2 = positions[id]
 			_draw_overrun_mark(at,radius+7,animation_progress)
+			_stamp(at+Vector2(0,-radius-18),"OVERRUN",UIkit.RED)
 
 func _draw_overrun_mark(at: Vector2, extent: float, progress: float = 1.0) -> void:
 	var end := lerpf(-extent,extent,progress)

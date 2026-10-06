@@ -52,7 +52,7 @@ func run() -> void:
 				app.session.state.shelters.E.zombie_pressure = 1
 				app.session.state.shelters.B.zombie_pressure = 0
 			for round_number in 3:
-				await click("Private judgment")
+				await click("Choose your")
 				check(app.board == null,"Handoff removes public board and prior form")
 				await snapshot(tag+"-r%d-handoff" % round_number)
 				check_layout(tag+"-handoff")
@@ -92,7 +92,7 @@ func run() -> void:
 					await snapshot(tag+"-isolation")
 					check_layout(tag+"-isolation")
 					await click("Confirm delivery")
-					await create_timer(2.2).timeout
+					await wait_delivery()
 				await click("End round")
 				await click("Resolve")
 				await create_timer(2.0).timeout

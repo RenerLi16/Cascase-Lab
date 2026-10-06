@@ -10,7 +10,7 @@ func run() -> void:
 		app.session._support_clock = func(): return support_time
 		check(app.session.intervention_type == GameManager.InterventionType.DIRECT_RECOMMENDATION,"Assigned condition retained in UI mission")
 		for round_number in 3:
-			await click("Private judgment")
+			await click("Choose your")
 			for player in 3:
 				app.session.open_private_form()
 				check(app.session.submit_belief(PlayerBelief.new("A","WAIT","NONE",3,"protect supply access")),"Normal UI records actual structured answer")

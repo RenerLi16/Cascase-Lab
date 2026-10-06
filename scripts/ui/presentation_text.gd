@@ -8,7 +8,7 @@ const ACTION_DETAILS := {
 	"ISOLATE":"Close / one delivery to each endpoint"
 }
 
-const MAP_KEY := "\n\n[b]Reading the board[/b]\n? means unobserved pressure; it does not mean safe. Named frames identify playable buildings. Depot frames show their remaining supply. A MONITOR tag marks an installed monitor; M:0 or M:1 is a public monitor reading. OBS R1 · P1 is a dated Verify record, not a current reading.\n\nA SHIELD outline lasts for this resolution. Brackets mark selection; NO SUPPLY marks no stocked supply access. Fine dotted roads cannot currently carry supplies. Barricades mark a closed road. Crossed shelters are confirmed Overrun."
+const MAP_KEY := "\n\n[b]Reading the board[/b]\n? means unobserved pressure; it does not mean safe. Named frames identify playable buildings. Depot frames show their remaining supply. A MONITOR tag marks an installed monitor; M:0 or M:1 is a public monitor reading. OBS R1 · P1 is a dated Verify record, not a current reading.\n\nA SHIELD outline lasts for this resolution. Brackets mark selection; NO SUPPLY marks no stocked supply access. Solid roads can carry supplies; short dotted roads cannot currently carry supplies. Closed roads have long dashes and barricades. Crossed shelters are confirmed Overrun."
 
 static func phase_title(phase: GameManager.Phase) -> String:
 	return {
@@ -23,7 +23,7 @@ static func phase_title(phase: GameManager.Phase) -> String:
 		GameManager.Phase.RESULTS:"Incident summary"
 	}.get(phase,"Private judgment")
 
-const RULES := "[b]Survive three rounds[/b]\nKeep shelters functioning. Quiet shelters may have hidden exposure.\n\n[b]Roads and outbreak[/b]\nAll roads carry zombies and supply in both directions. Overrun is permanent. Each Overrun shelter infects its neighbors at resolution; new Overrun shelters spread starting next round. Multiple incoming infections stack.\n\nAn Exposed shelter becomes Overrun at the next resolution. Newly exposed shelters wait until the following resolution to progress. Shields block incoming infection, not exposure already inside.\n\n[b]Six supplies for the whole mission[/b]\nSupply never regenerates or heals infection. Deliveries use the shortest active route. Overrun shelters cannot receive or relay supply.\n\nVERIFY · 1 — a precise, dated pressure snapshot.\nMONITOR · 1 — reports later pressure changes. Installation does not reveal a baseline.\nSHIELD · 1 — blocks incoming road infection this resolution, then expires.\nISOLATE · 2 — deliver one unit to each endpoint, then close the road permanently. Different depots may pay. Both endpoints must be reachable.\n\n[b]Map controls[/b]\nClick a building frame to animate into a close-up and open its information. Overview, empty map space, or Escape returns to the district. Roads open a nearby action bubble without zooming. Hide survey retracts your form; Expand survey restores your answers. Dashed lines mark playable roads; other streets are scenery."
+const RULES := "[b]Survive three rounds[/b]\nKeep shelters functioning. Quiet shelters may have hidden exposure.\n\n[b]Roads and outbreak[/b]\nAll roads carry zombies and supply in both directions. Overrun is permanent. Each Overrun shelter infects its neighbors at resolution; new Overrun shelters spread starting next round. Multiple incoming infections stack.\n\nAn Exposed shelter becomes Overrun at the next resolution. Newly exposed shelters wait until the following resolution to progress. Shields block incoming infection, not exposure already inside.\n\n[b]Six supplies for the whole mission[/b]\nSupply never regenerates or heals infection. Deliveries use the shortest active route. Overrun shelters cannot receive or relay supply.\n\nVERIFY · 1 — a precise, dated pressure snapshot.\nMONITOR · 1 — reports later pressure changes. Installation does not reveal a baseline.\nSHIELD · 1 — blocks incoming road infection this resolution, then expires.\nISOLATE · 2 — deliver one unit to each endpoint, then close the road permanently. Different depots may pay. Both endpoints must be reachable.\n\n[b]Map controls[/b]\nClick a building frame to animate into a close-up and open its information. Overview, empty map space, or Escape returns to the district. Roads open a nearby action bubble without zooming. Hide survey retracts your form; Expand survey restores your answers. Cased lines mark playable roads; other streets are scenery."
 
 # Readable explanations for unavailable actions. Codes stay unchanged in the domain layer.
 const UNAVAILABLE := {
@@ -52,7 +52,7 @@ static func known_status(shelter: ShelterState) -> String:
 
 static func observation_text(observation: Dictionary) -> String:
 	if observation.type == "VERIFY":
-		return "%s · Verified\nPressure %d · Round %d" % [observation.target,observation.pressure,observation.round]
+		return "%s · Verify reading\nPressure %d at round %d · dated snapshot" % [observation.target,observation.pressure,observation.round]
 	return "Monitor alert · %s\nPressure %d to %d · Round %d" % [observation.target,observation.old,observation.new,observation.round]
 
 static func debug(session: GameManager) -> String:

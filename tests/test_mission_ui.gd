@@ -72,6 +72,8 @@ func run() -> void:
 			await click("Leave mission")
 		await click("Back")
 		await click("Play")
+		check(app.practice != null and app.session == null,"Play opens separate practice")
+		app._start_normal()
 		check(not app.session.is_sandbox() and button_containing("Begin actions") == null,"Normal Play exposes only survey route")
 		check(not app.session.begin_sandbox_actions(),"Normal UI cannot bypass domain guard")
 		app.queue_free()

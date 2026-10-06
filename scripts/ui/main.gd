@@ -1,5 +1,7 @@
 extends Control
 
+var practice: PracticeView
+var practice_completed_version := ""
 var mission_session: MissionSession
 var session: GameManager
 var board: NetworkView
@@ -149,7 +151,7 @@ func _render() -> void:
 	notes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	notes.add_theme_constant_override("separation",UIkit.XS)
 	bar.add_child(notes)
-	notes.add_child(UIkit.meta("Select a building or road to inspect it. Dashed lines mark playable roads."))
+	notes.add_child(UIkit.meta("Select a building or road. Solid roads carry supplies; dotted roads have no supply route."))
 	if session.dev_mode and not _private_phase(): notes.add_child(UIkit.meta("Dev mode · hidden state visible",UIkit.RED))
 	if session.is_sandbox(): notes.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
 	footer = VBoxContainer.new()
@@ -176,10 +178,16 @@ func _refresh_inspector() -> void:
 	elif session.phase == GameManager.Phase.RESULTS: _build_results(sidebar)
 	elif _busy(): _build_operation(sidebar)
 	elif session.phase == GameManager.Phase.ROUND_COMPLETE:
-		sidebar.add_child(UIkit.heading("Resolution record"))
-		var alerts: Array = session.last_summary.get("monitor_alerts",[])
-		for alert in alerts: _observation_card(sidebar,alert)
-		if alerts.is_empty(): sidebar.add_child(UIkit.paragraph("No monitor alerts this round.",UIkit.BODY,UIkit.SECONDARY))
+		sidebar.add_child(UIkit.heading("Round %d · What changed" % session.last_summary.round))
+		var newly: Array = session.last_summary.newly_overrun
+		sidebar.add_child(UIkit.paragraph("Newly Overrun: " + (", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED if not newly.is_empty() else UIkit.TEXT))
+		sidebar.add_child(UIkit.strong("%d supplies remaining · %d roads closed" % [session.state.total_supply(),session.closed_road_count()]))
+		for action: GameAction in session.state.actions:
+			if action.round == session.last_summary.round:
+				sidebar.add_child(UIkit.meta("%s · %s · delivery complete" % [action.type,action.target]))
+		for observation in session.state.observations:
+			if observation.round == session.last_summary.round: _observation_card(sidebar,observation)
+		if not session.last_summary.shields.is_empty(): sidebar.add_child(UIkit.meta("Shields expired: " + ", ".join(session.last_summary.shields)))
 	if selected_shelter != "":
 		_build_selection(sidebar)
 		if not session.latest_observation.is_empty() and session.latest_observation.get("target","") == selected_shelter:
@@ -490,7 +498,9 @@ func _build_phase_button() -> void:
 	match session.phase:
 		GameManager.Phase.OBSERVE:
 			if session.is_sandbox(): footer.add_child(UIkit.button("Begin actions",session.begin_sandbox_actions,true))
-			else: footer.add_child(UIkit.button("Private judgment",session.start_private,true))
+			else:
+				footer.add_child(UIkit.meta("Record a private proposal. This does not execute a move."))
+				footer.add_child(UIkit.button("Choose your first move" if session.state.round == 1 else "Choose your next move",session.start_private,true))
 		GameManager.Phase.DISCUSSION:
 			footer.add_child(UIkit.paragraph("Discuss your next move. Actions unlock after the discussion timer.",UIkit.BODY,UIkit.SECONDARY))
 		GameManager.Phase.INTERVENTION:
@@ -864,7 +874,9 @@ func _build_operation(parent: Node) -> void:
 	if session.phase == GameManager.Phase.DELIVERY:
 		var action: GameAction = session.pending_action
 		parent.add_child(UIkit.heading(action.type+" · "+action.target))
-		parent.add_child(UIkit.paragraph("Supply en route."))
+		var spent := action.deliveries.size()
+		parent.add_child(UIkit.paragraph("Supplies: %d → %d · %d spent" % [session.state.total_supply()+spent,session.state.total_supply(),spent]))
+		parent.add_child(UIkit.paragraph("Supply en route. The action takes effect on arrival."))
 	else:
 		parent.add_child(UIkit.heading("Updating the district"))
 		if session.resolution_applied:
@@ -875,6 +887,7 @@ func _dev_access_enabled() -> bool:
 	return not OS.has_feature("participant") and bool(ProjectSettings.get_setting("cascade/development_access",true))
 
 func _dispose_run() -> void:
+	practice = null
 	StudySync.detach()
 	if session != null:
 		session.invalidate()
@@ -916,6 +929,7 @@ func _menu_page() -> VBoxContainer:
 	scroll.add_child(center)
 	var column := VBoxContainer.new()
 	column.custom_minimum_size.x = 640
+	column.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_theme_constant_override("separation",UIkit.LG)
 	center.add_child(column)
 	return column
@@ -923,10 +937,16 @@ func _menu_page() -> VBoxContainer:
 func _show_main_menu() -> void:
 	var column := _menu_page()
 	column.add_child(UIkit.heading("Cascade Lab: Outbreak",UIkit.DISPLAY+6))
-	column.add_child(UIkit.paragraph("Keep the district functioning through three rounds of an uncertain outbreak."))
-	column.add_child(UIkit.paragraph("Four missions. Three people. One shared response.",UIkit.BODY,UIkit.SECONDARY))
+	var premise := UIkit.paragraph(FirstPlayText.premise())
+	premise.custom_minimum_size.x = 640
+	column.add_child(premise)
+	var language := UIkit.quiet("Introduction & practice: English / 简体中文",func(): FirstPlayText.chinese = not FirstPlayText.chinese; _show_main_menu())
+	column.add_child(language)
 	UIkit.spacer(column,UIkit.SM)
-	var play := UIkit.button("Play",_start_normal,true)
+	var play := UIkit.button("Play",_begin_play,true)
+	var replay: Button
+	if _practice_enabled() and practice_completed_version != "":
+		replay = UIkit.button(FirstPlayText.choose("Replay practice","重玩练习"),_start_practice)
 	play.custom_minimum_size.y = 56
 	if StudySync.access_required():
 		# Online builds: the facilitator enters the study access code before play.
@@ -938,10 +958,15 @@ func _show_main_menu() -> void:
 		code.custom_minimum_size.y = 52
 		code.text_changed.connect(func(value: String):
 			StudySync.set_access_code(value)
-			play.disabled = StudySync.access_code.length() < 12)
+			play.disabled = StudySync.access_code.length() < 12
+			if replay != null: replay.disabled = play.disabled)
 		play.disabled = StudySync.access_code.length() < 12
 		column.add_child(code)
 	column.add_child(play)
+	if replay != null:
+		replay.disabled = play.disabled
+		column.add_child(replay)
+	if _practice_enabled(): column.add_child(UIkit.meta(FirstPlayText.choose("Start with a short, unscored practice. Replay it before the measured missions.","先进行简短、不计分的练习。正式任务开始前可以重玩。")))
 	if _dev_access_enabled(): column.add_child(UIkit.button("Dev Mode",_show_level_picker))
 	save_indicator = UIkit.meta("")
 	if not StudySync.sessions.is_empty(): save_indicator.set_meta("show_routine",true)
@@ -971,6 +996,27 @@ func _show_level_picker() -> void:
 	var back := UIkit.button("Back",_show_main_menu)
 	column.add_child(back)
 	_focus_if_present.call_deferred(first_start)
+
+func _practice_enabled() -> bool:
+	# Proposed protocol addition: existing participant builds retain the prior entry
+	# until a supervisor explicitly approves and configures this practice version.
+	return _dev_access_enabled() or bool(ProjectSettings.get_setting("cascade/practice_approved",false))
+
+func _begin_play() -> void:
+	if StudySync.access_required() and StudySync.access_code.length() < 12: return
+	if _practice_enabled(): _start_practice()
+	else: _start_normal()
+
+func _start_practice() -> void:
+	if not _practice_enabled(): return
+	if StudySync.access_required() and StudySync.access_code.length() < 12: return
+	_dispose_run()
+	practice = PracticeView.new()
+	add_child(practice)
+	practice.exited.connect(_show_main_menu)
+	practice.finished.connect(func(version: String):
+		practice_completed_version = version
+		_start_normal())
 
 func _start_normal() -> void:
 	if StudySync.access_required() and StudySync.access_code.length() < 12: return
