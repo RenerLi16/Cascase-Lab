@@ -97,7 +97,8 @@ func run() -> void:
 				var tangent: Vector2 = (app.board._point_on_path(path,0.51)-mid).normalized()
 				check(app.board.hit_test(mid+tangent.orthogonal()*4) == id,"Road visible width is selectable: "+id)
 		for id in app.session.state.shelters:
-			check(app.board.shelter_ink(id) == UIkit.SECONDARY,"Unknown ink is neutral")
+			check(app.board.shelter_ink(id) == UIkit.ACCENT,"Original green shelter color restored")
+			check(app.board.shelter_status_ink(id) == UIkit.SECONDARY,"Unobserved status stays neutral on black")
 		app.board.zoom = 1.0
 		if DisplayServer.get_name() != "headless":
 			var before := await public_pixels()

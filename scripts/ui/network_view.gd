@@ -253,7 +253,12 @@ func road_hit_radius() -> float:
 
 func shelter_ink(id: String) -> Color:
 	if state.shelters[id].is_overrun: return UIkit.RED
-	return UIkit.AMBER if id == selected_shelter or id == hover_target else UIkit.SECONDARY
+	return UIkit.ACCENT
+
+func shelter_status_ink(id: String) -> Color:
+	var shelter: ShelterState = state.shelters[id]
+	if not shelter.is_overrun and shelter.monitor_known_pressure < 0: return UIkit.SECONDARY
+	return shelter_ink(id)
 
 func _draw_road(edge: EdgeState) -> void:
 	var points: PackedVector2Array = road_geometry[edge.id]
@@ -317,7 +322,7 @@ func _draw_shelter(id: String) -> void:
 	if shelter.is_overrun: _draw_overrun_mark(rect.get_center(),minf(rect.size.x,rect.size.y)*0.35)
 	if shelter.shielded_this_round: draw_rect(rect.grow(5),UIkit.TEAL,false,2)
 	var status_at: Vector2 = status_positions.get(id,Vector2(rect.get_center().x,rect.end.y+20))
-	_stamp(status_at," · ".join(tags),ink,UIkit.MAP_TAG)
+	_stamp(status_at," · ".join(tags),shelter_status_ink(id),UIkit.MAP_TAG)
 	if preview_lost.has(id): draw_rect(rect.grow(8),UIkit.AMBER,false,3)
 	if dev_mode: _stamp(rect.get_center(),"DEV P%d" % shelter.zombie_pressure,UIkit.RED)
 
@@ -340,7 +345,7 @@ func _draw_schematic_shelter(id: String) -> void:
 	var ink := shelter_ink(id)
 	if id == selected_shelter or id == hover_target: draw_rect(rect.grow(7),Color(ink,0.2))
 	draw_rect(rect,UIkit.PANEL)
-	if state.depots.has(id): draw_rect(rect,Color(UIkit.SECONDARY,0.12))
+	if state.depots.has(id): draw_rect(rect,Color(UIkit.TEAL,0.22))
 	draw_rect(rect,ink,false,2)
 	_text(center+Vector2(0,6),id,20,ink)
 	if shelter.is_overrun: _draw_overrun_mark(center,14)
@@ -351,7 +356,7 @@ func _draw_schematic_shelter(id: String) -> void:
 	_text(Vector2(center.x,label_y)," ".join(words.slice(0,split_at)),UIkit.MAP_NAME,ink)
 	_text(Vector2(center.x,label_y+19)," ".join(words.slice(split_at)),UIkit.MAP_NAME,ink)
 	var status := "OVERRUN" if shelter.is_overrun else ("M:%d" % shelter.monitor_known_pressure if shelter.monitor_known_pressure >= 0 else "? UNOBSERVED")
-	_stamp(Vector2(center.x,label_y+40),status,ink,UIkit.MAP_TAG)
+	_stamp(Vector2(center.x,label_y+40),status,shelter_status_ink(id),UIkit.MAP_TAG)
 	if state.depots.has(id): _stamp(center-Vector2(0,rect.size.y/2+12),"%d SUPPLY" % state.depots[id].supply_remaining,UIkit.TEAL,UIkit.MAP_TAG)
 	if shelter.is_monitored: _stamp(center-Vector2(0,rect.size.y/2+34),"MONITOR",ink,UIkit.MAP_TAG)
 	if shelter.shielded_this_round: _stamp(Vector2(center.x,label_y+62),"SHIELD",UIkit.TEAL,UIkit.MAP_TAG)

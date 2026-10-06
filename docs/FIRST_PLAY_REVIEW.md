@@ -16,13 +16,15 @@ The flow is short enough for roughly a minute of reading and interaction, but co
 - Playable road cores increased from 1.5px to a bounded 4–6px, with 2px dark casing on each side. The hit radius is 10px. These are logical screen-space units; the viewport may scale them with the rest of the UI.
 - Open stocked routes are solid. Unavailable supply routes have short dots. Closed roads have longer dashes, a barricade, and a CLOSED label. Selected roads have brackets as well as an amber highlight.
 - Road coordinates, endpoints, artwork, path costs, routing, closures, and infection rules are unchanged. The annotation clearance calculation accounts for the visible road width.
-- Unknown shelters use neutral ink and retain `? UNOBSERVED`. Selection, monitoring, shields, supply access, and confirmed Overrun remain distinct. Verify cards explicitly say “dated snapshot.”
+- Per the subsequent color revision, shelter names and frames use their original green. The `? UNOBSERVED` status retains neutral text on a black box. Monitoring, shields, supply access, and confirmed Overrun remain distinct. Verify cards explicitly say “dated snapshot.”
 - Existing delivery vehicles and barricades have readable size limits. A short arrival hold labels the destination DELIVERED. The supply receipt shows before, after, and amount spent.
 - Existing blocked-transmission feedback now draws a shield symbol; Overrun transitions add a concise label to the existing crossed mark. No “saved shelter” claim is made.
 - Round recaps list newly Overrun shelters, remaining supplies, the total number of closed roads, this round's completed actions, purchased Verify/Monitor observations, and expired shields. They do not read hidden damage or pressure calculations.
 - Barlow Semi Condensed, Barlow, Noto Sans SC, neutral-black surfaces, privacy handoffs, saving notices, and the Qwen backend remain intact. Survey questions, scales, required responses, AI input projection, support text, condition assignment, and discussion/support clocks are unchanged.
 
 ## Screenshots
+
+The screenshots below record the initial review; the later requested color revision restores green shelter names and frames while keeping UNOBSERVED boxes black with neutral text.
 
 Screenshots are native Godot captures. The before pair was captured before editing; the after pair uses the same Riverside map, overview, and E close-up. Click images for their full size.
 
@@ -87,7 +89,7 @@ The existing city-art/presentation tests used fixed delivery sleeps; those waits
 2. **Participant enablement:** practice defaults off when development access is disabled or the `participant` export feature is present. Enabling `cascade/practice_approved=true` requires approval. This task has not enabled that setting or published a participant build. The existing access-code check guards both practice and measured entry.
 3. **Completion metadata:** `practice-1` completion is held separately in UI memory, outside measured records. It is not persisted or uploaded. A durable completion/attempt record would require a reviewed schema and retention decision.
 4. **Instruction wording/language:** approve the new premise, proposal-navigation wording, practice copy, and Simplified Chinese translation. The language switch is explicitly scoped to introduction/practice. Research surveys and existing map/action vocabulary have not been translated or rewritten.
-5. **Feedback exposure:** approve thicker road states, neutral uncertainty styling, the public outcome recap, and more legible arrival/blocked/Overrun feedback consistently across conditions. These add salience to existing public facts and may affect decisions despite unchanged mechanics.
+5. **Feedback exposure:** approve thicker road states, neutral uncertainty status boxes, the public outcome recap, and more legible arrival/blocked/Overrun feedback consistently across conditions. These add salience to existing public facts and may affect decisions despite unchanged mechanics.
 6. **Animation duration:** the arrival hold adds 0.55 seconds; very short delivery travel has a 0.7-second minimum (previously 0.5). AI display timing and required discussion/pause durations are unchanged. Approve this small action-display duration change with the rest of the presentation update.
 
 No effect revealing hidden sources, concealed P0/P1 pressure, incubation, or counterfactual shelter survival was implemented. The blocked shield uses only already-visible Overrun-source transmission along public open roads and an installed public shield; it does not show hidden incubation protection.
