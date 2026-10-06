@@ -1,5 +1,7 @@
 # Presentation redesign — September 15, 2026
 
+> Historical. The current fonts, sizes, and palette are documented in [Option A typography](OPTION_A_TYPOGRAPHY.md).
+
 Cascade Lab: Outbreak is a three-person cooperative strategy and research game played on one shared computer. The team manages eight shelters and two supply depots in Riverside District over three rounds. Public reports provide incomplete evidence; players record private structured judgments, discuss the situation, receive the assigned decision-support pause, and commit scarce supplies to Verify, Monitor, Shield, or Isolate. Unrevealed exposure remains uncertain until a permitted observation or a public Overrun transition. The research compares No AI, Direct Recommendation, and Constructive Dissent at the same point in the decision process.
 
 The presentation now resembles a municipal operations map with a white decision sheet. The latest direction replaces the earlier beige/olive palette with white backgrounds, cool infrastructure, dark ink, teal observations/protection, amber selections, and red confirmed losses.

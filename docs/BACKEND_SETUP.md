@@ -1,5 +1,7 @@
 # Synthetic development integration
 
+> **Current protocol (October 2026):** session schema 6 / `cascade-development-6`, support context `cascade-context-2`, prompt `cascade-zh-3`. Narrative dispatches are retired from the game and from every model input; requests carrying report fields are rejected. See [NO_DISPATCH_CONTEXT.md](NO_DISPATCH_CONTEXT.md). The live smoke call recorded below used the earlier `cascade-zh-2` prompt.
+
 Qwen is **live-verified for one synthetic smoke call** (October 4, 2026: China (Beijing) workspace, `qwen-flash`, prompt `cascade-zh-2`, 1,477 input / 82 output tokens, structurally valid Direct Recommendation `VERIFY E`). An earlier attempt was rejected by output validation before failure reasons were recorded; rejections now store a reason code and a private copy of the rejected reply. Message quality and role fidelity are not verified; the first live message contained an unsupported inference and needs human review practices before research use. All records are marked `synthetic-development`, `research_eligible=false`. This work does not authorize participant recruitment or collection. The existing scenarios, action rules, structured reasons, conditions, discussion duration, and reading pause are retained.
 
 For the online setup (itch.io + Render + AWS RDS), see [DEPLOYMENT.md](DEPLOYMENT.md).
@@ -98,7 +100,7 @@ Python's standard library keeps the local setup dependency-free: a localhost `Th
 |---|---|---|
 | Start development session | `POST /v1/sessions` | Session-scoped credential and ID |
 | Append event batch | `POST /v1/sessions/{id}/events` | IDs acknowledged after transaction commit |
-| Request intervention | `POST /v1/sessions/{id}/interventions/{scenario}/{round}` | Immutable job identity/status |
+| Request intervention | `POST /v1/sessions/{id}/interventions/{scenario}/{round}` with `{condition, context_version, context}` | Immutable job identity/status |
 | Poll intervention | `GET` on the same intervention path | Status, completed message, or safe error code |
 | Complete/interruption | `POST /v1/sessions/{id}/completion` | Status after all declared event sequences are durable |
 
@@ -106,7 +108,7 @@ All session paths require `Authorization: Bearer <session credential>`. Start re
 
 `game_events`, `private_events`, `audit_events`, intervention audit, and lifecycle records are separate. Records cover scenario order, versions, phase, assigned condition, private answers/confidence, public observations, actions, outcomes, private input snapshots, exact displayed text/time, configured model/settings, prompt version, usage when returned, failures and completion/interruption. The existing game does not implement additional post-message ratings; none were invented.
 
-The sole game-to-model boundary remains `SupportContext`, extended with explicit public rules, costs, display names and legal actions. Hidden pressures, future reports, original source, solution, identities and complete logs never enter it. The backend rejects extra fields recursively and independently recomputes legal actions. The model receives only that projection, with scenario text and responses marked as data. It never receives event batches or full game exports.
+The sole game-to-model boundary remains `SupportContext`, extended with explicit public rules, costs, display names and legal actions. Hidden pressures, narrative reports, original source, solution, identities and complete logs never enter it. The backend rejects extra fields recursively, rejects retired report fields by name, requires `context_version` `cascade-context-2`, and independently recomputes legal actions. Providers re-validate the same allowlist before any network call. The model receives only that projection, with player responses and display names marked as data. It never receives event batches or full game exports.
 
 A session/scenario/round uniquely identifies a job. Repeated posts reuse pending/completed/failed jobs; changed snapshots or conditions conflict. HTTP 429/503 provider rejections have bounded retries within the same job. Ambiguous network timeouts, malformed output and other rejections are terminal; these do not trigger answer-shopping or silent model changes. A lost client acknowledgment retries the same identity. Restarted pending jobs fail with `backend_interrupted` because the provider may already have accepted them.
 

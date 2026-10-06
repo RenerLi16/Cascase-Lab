@@ -10,13 +10,14 @@ func run() -> void:
 		app.session._support_clock = func(): return support_time
 		check(app.session.intervention_type == GameManager.InterventionType.DIRECT_RECOMMENDATION,"Assigned condition retained in UI mission")
 		for round_number in 3:
-			await click("Private judgment")
+			await click("Choose your")
 			for player in 3:
 				app.session.open_private_form()
 				check(app.session.submit_belief(PlayerBelief.new("A","WAIT","NONE",3,"protect supply access")),"Normal UI records actual structured answer")
 			support_time += 120000
 			await settle(8)
 			check(app.session.phase == GameManager.Phase.INTERVENTION,"Normal UI shows intervention")
+			check(not dispatch_ui_visible(),"No dispatch beside the intervention: mission %d round %d" % [mission+1,round_number+1])
 			support_time += 15000
 			await settle()
 			await click("Proceed to actions")
@@ -25,6 +26,7 @@ func run() -> void:
 			app.session.apply_resolution(app.session.run_token)
 			app.session.finish_resolution(app.session.run_token)
 			await click("Results" if round_number == 2 else "Next round")
+			check(not dispatch_ui_visible() and button_containing("Earlier") == null,"No dispatch history: mission %d round %d" % [mission+1,round_number+1])
 		check(app.mission_session.records.size() == mission+1,"Results capture exactly one complete mission")
 		app._select_shelter("A")
 		await settle()

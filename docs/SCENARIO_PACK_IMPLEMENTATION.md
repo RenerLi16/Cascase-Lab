@@ -12,7 +12,7 @@ The existing structured judgment fields remain, with a required main-reason sele
 
 ## Dev Mode
 
-**Dev Mode**, directly below Play, opens the four-district picker. Select **Start** for a fresh single mission, then **Begin actions** after each public report. Private forms, discussion, support generation, and reading timers are skipped. Supplies, action costs, deliveries, pressure progression, and scoring remain unchanged.
+**Dev Mode**, directly below Play, opens the four-district picker. Select **Start** for a fresh single mission, then **Begin actions** at the start of each round. Private forms, discussion, support generation, and reading timers are skipped. Supplies, action costs, deliveries, pressure progression, and scoring remain unchanged.
 
 **Menu → Reveal hidden state** is optional and starts off. The sandbox always shows **DEV MODE — NOT RESEARCH DATA**, even when reveal is off. Results provide Replay, Choose another scenario, Main menu, and a DEV-labelled local JSON export. The results inspector and picker scroll when necessary, including when navigating by keyboard.
 
@@ -22,7 +22,7 @@ Leaving an unfinished mission requires confirmation. Completed mission records r
 
 - `scenarios/registry.json`: explicit ID/path/title/description registry included in exports.
 - `scenarios/scenario_02.json` through `scenario_04.json`: byte-for-byte copies of the supplied maps. `scenario_01.json` and Riverside artwork are unchanged.
-- `scripts/scenario_data.gd`: ID/path loading with useful errors, graph/geometry/report/stock validation, and canonical initial exposure lists. Crossfire declares B and F without changing spread rules.
+- `scripts/scenario_data.gd`: ID/path loading with useful errors, graph/geometry/stock validation (retired `public_intel` fields are ignored), and canonical initial exposure lists. Crossfire declares B and F without changing spread rules.
 - `scripts/mission_session.gd`: session ID, fixed condition, configured order, completed records, and guarded mission advancement.
 - `scripts/game_manager.gd`: immutable public run purpose, sandbox-only action transition, enforced discussion gate, unique process-wide callback generations, and marked exports.
 - `scripts/ui/main.gd`: main menu, level picker, normal-session continuation, sandbox navigation, and accessible results controls.

@@ -33,8 +33,13 @@ var animation_kind := ""
 var animation_paths: Array = []
 var flash_nodes: Array = []
 var closing_edge := ""
+var delivery_targets: Array[String] = []
 # QA can inspect the city and deterministic streets without operational annotations.
 var show_annotations := true
+# Map name plate geometry: plate height, status baseline, and total block height.
+const NAME_PLATE := 28
+const STATUS_BASELINE := 47
+const NAME_BLOCK := 52
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(500,360)
@@ -159,13 +164,13 @@ func _place_annotations() -> void:
 		var rect := building_rect(id)
 		if not Rect2(Vector2.ZERO,size).intersects(rect): continue
 		var title: String = id+" / "+state.shelters[id].display_name
-		var width := UIkit.MONO_STRONG.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,13).x+12
+		var width := UIkit.HEADING_FONT.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
 		var status := " · ".join(_public_tags(id))
-		width = maxf(width,UIkit.face(status,11,true).get_string_size(status,HORIZONTAL_ALIGNMENT_LEFT,-1,11).x+8)
-		var preferred := Rect2(to_screen(CityMapProfiles.vector(CityMapProfiles.node(scenario,id).label_anchor))-Vector2(0,44),Vector2(width,44))
+		width = maxf(width,UIkit.HEADING_FONT.get_string_size(status,HORIZONTAL_ALIGNMENT_LEFT,-1,_stamp_size(status,UIkit.MAP_TAG)).x+8)
+		var preferred := Rect2(to_screen(CityMapProfiles.vector(CityMapProfiles.node(scenario,id).label_anchor))-Vector2(0,NAME_BLOCK),Vector2(width,NAME_BLOCK))
 		var label := _free_annotation(preferred,occupied,rect.get_center())
-		title_rects[id] = Rect2(label.position,Vector2(width,24))
-		status_positions[id] = Vector2(label.get_center().x,label.position.y+39)
+		title_rects[id] = Rect2(label.position,Vector2(width,NAME_PLATE))
+		status_positions[id] = Vector2(label.get_center().x,label.position.y+STATUS_BASELINE)
 		occupied.append(label.grow(3))
 
 func _free_annotation(preferred: Rect2, occupied: Array[Rect2], landmark: Vector2) -> Rect2:
@@ -190,7 +195,7 @@ func _free_annotation(preferred: Rect2, occupied: Array[Rect2], landmark: Vector
 	return best
 
 func _annotation_hides_road(rect: Rect2) -> bool:
-	var area := rect.grow(3+8*map_scale())
+	var area := rect.grow(road_core_width()*0.5+4)
 	var corners := [area.position,Vector2(area.end.x,area.position.y),area.end,Vector2(area.position.x,area.end.y)]
 	for points: PackedVector2Array in road_geometry.values():
 		for i in points.size()-1:
@@ -225,14 +230,12 @@ func _draw() -> void:
 	for edge: EdgeState in state.edges.values(): _draw_road(edge)
 	for id in positions: _draw_shelter(id)
 	_draw_animation()
-	# Fixed survey registration marks, independent of simulation state.
-	for x in range(24,int(size.x)-20,80):
-		draw_line(Vector2(x,8),Vector2(x,13),UIkit.LINE,1)
-		draw_line(Vector2(x,size.y-8),Vector2(x,size.y-13),UIkit.LINE,1)
-	draw_line(Vector2(size.x-28,40),Vector2(size.x-28,74),UIkit.MUTED,1.5,true)
-	draw_line(Vector2(size.x-34,49),Vector2(size.x-28,40),UIkit.MUTED,1.5,true)
-	draw_line(Vector2(size.x-22,49),Vector2(size.x-28,40),UIkit.MUTED,1.5,true)
-	_text(Vector2(size.x-28,31),"N",UIkit.CAPTION,UIkit.MUTED)
+	# North arrow on an opaque plate for map orientation.
+	draw_rect(Rect2(size.x-44,14,32,68),UIkit.MAP)
+	draw_line(Vector2(size.x-28,40),Vector2(size.x-28,74),UIkit.SECONDARY,1.5,true)
+	draw_line(Vector2(size.x-34,49),Vector2(size.x-28,40),UIkit.SECONDARY,1.5,true)
+	draw_line(Vector2(size.x-22,49),Vector2(size.x-28,40),UIkit.SECONDARY,1.5,true)
+	_text(Vector2(size.x-28,32),"N",16,UIkit.SECONDARY)
 
 func _draw_city() -> void:
 	if not has_city_art(): return
@@ -240,23 +243,42 @@ func _draw_city() -> void:
 	var texture: Texture2D = CityMapProfiles.TEXTURES[scenario.scenario_id]
 	draw_texture_rect(texture,rect,false,Color.WHITE)
 
+# Screen-space widths: 4–6px core (previously 1.5px), with 2px dark casing.
+# Visual geometry and logical path costs are unchanged.
+func road_core_width() -> float:
+	return clampf(4.0*map_scale(),4.0,6.0)
+
+func road_hit_radius() -> float:
+	return maxf(10.0,(road_core_width()+4.0)*0.5+4.0)
+
+func shelter_ink(id: String) -> Color:
+	if state.shelters[id].is_overrun: return UIkit.RED
+	return UIkit.AMBER if id == selected_shelter or id == hover_target else UIkit.SECONDARY
+
 func _draw_road(edge: EdgeState) -> void:
 	var points: PackedVector2Array = road_geometry[edge.id]
 	var selected := edge.id == selected_edge or edge.id == hover_target
 	var closed := edge.isolated
 	var no_supply: bool = state.shelters[edge.from].is_overrun or state.shelters[edge.to].is_overrun or not (reachable.has(edge.from) and reachable.has(edge.to))
-	if selected: draw_polyline(points,Color(UIkit.AMBER,0.25),12,true)
-	for index in points.size()-1:
-		draw_dashed_line(points[index],points[index+1],UIkit.RED if closed else (UIkit.AMBER if selected else Color(0.23,0.39,0.33,0.65)),1.5,7,true)
+	var width := road_core_width()
+	# Casing separates the playable overlay from both pale streets and dark roofs.
+	draw_polyline(points,UIkit.MAP,width+4.0,true)
+	var ink := UIkit.RED if closed else (UIkit.AMBER if selected else UIkit.TEXT)
+	if closed or no_supply:
+		for index in points.size()-1:
+			draw_dashed_line(points[index],points[index+1],ink,width,9.0 if closed else 3.0,true)
+	else: draw_polyline(points,ink,width,true)
+	if selected:
+		_brackets(_point_on_path(points,closure_fraction(edge.id)),13,UIkit.AMBER,2)
 	for path: Array in supply_paths:
 		for index in maxi(0,path.size()-1):
-			if edge.other_endpoint(path[index]) == path[index+1]: draw_polyline(points,UIkit.AMBER,3,true)
+			if edge.other_endpoint(path[index]) == path[index+1]: draw_polyline(points,UIkit.AMBER,width,true)
 	if closed or edge.id == preview_edge or edge.id == closing_edge:
 		var fraction := closure_fraction(edge.id)
 		var center := _point_on_path(points,fraction)
 		var direction := (_point_on_path(points,fraction+0.02)-_point_on_path(points,fraction-0.02)).angle()
 		var drop := 10.0*(1.0-animation_progress) if edge.id == closing_edge else 0.0
-		draw_set_transform(center-Vector2(0,drop),direction,Vector2.ONE*map_scale()*0.65)
+		draw_set_transform(center-Vector2(0,drop),direction,Vector2.ONE*clampf(map_scale()*0.8,0.85,1.25))
 		draw_rect(Rect2(-17,-13,34,26),UIkit.MAP)
 		draw_line(Vector2(-13,-14),Vector2(-13,14),UIkit.RED if closed else UIkit.AMBER,5,true)
 		draw_line(Vector2(13,-14),Vector2(13,14),UIkit.RED if closed else UIkit.AMBER,5,true)
@@ -264,7 +286,7 @@ func _draw_road(edge: EdgeState) -> void:
 		draw_set_transform(Vector2.ZERO)
 		_stamp(center+Vector2(0,-24),"CLOSED" if closed else ("CLOSING" if edge.id == closing_edge else "PREVIEW"),UIkit.RED if closed else UIkit.AMBER)
 	if dev_mode:
-		_text(_point_on_path(points,0.5)+Vector2(0,27),edge.id,UIkit.CAPTION,UIkit.TEXT)
+		_text(_point_on_path(points,0.5)+Vector2(0,27),edge.id,UIkit.MAP_TAG,UIkit.TEXT)
 
 func _draw_shelter(id: String) -> void:
 	if not has_city_art():
@@ -274,28 +296,28 @@ func _draw_shelter(id: String) -> void:
 	var rect := building_rect(id)
 	if not Rect2(Vector2.ZERO,size).intersects(rect): return
 	var selected := selected_shelter == id or hover_target == id
-	var ink := UIkit.RED if shelter.is_overrun else UIkit.ACCENT
+	var ink := shelter_ink(id)
 	if selected: draw_rect(rect.grow(5),Color(ink,0.12))
-	if has_city_art(): draw_rect(rect.grow(1),Color(0.025,0.08,0.055,0.85),false,3)
+	if has_city_art(): draw_rect(rect.grow(1),Color(0.02,0.02,0.02,0.85),false,3)
 	draw_rect(rect,Color(ink,0.65),false,1)
 	for corner in [rect.position,Vector2(rect.end.x,rect.position.y),rect.end,Vector2(rect.position.x,rect.end.y)]:
 		var direction: Vector2 = (rect.get_center()-corner).sign()
 		draw_line(corner,corner+Vector2(direction.x*14,0),ink,3,true)
 		draw_line(corner,corner+Vector2(0,direction.y*14),ink,3,true)
 	var title := id+" / "+shelter.display_name
-	var font := UIkit.MONO_STRONG
-	var label_width := font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,13).x+12
-	var at := _pixel_aligned(title_rects[id].position if title_rects.has(id) else rect.position-Vector2(0,24))
-	if at.distance_to(rect.position-Vector2(0,24)) > 4:
-		draw_line(rect.position,at+Vector2(5,24),Color(ink,0.8),1,true)
-	draw_rect(Rect2(at,Vector2(label_width,24)),UIkit.PANEL)
+	var font := UIkit.HEADING_FONT
+	var label_width := font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
+	var at := _pixel_aligned(title_rects[id].position if title_rects.has(id) else rect.position-Vector2(0,NAME_PLATE))
+	if at.distance_to(rect.position-Vector2(0,NAME_PLATE)) > 4:
+		draw_line(rect.position,at+Vector2(5,NAME_PLATE),Color(ink,0.8),1,true)
+	draw_rect(Rect2(at,Vector2(label_width,NAME_PLATE)),UIkit.PANEL)
 	draw_line(at,at+Vector2(label_width,0),ink,1)
-	_draw_caption(font,at+Vector2(6,17),title,13,ink)
+	_draw_caption(font,at+Vector2(7,20),title,UIkit.MAP_NAME,ink)
 	var tags := _public_tags(id)
 	if shelter.is_overrun: _draw_overrun_mark(rect.get_center(),minf(rect.size.x,rect.size.y)*0.35)
 	if shelter.shielded_this_round: draw_rect(rect.grow(5),UIkit.TEAL,false,2)
 	var status_at: Vector2 = status_positions.get(id,Vector2(rect.get_center().x,rect.end.y+20))
-	_stamp(status_at," · ".join(tags),ink,11)
+	_stamp(status_at," · ".join(tags),ink,UIkit.MAP_TAG)
 	if preview_lost.has(id): draw_rect(rect.grow(8),UIkit.AMBER,false,3)
 	if dev_mode: _stamp(rect.get_center(),"DEV P%d" % shelter.zombie_pressure,UIkit.RED)
 
@@ -315,27 +337,27 @@ func _draw_schematic_shelter(id: String) -> void:
 	var shelter: ShelterState = state.shelters[id]
 	var rect := building_rect(id)
 	var center := rect.get_center()
-	var ink := UIkit.RED if shelter.is_overrun else UIkit.ACCENT
+	var ink := shelter_ink(id)
 	if id == selected_shelter or id == hover_target: draw_rect(rect.grow(7),Color(ink,0.2))
 	draw_rect(rect,UIkit.PANEL)
-	if state.depots.has(id): draw_rect(rect,Color(UIkit.TEAL,0.22))
+	if state.depots.has(id): draw_rect(rect,Color(UIkit.SECONDARY,0.12))
 	draw_rect(rect,ink,false,2)
-	_text(center+Vector2(0,6),id,18,ink)
+	_text(center+Vector2(0,6),id,20,ink)
 	if shelter.is_overrun: _draw_overrun_mark(center,14)
 	if shelter.shielded_this_round: draw_rect(rect.grow(5),UIkit.TEAL,false,2)
 	var label_y := rect.end.y + 19
 	var words: PackedStringArray = shelter.display_name.split(" ")
 	var split_at := ceili(words.size()/2.0)
-	_text(Vector2(center.x,label_y)," ".join(words.slice(0,split_at)),12,ink)
-	_text(Vector2(center.x,label_y+15)," ".join(words.slice(split_at)),12,ink)
+	_text(Vector2(center.x,label_y)," ".join(words.slice(0,split_at)),UIkit.MAP_NAME,ink)
+	_text(Vector2(center.x,label_y+19)," ".join(words.slice(split_at)),UIkit.MAP_NAME,ink)
 	var status := "OVERRUN" if shelter.is_overrun else ("M:%d" % shelter.monitor_known_pressure if shelter.monitor_known_pressure >= 0 else "? UNOBSERVED")
-	_stamp(Vector2(center.x,label_y+32),status,ink,10)
-	if state.depots.has(id): _stamp(center-Vector2(0,rect.size.y/2+12),"%d SUPPLY" % state.depots[id].supply_remaining,UIkit.TEAL,11)
-	if shelter.is_monitored: _stamp(center-Vector2(0,rect.size.y/2+30),"MONITOR",ink,10)
-	if shelter.shielded_this_round: _stamp(Vector2(center.x,label_y+48),"SHIELD",UIkit.TEAL,10)
-	if not reachable.has(id) and not shelter.is_overrun: _stamp(Vector2(center.x,label_y+48),"NO SUPPLY",UIkit.AMBER,10)
+	_stamp(Vector2(center.x,label_y+40),status,ink,UIkit.MAP_TAG)
+	if state.depots.has(id): _stamp(center-Vector2(0,rect.size.y/2+12),"%d SUPPLY" % state.depots[id].supply_remaining,UIkit.TEAL,UIkit.MAP_TAG)
+	if shelter.is_monitored: _stamp(center-Vector2(0,rect.size.y/2+34),"MONITOR",ink,UIkit.MAP_TAG)
+	if shelter.shielded_this_round: _stamp(Vector2(center.x,label_y+62),"SHIELD",UIkit.TEAL,UIkit.MAP_TAG)
+	if not reachable.has(id) and not shelter.is_overrun: _stamp(Vector2(center.x,label_y+62),"NO SUPPLY",UIkit.AMBER,UIkit.MAP_TAG)
 	if preview_lost.has(id): draw_rect(rect.grow(8),UIkit.AMBER,false,3)
-	if dev_mode: _stamp(center+Vector2(0,4),"P%d" % shelter.zombie_pressure,UIkit.RED,12)
+	if dev_mode: _stamp(center+Vector2(0,4),"P%d" % shelter.zombie_pressure,UIkit.RED,UIkit.MAP_TAG)
 
 func hit_test(point: Vector2) -> String:
 	if scenario == null: return ""
@@ -344,7 +366,7 @@ func hit_test(point: Vector2) -> String:
 		var selection := CityMapProfiles.rectangle(CityMapProfiles.node(scenario,id).selection) if has_city_art() else world_building(id)
 		if selection.has_point(to_world(point)): return id
 	var nearest := ""
-	var distance := maxf(5.0,8.0*map_scale())
+	var distance := road_hit_radius()
 	for id in road_geometry:
 		var points: PackedVector2Array = road_geometry[id]
 		for index in points.size()-1:
@@ -392,14 +414,17 @@ func _point_on_path(points: PackedVector2Array, progress: float) -> Vector2:
 
 func play_deliveries(deliveries: Array) -> void:
 	animation_paths.clear()
+	delivery_targets.clear()
 	var longest := 0.0
 	for delivery in deliveries:
+		delivery_targets.append(delivery.target)
 		var path := world_path_for_nodes(delivery.path)
 		animation_paths.append(path)
 		var length := 0.0
 		for index in path.size()-1: length += path[index].distance_to(path[index+1])
 		longest = maxf(longest,length)
-	await _animate("delivery",clampf(0.5+longest/900.0,0.5,1.5))
+	await _animate("delivery",clampf(0.7+longest/900.0,0.7,1.5))
+	await _animate("arrival",0.55)
 
 func play_outbreak(movements: Array) -> void:
 	animation_paths.clear()
@@ -436,13 +461,17 @@ func _draw_animation() -> void:
 			for point in path: route.append(to_screen(point))
 			if route.size() > 1: draw_polyline(route,Color(0.65,0.40,0.21,0.5),2,true)
 			var behind := to_screen(_point_on_path(path,maxf(0.0,animation_progress-0.002)))
-			draw_set_transform(at,(next_point-behind).angle(),Vector2.ONE*map_scale()*0.48)
+			draw_set_transform(at,(next_point-behind).angle(),Vector2.ONE*clampf(map_scale()*0.6,0.65,1.0))
 			draw_rect(Rect2(-13,-8,26,16),UIkit.TEXT)
 			draw_rect(Rect2(4,-6,6,12),UIkit.LINE)
 			draw_rect(Rect2(-11,-5,10,10),UIkit.PANEL)
 			draw_line(Vector2(-6,-5),Vector2(-6,5),UIkit.AMBER,2)
 			for wheel in [Vector2(-8,-9),Vector2(-8,9),Vector2(8,-9),Vector2(8,9)]: draw_rect(Rect2(wheel-Vector2(3,2),Vector2(6,4)),UIkit.TEXT)
 			draw_set_transform(Vector2.ZERO)
+	elif animation_kind == "arrival":
+		for id in delivery_targets:
+			_brackets(positions[id],radius+6,UIkit.AMBER,3)
+			_stamp(positions[id]+Vector2(0,-radius-12),"DELIVERED",UIkit.AMBER)
 	elif animation_kind == "outbreak":
 		for path: PackedVector2Array in animation_paths:
 			var source := to_screen(path[0])
@@ -456,11 +485,16 @@ func _draw_animation() -> void:
 			# Only react to the public installed shield, never to a hidden calculation.
 			for id in positions:
 				if state.shelters[id].shielded_this_round and network_anchor(id).distance_to(path[path.size()-1]) < 0.01 and animation_progress > 0.7:
-					_stamp(positions[id]+Vector2(0,-radius-34),"BLOCKED",UIkit.TEAL)
+					var center: Vector2 = positions[id]
+					var shield := PackedVector2Array([center+Vector2(-19,-22),center+Vector2(19,-22),center+Vector2(17,5),center+Vector2(0,20),center+Vector2(-17,5),center+Vector2(-19,-22)])
+					draw_colored_polygon(shield,UIkit.MAP)
+					draw_polyline(shield,UIkit.TEAL,3,true)
+					_stamp(center+Vector2(0,-radius-34),"BLOCKED",UIkit.TEAL)
 	elif animation_kind == "reveal":
 		for id in flash_nodes:
 			var at: Vector2 = positions[id]
 			_draw_overrun_mark(at,radius+7,animation_progress)
+			_stamp(at+Vector2(0,-radius-18),"OVERRUN",UIkit.RED)
 
 func _draw_overrun_mark(at: Vector2, extent: float, progress: float = 1.0) -> void:
 	var end := lerpf(-extent,extent,progress)
@@ -482,22 +516,23 @@ func _pixel_aligned(point: Vector2) -> Vector2:
 	var transform := get_viewport_transform() * get_global_transform()
 	return transform.affine_inverse() * (transform * point).round()
 
+# Map captions are solid, opaque glyphs on opaque plates: no halo or glow.
 func _draw_caption(font: Font, origin: Vector2, value: String, font_size: int, color: Color) -> void:
-	var at := _pixel_aligned(origin)
-	if color == UIkit.ACCENT or color == UIkit.TEAL:
-		# A tight halo is drawn behind a fully opaque core; no canvas-wide blur.
-		draw_string_outline(font,at,value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,1,Color(color,0.12))
-	draw_string(font,at,value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
+	draw_string(font,_pixel_aligned(origin),value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
 
 func _text(at: Vector2, value: String, font_size: int, color: Color) -> void:
-	var font := UIkit.face(value,font_size,true)
+	var font := UIkit.HEADING_FONT
 	var width := font.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
 	_draw_caption(font,at-Vector2(width/2,0),value,font_size,color)
 
-func _stamp(at: Vector2, value: String, color: Color, font_size: int = UIkit.CAPTION) -> void:
-	if value in ["OVERRUN","CLOSED","SHIELD","BLOCKED"]: font_size = UIkit.BODY
-	var width := UIkit.face(value,font_size,true).get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
-	draw_rect(Rect2(_pixel_aligned(at-Vector2(width/2+4,font_size+1)),Vector2(ceilf(width)+8,font_size+6)),UIkit.MAP)
+# Single important states read larger than combined status lists.
+func _stamp_size(value: String, font_size: int) -> int:
+	return UIkit.MAP_NAME if value in ["OVERRUN","CLOSED","SHIELD","BLOCKED"] else font_size
+
+func _stamp(at: Vector2, value: String, color: Color, font_size: int = UIkit.MAP_TAG) -> void:
+	font_size = _stamp_size(value,font_size)
+	var width := UIkit.HEADING_FONT.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
+	draw_rect(Rect2(_pixel_aligned(at-Vector2(width/2+5,font_size+1)),Vector2(ceilf(width)+10,font_size+6)),UIkit.MAP)
 	_text(at,value,font_size,color)
 
 func _brackets(at: Vector2, extent: float, color: Color, weight: float) -> void:

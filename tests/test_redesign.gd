@@ -87,7 +87,7 @@ func run() -> void:
 			app.session.support_message = {"text":"\n".join(SupportLibrary.TEMPLATES[id]).replace("%s","E-F"),"template_id":id,"version":SupportLibrary.VERSION}
 			app._render()
 			await settle(10)
-			check(app.support_card.get_parent().size.y==440,"All support templates share a fixed card height: "+id)
+			check(app.support_card.get_parent().size.y==app.SUPPORT_NOTE_HEIGHT,"All support templates share a fixed card height: "+id)
 			check(app.support_card.get_global_rect().end.y < app.support_continue.global_position.y,"All support templates fit above continue: "+id)
 		app.queue_free()
 		await settle()

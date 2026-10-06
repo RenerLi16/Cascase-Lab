@@ -12,14 +12,16 @@ var initial_pressures: Dictionary
 var edges: Array
 var supply_depots: Array
 var supply_amounts: Dictionary
-var public_intel: Array
 var exposure_progresses := true
 var original_source: String
 var ground_truth_timeline: Array
 
 static var last_error := ""
 const REGISTRY_PATH := "res://scenarios/registry.json"
-const FIELDS := ["scenario_id", "scenario_title", "rounds", "node_positions", "world_size", "road_bends", "shelter_names", "initial_pressures", "edges", "supply_depots", "supply_amounts", "public_intel", "exposure_progresses", "original_source", "ground_truth_timeline"]
+const FIELDS := ["scenario_id", "scenario_title", "rounds", "node_positions", "world_size", "road_bends", "shelter_names", "initial_pressures", "edges", "supply_depots", "supply_amounts", "exposure_progresses", "original_source", "ground_truth_timeline"]
+# Retired narrative dispatches (context cascade-context-2). Older scenario files may still
+# carry this field; it is explicitly ignored and never copied into active gameplay.
+const DEPRECATED_FIELDS := ["public_intel"]
 
 static func registry() -> Dictionary:
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(REGISTRY_PATH))
@@ -56,10 +58,10 @@ static func validate(data: Dictionary) -> String:
 		if not data.has(field): return "Missing scenario field: " + field
 	for field in ["node_positions", "road_bends", "shelter_names", "initial_pressures", "supply_amounts"]:
 		if not data[field] is Dictionary: return field + " must be an object."
-	for field in ["world_size", "edges", "supply_depots", "public_intel", "ground_truth_timeline"]:
+	for field in ["world_size", "edges", "supply_depots", "ground_truth_timeline"]:
 		if not data[field] is Array: return field + " must be an array."
 	if not data.scenario_id is String or data.scenario_id.is_empty() or not data.scenario_title is String: return "Invalid scenario identity."
-	if data.rounds != 3 or data.public_intel.size() != 3: return "A mission requires three rounds and reports."
+	if data.rounds != 3: return "A mission requires three rounds."
 	if data.world_size.size() != 2: return "Invalid world size."
 	for value in data.world_size:
 		if not _number(value) or value <= 0: return "World dimensions must be positive."
@@ -114,9 +116,6 @@ static func validate(data: Dictionary) -> String:
 		if not _number(amount) or amount < 0 or amount != int(amount): return "Invalid supply amount."
 		total += int(amount)
 	if total != 6: return "A mission requires six supplies."
-	for index in 3:
-		var report = data.public_intel[index]
-		if not report is Dictionary or report.get("round") != index + 1 or not report.get("text") is String or not report.get("time") is String: return "Reports must be ordered by round with text and time."
 	if not data.exposure_progresses is bool or not data.original_source is String: return "Invalid progression or source metadata."
 	return ""
 
@@ -130,6 +129,7 @@ static func from_dictionary(data: Dictionary) -> ScenarioData:
 	last_error = validate(data)
 	if not last_error.is_empty(): return null
 	var scenario := ScenarioData.new()
+	# Only current fields are copied; DEPRECATED_FIELDS are deliberately dropped here.
 	for key in FIELDS: scenario.set(key, data[key])
 	return scenario
 

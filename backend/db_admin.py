@@ -129,11 +129,12 @@ def export(args):
             req = json.loads(request); aud = json.loads(audit); res = json.loads(result) if result else {}
             usage = res.get('usage', {})
             rows.append([sid, scen, rnd, req.get('condition'), status, error or '', res.get('provider', aud.get('provider')),
-                         res.get('model', (aud.get('settings') or {}).get('model')), aud.get('prompt_version'), aud.get('region'),
+                         res.get('model', (aud.get('settings') or {}).get('model')), aud.get('prompt_version'),
+                         aud.get('context_version', 'legacy (pre cascade-context-2)'), aud.get('region'),
                          res.get('text', ''), res.get('action', ''), res.get('target', ''), usage.get('prompt_tokens'),
                          usage.get('completion_tokens'), _iso(requested), _iso(finished), aud.get('rejected_output', '')])
         sheets['ai_interventions'] = (['session_id', 'scenario', 'round', 'condition', 'status', 'error', 'provider', 'model',
-                                       'prompt_version', 'region', 'message_text', 'action', 'target', 'prompt_tokens',
+                                       'prompt_version', 'context_version', 'region', 'message_text', 'action', 'target', 'prompt_tokens',
                                        'completion_tokens', 'requested_utc', 'finished_utc', 'rejected_model_output'], rows)
         rows = [[sid, st, _iso(t)] for sid, st, t in db.execute('SELECT session_id, status, recorded FROM lifecycle ORDER BY recorded')]
         sheets['lifecycle'] = (['session_id', 'status', 'time_utc'], rows)

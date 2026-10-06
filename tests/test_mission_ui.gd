@@ -23,6 +23,7 @@ func run() -> void:
 			check(app.session.is_sandbox() and not app.session.dev_mode,"Sandbox skips forms with reveal off")
 			check(app.session.state.total_supply() == 6 and app.session.state.round == 1,"Fresh original stock and round")
 			check_layout(entry.id+"-observe")
+			check(not dispatch_ui_visible(),"No field dispatch panel: "+entry.id)
 			await snapshot(str(viewport_size.x)+"-"+entry.id)
 			for id in app.session.state.shelters:
 				check(app.board.hit_test(app.board.positions[id]) == id,"Actual map position clickable: "+id)
@@ -52,6 +53,7 @@ func run() -> void:
 				await create_timer(1.7).timeout
 				check(app.session.phase == GameManager.Phase.ROUND_COMPLETE,"Sandbox reaches next round without forms")
 				await click("Results" if round_number == 2 else "Next round")
+				check(not dispatch_ui_visible() and button_containing("Earlier") == null,"No dispatch or dispatch history after round %d: %s" % [round_number+1,entry.id])
 			check(app.session.phase == GameManager.Phase.RESULTS,"Sandbox completes all three rounds")
 			check(app.session.private_surveys.is_empty() and app.session.support_message.is_empty(),"No survey or AI artifacts")
 			check_layout("results-"+entry.id)
@@ -70,6 +72,8 @@ func run() -> void:
 			await click("Leave mission")
 		await click("Back")
 		await click("Play")
+		check(app.practice != null and app.session == null,"Play opens separate practice")
+		app._start_normal()
 		check(not app.session.is_sandbox() and button_containing("Begin actions") == null,"Normal Play exposes only survey route")
 		check(not app.session.begin_sandbox_actions(),"Normal UI cannot bypass domain guard")
 		app.queue_free()

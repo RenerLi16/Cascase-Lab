@@ -9,7 +9,13 @@ import threading
 from .config import Config
 from .providers import Failure, MockProvider, QwenProvider, PROMPT_VERSION
 from .storage import SQLiteStorage, Conflict, Unauthorized
-from .validation import CONDITIONS, Invalid, canonical, identifier, integer, keys, require, validate_context
+from .validation import CONDITIONS, CONTEXT_VERSION, Invalid, canonical, identifier, integer, keys, require, validate_request
+
+# Session protocol. Schema 6 sessions use the no-dispatch context (CONTEXT_VERSION).
+SESSION_VERSION = (6, 'cascade-development-6')
+# Older clients' queued records may still upload as historical records, but such sessions can
+# never request a model intervention: their context contract carried narrative dispatches.
+LEGACY_RECORD_VERSIONS = {(5, 'cascade-development-5')}
 
 class Service:
     def __init__(self, config, store=None, provider=None):
@@ -32,7 +38,8 @@ class Service:
             require(isinstance(body['client_secret'], str) and re.fullmatch('[a-f0-9]{64}', body['client_secret']))
             m = body['metadata']
             keys(m, 'schema_version game_version scenario_order order_source condition participant_slots record_mode research_eligible')
-            require(m['schema_version'] == 5 and m['game_version'] == 'cascade-development-5')
+            version = (m['schema_version'], m['game_version'])
+            require(version == SESSION_VERSION or version in LEGACY_RECORD_VERSIONS)
             require(m['record_mode'] == 'synthetic-development' and m['research_eligible'] is False)
             require(m['condition'] in CONDITIONS and m['participant_slots'] == ['P1','P2','P3'])
             require(isinstance(m['scenario_order'], list) and 1 <= len(m['scenario_order']) <= 4 and len(set(m['scenario_order'])) == len(m['scenario_order']))
@@ -61,29 +68,45 @@ class Service:
             require(scenario in meta['scenario_order'])
             round_number = int(round_text)
             if method == 'POST':
-                keys(body, 'condition context')
+                if (meta['schema_version'], meta['game_version']) != SESSION_VERSION:
+                    # Legacy sessions keep uploading records; they never reach a provider again.
+                    return 400, {'error':'deprecated_session_protocol'}
+                try: validate_request(body)
+                except Invalid as exc:
+                    if exc.reason.startswith('deprecated'): return 400, {'error':exc.reason}
+                    raise
                 require(body['condition'] == meta['condition'] and body['condition'] != 'NONE')
-                c = validate_context(body['context']); require(c['round'] == round_number)
+                require(body['context']['round'] == round_number)
                 with self.lock:
                     existing = self.store.job(sid,scenario,round_number)
                     if existing:
-                        # Compare even completed/failed jobs, rejecting changed inputs for same identity.
+                        # Compare even completed/failed jobs, rejecting changed inputs for same identity,
+                        # and never reuse a result produced under another prompt or context version.
                         self.store.create_job(sid,scenario,round_number,body,{})
+                        if self._stale(sid,scenario,round_number,existing): raise Conflict()
                         return 200, existing
                     if self.store.recent_count('interventions') >= self.config.max_daily_interventions:
                         return 429, {'error':'daily_intervention_limit'}
                     if not self.slots.acquire(blocking=False): return 503, {'error':'generation_capacity'}
                     try:
                         self.store.create_job(sid,scenario,round_number,body,{
-                            'prompt_version':PROMPT_VERSION,'provider':self.config.provider,
+                            'prompt_version':PROMPT_VERSION,'context_version':CONTEXT_VERSION,'provider':self.config.provider,
                             'settings':self.config.settings(), 'region':self.config.region() or 'unconfigured', 'record_mode':'synthetic-development'})
                         self.pool.submit(self._generate,sid,scenario,round_number,body)
                     except Exception:
                         self.slots.release(); raise
             elif method != 'GET': return 405, {'error':'method_not_allowed'}
             result = self.store.job(sid,scenario,round_number)
+            if result and (meta['schema_version'], meta['game_version']) == SESSION_VERSION and self._stale(sid,scenario,round_number,result):
+                raise Conflict()
             return (200,result) if result else (404,{'error':'not_found'})
         return 405, {'error':'method_not_allowed'}
+
+    def _stale(self, sid, scenario, round_number, job):
+        """A completed message produced under another prompt or context version is never reused."""
+        if job['status'] != 'completed': return False
+        audit = self.store.job_audit(sid,scenario,round_number)
+        return audit.get('prompt_version') != PROMPT_VERSION or audit.get('context_version') != CONTEXT_VERSION
 
     def _generate(self, sid, scenario, round_number, body):
         try:

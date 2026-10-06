@@ -15,6 +15,8 @@ Browser (itch.io page) ──HTTPS──▶ Render web service (backend, holds Q
 
 The backend refuses to start in public mode unless the access code, the database URL, the public host name and https-only origins are all set.
 
+> **No-dispatch protocol (schema 6, `cascade-context-2`, prompt `cascade-zh-3`).** Deploy the backend and the re-exported itch.io build together, between sessions. Older clients can still upload queued records, but they can no longer request AI messages. See [NO_DISPATCH_CONTEXT.md](NO_DISPATCH_CONTEXT.md#deployment).
+
 ## 0. Cost guards (do this first)
 
 1. **Alibaba Model Studio:** set a spending limit or budget alert for the Beijing workspace.

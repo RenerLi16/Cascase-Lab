@@ -1,0 +1,116 @@
+{
+  "scenario_id": "practice_demo_v1",
+  "scenario_title": "Practice district",
+  "rounds": 3,
+  "world_size": [
+    1000,
+    700
+  ],
+  "node_positions": {
+    "A": [
+      160,
+      160
+    ],
+    "B": [
+      160,
+      420
+    ],
+    "C": [
+      380,
+      160
+    ],
+    "D": [
+      380,
+      420
+    ],
+    "E": [
+      600,
+      160
+    ],
+    "F": [
+      600,
+      420
+    ],
+    "G": [
+      840,
+      160
+    ],
+    "H": [
+      840,
+      420
+    ]
+  },
+  "road_bends": {
+    "A-B": [
+      [
+        65,
+        160
+      ],
+      [
+        65,
+        420
+      ]
+    ]
+  },
+  "shelter_names": {
+    "A": "Depot A",
+    "B": "Depot B",
+    "C": "Shelter C",
+    "D": "Shelter D",
+    "E": "Shelter E",
+    "F": "Shelter F",
+    "G": "Shelter G",
+    "H": "Shelter H"
+  },
+  "initial_pressures": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "E": 0,
+    "F": 1,
+    "G": 0,
+    "H": 0
+  },
+  "edges": [
+    [
+      "A",
+      "B"
+    ],
+    [
+      "A",
+      "C"
+    ],
+    [
+      "B",
+      "D"
+    ],
+    [
+      "C",
+      "E"
+    ],
+    [
+      "D",
+      "F"
+    ],
+    [
+      "E",
+      "G"
+    ],
+    [
+      "F",
+      "H"
+    ]
+  ],
+  "supply_depots": [
+    "A",
+    "B"
+  ],
+  "supply_amounts": {
+    "A": 3,
+    "B": 3
+  },
+  "exposure_progresses": true,
+  "original_source": "F",
+  "ground_truth_timeline": []
+}

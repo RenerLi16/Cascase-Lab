@@ -21,6 +21,15 @@ func descendants(node: Node, type: String) -> Array:
 		result.append_array(descendants(child,type))
 	return result
 
+# Retired narrative dispatches must not appear anywhere in the participant interface.
+func dispatch_ui_visible() -> bool:
+	for kind in ["Label","Button","RichTextLabel"]:
+		for node: Control in descendants(app,kind):
+			var text := str(node.text).to_lower()
+			# "Dispatch yard" is a shelter name in Lifeline; only the retired report UI is matched.
+			if node.is_visible_in_tree() and (text.contains("field dispatch") or text.contains("dispatches")): return true
+	return false
+
 func button_containing(fragment: String) -> Button:
 	for button: Button in descendants(app,"Button"):
 		if fragment in button.text and button.is_visible_in_tree(): return button
@@ -95,13 +104,20 @@ func submit_private(round_number: int, index: int) -> void:
 	await click("Submit & pass screen")
 	check(app.session.private_surveys[round_number].size()==index+1,"Private response stored internally only")
 
+# Await the public phase instead of assuming a fixed vehicle/arrival duration.
+func wait_delivery() -> void:
+	var deadline := Time.get_ticks_msec()+4000
+	while app.session.phase == GameManager.Phase.DELIVERY and Time.get_ticks_msec() < deadline:
+		await create_timer(0.05).timeout
+	check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery completes within four seconds")
+
 func dispatch(kind: String, target: String, assignments: Array[String]) -> void:
 	var result: Dictionary = app.session.dispatch_action(kind,target,assignments)
 	check(result.ok,"Dispatch "+kind+" "+target)
 	if not result.ok: return
 	check(app.session.phase == GameManager.Phase.DELIVERY,"Delivery phase shown")
 	check(app.session.pending_action.deliveries.size()==assignments.size(),"Delivery count matches action")
-	await create_timer(2.2).timeout
+	await wait_delivery()
 	await settle()
 	check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery returns to action phase")
 
@@ -114,7 +130,7 @@ func run() -> void:
 	check(app.session.phase == GameManager.Phase.OBSERVE,"Scenario starts in Observe")
 	check(app.session.state.overrun_ids().is_empty(),"Normal opening has no visible Overrun")
 	check(app.session.state.shelters.E.zombie_pressure==1,"Exactly one hidden exposure at start")
-	check(app.session.public_intel.size()==1,"Round 1 public intel is visible")
+	check(app.session.get("public_intel")==null and not dispatch_ui_visible(),"No field dispatch panel or history control")
 	check(not app.session.dev_mode,"Dev mode starts off")
 	check(app.board != null,"Map is the primary interface")
 	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Map starts centered at 100 percent")
@@ -138,7 +154,7 @@ func run() -> void:
 	await create_timer(0.65).timeout
 	check(app.board.zoom==1.0 and app.board.pan==Vector2.ZERO,"Overview restores district")
 	check(not app.inspector.visible,"Overview closes building panel")
-	await click("Private judgment")
+	await click("Choose your")
 	for index in 3: await submit_private(1,index)
 	check(app.session.phase == GameManager.Phase.DISCUSSION,"Private submissions lead directly to discussion")
 	check(button_containing("Beliefs")==null,"Normal UI has no Beliefs tab")
@@ -172,7 +188,7 @@ func run() -> void:
 	await click("Confirm delivery")
 	check(app.session.phase==GameManager.Phase.DELIVERY,"Isolation begins two-endpoint delivery")
 	check(app.session.pending_action.deliveries.size()==2,"Isolation sends one unit to each endpoint")
-	await create_timer(2.2).timeout
+	await wait_delivery()
 	check(app.session.state.edges["E-F"].isolated,"Road closes only after both deliveries arrive")
 	check(app.session.state.total_supply()==1,"Fixed supply is deducted, never regenerated")
 	await click("End round")
@@ -181,10 +197,16 @@ func run() -> void:
 	check(app.session.phase == GameManager.Phase.ROUND_COMPLETE,"Resolution returns to round complete")
 	check(app.session.state.overrun_ids()==["E"],"Hidden initial exposure becomes Overrun during play")
 	check(app.session.state.monitor_alerts.size()==1,"Monitor alert appears after pressure change")
-	check(app.session.public_intel.size()==1,"Only round-one intel before next round")
+	check(not dispatch_ui_visible(),"Round summary shows no dispatch")
 	await click("Next round")
 	check(app.session.phase==GameManager.Phase.OBSERVE and app.session.state.round==2,"Next round returns to Observe")
-	check(app.session.public_intel.size()==2 and app.session.public_intel[1].round==2,"Round 2 intel publishes at boundary")
+	check(app.session.state.round==2 and not dispatch_ui_visible() and button_containing("Earlier")==null,"Round 2 begins without a narrative report or dispatch history")
+	app._show_help()
+	await settle()
+	var guide := ""
+	for node: RichTextLabel in descendants(app,"RichTextLabel"): guide += node.get_parsed_text().to_lower()
+	check(guide.contains("verify") and not guide.contains("surveillance") and not guide.contains("report arrives") and not guide.contains("dispatch"),"Field guide has no instruction to use narrative reports")
+	app._close_modal()
 	await click("Menu")
 	check(descendants(app,"CheckButton").is_empty(),"Normal sessions cannot reveal hidden state")
 	await click("Main menu")
@@ -212,7 +234,7 @@ func run() -> void:
 		await settle()
 		var exported_text := FileAccess.get_file_as_string(export_path)
 		var exported_json = JSON.parse_string(exported_text)
-		check(exported_json is Dictionary and exported_json.get("schema_version",0)==4 and exported_json.run_purpose=="dev" and not exported_json.research_eligible,"Session export writes marked dev JSON")
+		check(exported_json is Dictionary and exported_json.get("schema_version",0)==GameManager.EXPORT_SCHEMA and exported_json.get("context_version","")==SupportContext.VERSION and not exported_text.contains("public_intel") and exported_json.run_purpose=="dev" and not exported_json.research_eligible,"Session export writes marked dev JSON")
 	await click("Menu")
 	await click("Restart")
 	check(app.modal != null,"Restart asks before clearing")

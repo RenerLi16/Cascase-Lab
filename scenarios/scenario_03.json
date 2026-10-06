@@ -18,11 +18,6 @@
   "road_bends": {},
   "supply_depots": ["A", "C"],
   "supply_amounts": {"A": 3, "C": 3},
-  "public_intel": [
-    {"round": 1, "time": "09:30", "text": "An alarm was reported at Dispatch yard (D), while Hill clinic (F) sent an interrupted request for help. No inside-shelter check accompanied either report. Both supply depots are west of road D-E."},
-    {"round": 2, "time": "09:45", "text": "The archived 09:16 alarm at Dispatch yard (D) was a scheduled equipment test. Hill clinic's (F) original request contains no diagnosis. The alarm correction alone does not establish any shelter's current condition."},
-    {"round": 3, "time": "10:00", "text": "A recovered pre-mission inventory confirms that Service junction (E), Hill clinic (F), Terrace shelter (G), and East hall (H) held no local supply stock. This report adds no supplies and does not reveal current exposure."}
-  ],
   "original_source": "F",
   "exposure_progresses": true,
   "ground_truth_timeline": [

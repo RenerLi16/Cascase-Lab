@@ -3,13 +3,14 @@ extends RefCounted
 
 # Pure deterministic function of the SAME public projection for every condition.
 # No GameManager/ScenarioData reference, I/O, network, clock, RNG or hidden solver.
-const VERSION := "support-1.0.0"
+# 1.1.0: wording no longer refers to the retired narrative reports.
+const VERSION := "support-1.1.0"
 const PAUSE_SECONDS := 15
 const CONDITIONS := ["NONE", "DIRECT_RECOMMENDATION", "CONSTRUCTIVE_DISSENT"]
 const LABELS := ["No AI", "Direct-Recommendation AI", "Constructive-Dissent AI"]
 const TEMPLATES := {
 	"direct.verify":["Recommendation: Verify Shelter %s next.",
-		"Why: A precise observation can test concerns about this location before more supplies are committed. Public reports and the map alone do not establish its current pressure.",
+		"Why: A precise observation can test concerns about this location before more supplies are committed. The public map and earlier observations do not establish its current pressure.",
 		"Check: Confirm which stocked depot can reach it, and remember that the result is only a snapshot."],
 	"direct.shield":["Recommendation: Shield Shelter %s next.",
 		"Why: An open road connects this shelter to a visibly Overrun neighbor. Protection could block incoming infection while preserving the shelter as a supply route.",
@@ -21,7 +22,7 @@ const TEMPLATES := {
 		"Why: Structured proposals include closing this currently usable road. Both endpoints have funded delivery routes, and closure would block infection along this connection.",
 		"Check: Inspect the supply access lost on each side before committing both units; alternative roads may still carry infection."],
 	"direct.wait_agreement":["Recommendation: Wait; save supply across the district this round.",
-		"Why: The structured proposals agree on waiting. Retaining resources leaves them available later, although the public map and reports cannot establish every shelter's current condition.",
+		"Why: The structured proposals agree on waiting. Retaining resources leaves them available later, although the public map and dated observations cannot establish every shelter's current condition.",
 		"Check: Consider whether delaying protection could make an important endpoint unreachable after resolution."],
 	"direct.wait_unavailable":["Recommendation: Wait; take no supply action across the district this round.",
 		"Why: No funded action has a usable delivery route under the current public road, shelter, and depot conditions. An action cannot be completed without reachable supplies.",

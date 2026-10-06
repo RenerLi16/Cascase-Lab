@@ -166,23 +166,6 @@
     "A": 3,
     "H": 3
   },
-  "public_intel": [
-    {
-      "round": 1,
-      "time": "09:30",
-      "text": "Distress calls mention Old Market, Tram Interchange and East Gate. All used the same radio relay; caller locations are unconfirmed."
-    },
-    {
-      "round": 2,
-      "time": "09:45",
-      "text": "The Old Market call was a replayed recording. Archived camera footage shows movement near East Gate, but no entry into the shelter."
-    },
-    {
-      "round": 3,
-      "time": "10:00",
-      "text": "A recovered patrol photo shows a group on West School’s service road. Its direction and destination are unclear."
-    }
-  ],
   "original_source": "E",
   "exposure_progresses": true,
   "ground_truth_timeline": [

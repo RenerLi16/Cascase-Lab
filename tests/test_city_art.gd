@@ -98,7 +98,7 @@ func run() -> void:
 			var transit: String = app.session.pending_action.deliveries[0].path[1]
 			app.board._move_camera(app.board.network_anchor(transit),2.6,false)
 			await snapshot(tag+"-delivery-close")
-			await create_timer(1.5).timeout
+			await wait_delivery()
 			check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery completes")
 			app.board.center_map(false)
 			var edge := "E-F" if entry.id == "riverside_01_v2" else "D-E"
@@ -108,7 +108,7 @@ func run() -> void:
 			check(app.board.preview_edge == edge,"Preview references authoritative edge")
 			await snapshot(tag+"-preview")
 			await click("Confirm delivery")
-			await create_timer(2.0).timeout
+			await wait_delivery()
 			check(app.session.state.edges[edge].isolated,"Real closure completes after deliveries")
 			app._clear_selection()
 			app.board.center_map(false)

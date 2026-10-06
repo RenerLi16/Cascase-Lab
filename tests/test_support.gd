@@ -22,7 +22,7 @@ func responses(action: String = "VERIFY", target: String = "E", reason: String =
 	return output
 
 func context(game: GameManager, answers: Array = []) -> Dictionary:
-	return SupportContext.build(game.state,game.public_intel,answers if not answers.is_empty() else responses())
+	return SupportContext.build(game.state,answers if not answers.is_empty() else responses())
 
 func submit_round(game: GameManager) -> void:
 	game.start_private()
@@ -60,14 +60,12 @@ func test_projection() -> void:
 		game.state.shelters[id].zombie_pressure=1 if game.state.shelters[id].zombie_pressure==0 else 0
 	game.scenario.original_source="HIDDEN_SOURCE_CANARY"
 	game.scenario.ground_truth_timeline=[{"text":"FUTURE_CANARY"}]
-	game.scenario.public_intel[2].text="UNPUBLISHED_CANARY"
 	game.dev_mode=true
-	check(JSON.stringify(context(game))==before,"Hidden pressure/source/future intel and Dev Mode never affect the projection")
+	check(JSON.stringify(context(game))==before,"Hidden pressure/source/ground truth and Dev Mode never affect the projection")
 	for condition in SupportLibrary.CONDITIONS:
 		check(SupportLibrary.generate(context(game),condition)==SupportLibrary.generate(clean,condition),"Hidden state cannot alter output: "+condition)
-	var supplied_reports: Array = game.public_intel.duplicate(true)
-	supplied_reports.append({"round":3,"time":"future","text":"FUTURE_CANARY"})
-	check(not JSON.stringify(SupportContext.build(game.state,supplied_reports,responses())).contains("CANARY"),"Future reports filtered even if mistakenly supplied")
+	check(not clean.has("public_reports") and not clean.has("public_intel") and not SupportContext.CATEGORIES.has("published_reports"),"Support context carries no narrative reports")
+	check(SupportContext.VERSION == "cascade-context-2","Current no-dispatch context contract")
 	game.state.shelters.E.verified_history.append({"round":1,"pressure":1})
 	game.state.shelters.E.verified_history.append({"round":3,"pressure":2})
 	game.state.round=2
@@ -188,7 +186,7 @@ func test_lifecycle() -> void:
 			check(event.metadata.scenario_id==game.scenario.scenario_id and event.metadata.template_version==SupportLibrary.VERSION,"Scenario and immutable template version logged")
 			check(event.metadata.allowed_inputs==SupportContext.CATEGORIES and event.metadata.displayed_text==game.support_message.text,"Log categories and actual displayed text")
 			check(event.timestamp_utc.ends_with("Z") and event.elapsed_ms>=0,"Time shown is recorded")
-			check(event.metadata.size()==7 and not event.metadata.has("responses"),"Support audit stores no input values or individual responses")
+			check(event.metadata.size()==8 and event.metadata.context_version==SupportContext.VERSION and not event.metadata.has("responses"),"Support audit stores no input values or individual responses; records the context version")
 			check(not game.dispatch_action("VERIFY","E",["H"]).ok and not game.begin_resolution(),"Actions and resolution blocked during pause")
 			var text: String = game.support_message.text
 			game.set_dev_mode(true)
@@ -204,7 +202,7 @@ func test_lifecycle() -> void:
 			game.next_round()
 		check(game.phase==GameManager.Phase.RESULTS,"All three conditions finish all three rounds")
 		var exported := game.export_dictionary()
-		check(exported.intervention==game.condition_name() and exported.schema_version==4,"Export uses actual condition and schema")
+		check(exported.intervention==game.condition_name() and exported.schema_version==GameManager.EXPORT_SCHEMA and exported.context_version==SupportContext.VERSION,"Export uses actual condition and schema")
 		check(exported.private_surveys.size()==9 and not JSON.stringify(exported).contains("participant_"),"Research answers retained without respondent identifiers")
 		for event in game.logger.events:
 			if event.type=="PRIVATE_SURVEY_SUBMITTED": check(event.metadata.is_empty() and event.target=="","Survey receipt cannot link an answer to handoff timing")
