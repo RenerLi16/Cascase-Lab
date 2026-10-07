@@ -22,9 +22,17 @@ func geometry_checks() -> void:
 		check(board.world_path_for_nodes([edge.to,edge.from]) == reversed,"Reversible centerline "+id)
 		for i in points.size()-1:
 			check(points[i].distance_to(points[i+1]) > 0.01,"No zero-length segments")
-		for fraction in [0.15,0.5,0.85]:
-			var world: Vector2 = board._point_on_path(points,fraction)
-			check(board.hit_test(board.to_screen(world)) == id,"Select correct branch "+id+" at "+str(fraction))
+		# Pieces sit on the junctions and take clicks there; everywhere else along
+		# the visible road selects the road itself.
+		for step in range(21):
+			var fraction := step/20.0
+			var screen := board.to_screen(board._point_on_path(points,fraction))
+			var under := ""
+			for nid in [edge.from,edge.to]:
+				if board.token_rect(nid).grow(4).has_point(screen): under = nid
+			if under != "": check(board.hit_test(screen) == under,"Junction piece takes clicks over its road end "+id)
+			elif board.label_rects.values().all(func(r: Rect2): return not r.has_point(screen)):
+				check(board.hit_test(screen) == id,"Select correct branch "+id+" at "+str(fraction))
 		check(board.hit_test(board.to_screen(board._point_on_path(points,board.closure_fraction(id)))) == id,"Closure lies on own selectable segment")
 		for step in range(101):
 			var point: Vector2 = board._point_on_path(points,step/100.0)
@@ -52,7 +60,8 @@ func geometry_checks() -> void:
 				for i in path.size()-1: check(path[i] != path[i+1],"No duplicated route join")
 
 func run() -> void:
-	capture_dir = ProjectSettings.globalize_path("res://docs/screenshots/map-alignment/after")
+	# CAPTURE_DIR redirects captures so verification runs do not rewrite archived report images.
+	capture_dir = OS.get_environment("CAPTURE_DIR") if OS.get_environment("CAPTURE_DIR") != "" else ProjectSettings.globalize_path("res://docs/screenshots/map-alignment/after")
 	DirAccess.make_dir_recursive_absolute(capture_dir)
 	for viewport_size in [Vector2i(1440,900),Vector2i(1200,800)]:
 		root.content_scale_size = viewport_size

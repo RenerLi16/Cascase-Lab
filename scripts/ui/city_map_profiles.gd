@@ -14,7 +14,15 @@ const TEXTURES := {
 	"lifeline_03_v1": preload("res://assets/maps/lifeline.png"),
 	"crossfire_04_v1": preload("res://assets/maps/crossfire.png"),
 }
+# Boards without a layout record (the practice map) still share the paper terrain.
+const EXTRA_TERRAIN := {
+	"practice_demo_v1": preload("res://assets/maps/practice.png"),
+}
 static var cache: Dictionary = {}
+
+static func terrain(id: String) -> Texture2D:
+	if TEXTURES.has(id): return TEXTURES[id]
+	return EXTRA_TERRAIN.get(id,null)
 
 static func has_profile(id: String) -> bool:
 	return FILES.has(id)

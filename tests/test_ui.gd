@@ -145,7 +145,7 @@ func run() -> void:
 	await create_timer(0.65).timeout
 	check(is_equal_approx(app.board.zoom,2.6),"Building selection animates into a close-up")
 	check(app.inspector.visible,"Building opens right information panel")
-	check(app.board.camera_center.is_equal_approx(app.board.world_building("E").get_center()),"Camera centers selected building")
+	check(app.board.camera_center.is_equal_approx(app.board.network_anchor("E")),"Camera centers selected location piece")
 	var old_zoom: float = app.board.zoom
 	await map_click("E-F",true)
 	check(app.board.zoom==old_zoom,"Road selection does not zoom")

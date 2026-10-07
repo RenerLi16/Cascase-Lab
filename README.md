@@ -1,3 +1,5 @@
+> **Light board redesign:** [presentation-only paper-board redesign](docs/LIGHT_BOARD_REDESIGN.md), October 2026. Original illustrations are archived in `output/illustrated-city-v1/`.
+
 > **First-play review:** Local implementation, screenshots, validation, and protocol-sensitive changes are in [First-play and readability review](docs/FIRST_PLAY_REVIEW.md). Practice is a proposed addition and remains off by default in participant builds pending supervisor review.
 
 > **Development backend update:** See [local Qwen integration, automatic saving, tests, and setup](docs/BACKEND_SETUP.md). Qwen is implemented but not live-verified; all runs remain synthetic and non-research-eligible.
@@ -31,7 +33,7 @@ OBSERVE → PRIVATE JUDGMENT → INITIAL DISCUSSION → DECISION PAUSE → ACTIO
 
 The map and current decision lead the screen. The top header shows the phase and round, the right panel shows the selected building, and a compact bar under the map holds the map hint and the phase action. Supply balances appear on the two depots. **Menu → Field guide** opens the rules and map key. Private handoffs replace the board with an opaque screen; the blank private form restores only the public map as a reference.
 
-The presentation uses a dark operations console, the illustrated Riverside city, green named building frames, amber road bubbles, and red confirmed losses. Building details open at the right, with decisions beneath a divider. The phase is centered above the map; timed phases have a red countdown. Private forms slide down into a bottom drawer for map inspection and retain unfinished answers. See [the redesign report](docs/DARK_UI_REDESIGN.md) for details and previews.
+The presentation is a light paper board: warm off-white surfaces, charcoal text, a flat simplified city, bold cased roads, and location pieces sitting directly on their road junctions (house tiles for shelters, crate tiles for depots) with names and public status chips beside them. Keys lift on hover and press down; a **Reduce motion** toggle is on the main and session menus. See [the light board redesign](docs/LIGHT_BOARD_REDESIGN.md) for details, verification, and items for supervisor review; earlier dark-theme notes are historical.
 
 At scenario start, exactly one shelter is secretly `Pressure 1`; the other seven are `Pressure 0`, and there are no Overrun shelters. Pressure 0 and 1 are hidden in normal play. When an exposed shelter reaches 2 it becomes publicly Overrun and stays that way. Each Overrun shelter spreads to every active neighboring road at resolution. Roads are bidirectional for both supply and zombies.
 

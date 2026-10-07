@@ -18,6 +18,7 @@ config/name="CASCADE LAB: OUTBREAK"
 config/description="A deterministic cooperative containment game for three people on one computer."
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/bg_color=Color(0.956863, 0.941176, 0.901961, 1)
 
 [autoload]
 
@@ -46,4 +47,4 @@ theme/custom_font="res://assets/fonts/UiBody.tres"
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.0196078, 0.0196078, 0.0196078, 1)
+environment/defaults/default_clear_color=Color(0.956863, 0.941176, 0.901961, 1)

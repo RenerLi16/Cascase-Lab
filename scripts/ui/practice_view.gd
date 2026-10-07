@@ -74,6 +74,7 @@ func reset() -> void:
 	board.background_selected.connect(overview)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = 350
+	panel.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,6,UIkit.XL-4))
 	body.add_child(panel)
 	detail = UIkit.scroll_column(panel)
 	status = UIkit.paragraph("",UIkit.BODY,UIkit.SECONDARY)
@@ -97,6 +98,7 @@ func select_shelter(id: String) -> void:
 	board.selected_shelter = id
 	board.selected_edge = ""
 	target = id
+	board.pop_piece(id)
 	board.focus_building(id)
 	refresh()
 
@@ -137,7 +139,7 @@ func refresh() -> void:
 			detail.add_child(UIkit.button(t("Close road · 2 supplies","关闭道路 · 2 份物资"),func(): deliver("ISOLATE",target),true))
 	else:
 		detail.add_child(UIkit.heading(t("Try a move","试着行动")))
-		detail.add_child(UIkit.paragraph(t("Click a named shelter to inspect it. Click a road line to select that connection. Overview returns to the whole map.","点击标有名称的避难所查看详情。点击道路选择连接。点击全图返回整个地图。")))
+		detail.add_child(UIkit.paragraph(t("Click a location piece to inspect it. Click a road to select that connection. Overview returns to the whole map.","点击地点棋子查看详情。点击道路选择连接。点击全图返回整个地图。")))
 	if step == 2:
 		UIkit.rule(detail)
 		detail.add_child(UIkit.paragraph(route_changes))

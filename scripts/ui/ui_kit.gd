@@ -1,38 +1,44 @@
 class_name UIkit
 extends RefCounted
 
-# Restrained strategy-game interface: neutral near-black surfaces, opaque reading
-# panels, Barlow body text, and Barlow Semi Condensed reserved for headings.
-# Every face falls back to a weight-matched Noto Sans SC for Simplified Chinese.
-# The fallback sets a 1.5 line height (30px at 20px), so labels add no extra spacing.
+# Light paper-board interface: warm off-white paper, opaque reading surfaces,
+# charcoal text, and a few restrained piece colours. Barlow for body text and
+# controls, Barlow Semi Condensed for short headings; every face falls back to
+# a weight-matched Noto Sans SC for Simplified Chinese (1.5 line height).
 const BODY_FONT := preload("res://assets/fonts/UiBody.tres") # Barlow Regular
 const MEDIUM_FONT := preload("res://assets/fonts/UiMedium.tres") # Barlow Medium
 const STRONG_FONT := preload("res://assets/fonts/UiSemiBold.tres") # Barlow SemiBold
 const HEADING_FONT := preload("res://assets/fonts/UiHeading.tres") # Barlow Semi Condensed SemiBold
 
-# Surfaces
-const BG := Color("050505")
-const PANEL := Color("101010")
-const RAISED := Color("191919")
-const HOVER := Color("222220")
-const PRESSED := Color("0b0b0b")
-const MAP := Color("0a0a0a")
-const LINE := Color("333330")
-const LINE_STRONG := Color("55554f")
-# Text: hierarchy comes from size and weight; every glyph core is opaque.
-const TEXT := Color("f3f3ee")
-const SECONDARY := Color("c7c7c2")
-const DISABLED := Color("a3a39e")
-# Primary actions and selected controls (dark text on a pale accent).
-const ACTION := Color("d6e5a6")
-const ACTION_HOVER := Color("e2edbd")
-const ACTION_PRESSED := Color("c3d48f")
-const ON_ACTION := Color("0b0d07")
-# Status colors keep their existing meanings on the map and in notices.
-const ACCENT := Color("8fff86") # functioning / playable building
-const TEAL := Color("79efa2") # shield and monitor
-const RED := Color("ff6b70") # Overrun, loss, countdown
-const AMBER := Color("f2c477") # roads, privacy, caution
+# Paper surfaces
+const BG := Color("f4f0e6") # table / page
+const PANEL := Color("fffcf5") # cards, sheets, piece faces
+const SUNKEN := Color("efe9dc") # quiet hover, neutral chips, note wells
+const MAP := Color("f4f0e6") # the table around the board (same as page)
+const LINE := Color("ccc5b7") # structural rules and panel edges
+const LINE_STRONG := Color("8f887b") # control outlines (3:1 against paper)
+const EDGE := Color("b9b1a1") # the thin base under raised keys and pieces
+# Text
+const TEXT := Color("292a26")
+const SECONDARY := Color("55574f")
+const DISABLED := Color("6e6f67")
+const DISABLED_FACE := Color("ebe6da")
+# Primary interaction accent (muted blue) with paper-coloured text.
+const ACTION := Color("315f78")
+const ACTION_EDGE := Color("1f4252")
+const ACTION_TINT := Color("dce6ea")
+const ON_ACTION := Color("fffcf5")
+# States. Every state also has a symbol or label; colour is never the only cue.
+const WARNING := Color("855a00") # dark ochre: privacy, route-loss, no supply route
+const WARNING_TINT := Color("f3e7cc")
+const DANGER := Color("a23b2e") # muted brick: confirmed Overrun, closed roads
+const DANGER_EDGE := Color("72281f")
+const PROTECT := Color("3e6b48") # shield and monitor
+const ROAD := Color("57584f") # open playable road core
+const ROAD_CASING := Color("fffcf5")
+const ROAD_HOVER := Color("3b5f72")
+const LAND := Color("e9e2ce") # fallback board sheet when no terrain exists
+const CRATE := Color("d8bd8c") # supply crate face (every action uses the same crate)
 
 # Type scale at the 1440 x 900 reference layout.
 const DISPLAY := 34 # main screen headings
@@ -43,8 +49,8 @@ const SMALL := 17 # necessary secondary labels
 const METRIC := 30 # live numerical readouts
 const METRIC_LARGE := 36 # results headline
 const TIMER := 32
-const MAP_NAME := 17 # building name plates on the map
-const MAP_TAG := 16 # status stamps on the map
+const MAP_NAME := 17 # location name plates on the map
+const MAP_TAG := 16 # status chips on the map
 const XS := 4
 const SM := 8
 const MD := 12
@@ -53,6 +59,8 @@ const XL := 24
 const XXL := 32
 
 static var _figures: FontVariation
+static var _reduced_motion := -1 # -1 = follow system/project setting
+static var _web_preference := -1
 
 # Tabular figures keep timers and readouts from shifting as digits change.
 static func figures() -> Font:
@@ -62,12 +70,32 @@ static func figures() -> Font:
 		_figures.opentype_features = {TextServerManager.get_primary_interface().name_to_tag("tnum"):1}
 	return _figures
 
-static func box(color: Color = PANEL, border: Color = Color.TRANSPARENT, radius: int = 2, padding: int = LG) -> StyleBoxFlat:
+# Reduced motion: the project setting, an in-game toggle, or the browser's
+# prefers-reduced-motion. Durations of research-paced sequences never change;
+# only movement inside them is replaced by immediate, restrained highlighting.
+static func reduced_motion() -> bool:
+	if _reduced_motion >= 0: return _reduced_motion == 1
+	if bool(ProjectSettings.get_setting("cascade/reduced_motion",false)): return true
+	if OS.has_feature("web"):
+		if _web_preference < 0:
+			var result = JavaScriptBridge.eval("!!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)",true)
+			_web_preference = 1 if result == true else 0
+		return _web_preference == 1
+	return false
+
+static func set_reduced_motion(enabled: bool) -> void:
+	_reduced_motion = 1 if enabled else 0
+
+static func motion(seconds: float) -> float:
+	return 0.0 if reduced_motion() else seconds
+
+static func box(color: Color = PANEL, border: Color = Color.TRANSPARENT, radius: int = 4, padding: int = LG) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
 	style.border_color = border
 	style.set_border_width_all(0 if border.a == 0.0 else 1)
 	style.set_corner_radius_all(radius)
+	style.anti_aliasing = true
 	style.content_margin_left = padding
 	style.content_margin_right = padding
 	style.content_margin_top = padding
@@ -75,18 +103,19 @@ static func box(color: Color = PANEL, border: Color = Color.TRANSPARENT, radius:
 	return style
 
 static func control_box(color: Color, border: Color) -> StyleBoxFlat:
-	var style := box(color,border,3,LG)
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
+	var style := box(color,border,6,LG)
+	style.content_margin_top = 9
+	style.content_margin_bottom = 9
 	return style
 
 static func focus_ring() -> StyleBoxFlat:
 	var ring := StyleBoxFlat.new()
 	ring.draw_center = false
-	ring.border_color = TEXT
+	ring.border_color = ACTION
 	ring.set_border_width_all(2)
-	ring.set_corner_radius_all(4)
+	ring.set_corner_radius_all(8)
 	ring.set_expand_margin_all(3)
+	ring.anti_aliasing = true
 	return ring
 
 static func rule(parent: Node) -> void:
@@ -104,6 +133,48 @@ static func spacer(parent: Node, height: int) -> void:
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(gap)
 
+# Small drawn icons replace Godot's default light-on-dark arrow and switch art.
+static func _icon(size: Vector2i, painter: Callable) -> ImageTexture:
+	var image := Image.create_empty(size.x,size.y,false,Image.FORMAT_RGBA8)
+	image.fill(Color(0,0,0,0))
+	painter.call(image)
+	return ImageTexture.create_from_image(image)
+
+static func _disc(image: Image, center: Vector2, radius: float, color: Color) -> void:
+	for y in image.get_height():
+		for x in image.get_width():
+			var d := Vector2(x+0.5,y+0.5).distance_to(center)
+			var a := clampf(radius+0.5-d,0.0,1.0)
+			if a > 0.0: image.set_pixel(x,y,image.get_pixel(x,y).blend(Color(color,color.a*a)))
+
+static func _pill(image: Image, rect: Rect2, color: Color) -> void:
+	var r := rect.size.y*0.5
+	for y in image.get_height():
+		for x in image.get_width():
+			var p := Vector2(x+0.5,y+0.5)
+			var cx := clampf(p.x,rect.position.x+r,rect.end.x-r)
+			var d := p.distance_to(Vector2(cx,rect.position.y+r))
+			var a := clampf(r+0.5-d,0.0,1.0)
+			if a > 0.0: image.set_pixel(x,y,image.get_pixel(x,y).blend(Color(color,color.a*a)))
+
+static func arrow_icon(color: Color) -> ImageTexture:
+	return _icon(Vector2i(16,16),func(image: Image):
+		for row in 6:
+			for x in range(2+row,14-row): image.set_pixel(x,5+row,color))
+
+static func switch_icon(on: bool, enabled: bool = true) -> ImageTexture:
+	return _icon(Vector2i(44,26),func(image: Image):
+		var track := (ACTION if on else LINE_STRONG) if enabled else LINE
+		_pill(image,Rect2(1,3,42,20),track)
+		_pill(image,Rect2(2,4,40,18),track if on else SUNKEN)
+		_disc(image,Vector2(33 if on else 11,13),7.0,PANEL if on else (LINE_STRONG if enabled else LINE)))
+
+static func radio_icon(on: bool) -> ImageTexture:
+	return _icon(Vector2i(18,18),func(image: Image):
+		_disc(image,Vector2(9,9),7.0,ACTION if on else LINE_STRONG)
+		_disc(image,Vector2(9,9),5.5,PANEL)
+		if on: _disc(image,Vector2(9,9),3.5,ACTION))
+
 static func make_theme() -> Theme:
 	var result := Theme.new()
 	result.default_font = BODY_FONT
@@ -119,6 +190,7 @@ static func make_theme() -> Theme:
 	result.set_font("normal_font","RichTextLabel",BODY_FONT)
 	result.set_font("bold_font","RichTextLabel",STRONG_FONT)
 	result.set_color("default_color","RichTextLabel",TEXT)
+	result.set_color("selection_color","RichTextLabel",ACTION_TINT)
 	result.set_constant("line_separation","RichTextLabel",0)
 	for property in ["normal_font_size","bold_font_size","italics_font_size","bold_italics_font_size","mono_font_size"]:
 		result.set_font_size(property,"RichTextLabel",BODY)
@@ -132,17 +204,26 @@ static func make_theme() -> Theme:
 		result.set_color("font_disabled_color",kind,DISABLED)
 		result.set_stylebox("focus",kind,focus_ring())
 	result.set_font("font","OptionButton",BODY_FONT)
+	# Plain buttons and form pickers: flat paper fields with a clear outline.
 	for kind in ["Button","OptionButton"]:
-		result.set_stylebox("normal",kind,control_box(RAISED,LINE))
-		result.set_stylebox("hover",kind,control_box(HOVER,LINE_STRONG))
-		result.set_stylebox("pressed",kind,control_box(PRESSED,LINE_STRONG))
-		result.set_stylebox("hover_pressed",kind,control_box(HOVER,LINE_STRONG))
-		result.set_stylebox("disabled",kind,control_box(Color("141414"),Color("292927")))
+		result.set_stylebox("normal",kind,control_box(PANEL,LINE_STRONG))
+		result.set_stylebox("hover",kind,control_box(PANEL,TEXT))
+		result.set_stylebox("pressed",kind,control_box(SUNKEN,TEXT))
+		result.set_stylebox("hover_pressed",kind,control_box(SUNKEN,TEXT))
+		result.set_stylebox("disabled",kind,control_box(DISABLED_FACE,LINE))
+	result.set_icon("arrow","OptionButton",arrow_icon(TEXT))
 	result.set_constant("h_separation","OptionButton",MD)
 	result.set_constant("arrow_margin","OptionButton",MD)
 	for kind in ["CheckButton","CheckBox"]:
-		for state in ["normal","hover","pressed","hover_pressed","disabled"]: result.set_stylebox(state,kind,box(Color.TRANSPARENT,Color.TRANSPARENT,3,SM))
-	var popup := box(RAISED,LINE,3,SM)
+		for state in ["normal","hover","pressed","hover_pressed","disabled"]:
+			var flat := box(Color.TRANSPARENT,Color.TRANSPARENT,6,SM)
+			if state.begins_with("hover"): flat.bg_color = SUNKEN
+			result.set_stylebox(state,kind,flat)
+	result.set_icon("checked","CheckButton",switch_icon(true))
+	result.set_icon("unchecked","CheckButton",switch_icon(false))
+	result.set_icon("checked_disabled","CheckButton",switch_icon(true,false))
+	result.set_icon("unchecked_disabled","CheckButton",switch_icon(false,false))
+	var popup := box(PANEL,LINE_STRONG,6,SM)
 	result.set_stylebox("panel","PopupMenu",popup)
 	result.set_font("font","PopupMenu",BODY_FONT)
 	result.set_font_size("font_size","PopupMenu",BODY)
@@ -152,8 +233,15 @@ static func make_theme() -> Theme:
 	result.set_color("font_color","PopupMenu",TEXT)
 	result.set_color("font_hover_color","PopupMenu",TEXT)
 	result.set_color("font_disabled_color","PopupMenu",DISABLED)
-	result.set_stylebox("hover","PopupMenu",box(Color("2b2b28"),Color.TRANSPARENT,2,SM))
-	result.set_stylebox("panel","TooltipPanel",box(RAISED,LINE,3,MD))
+	result.set_stylebox("hover","PopupMenu",box(ACTION_TINT,Color.TRANSPARENT,4,SM))
+	for pair in [["radio_checked",true],["radio_unchecked",false],["checked",true],["unchecked",false]]:
+		result.set_icon(pair[0],"PopupMenu",radio_icon(pair[1]))
+	result.set_icon("radio_checked_disabled","PopupMenu",radio_icon(false))
+	result.set_icon("radio_unchecked_disabled","PopupMenu",radio_icon(false))
+	var separator := StyleBoxLine.new()
+	separator.color = LINE
+	result.set_stylebox("separator","PopupMenu",separator)
+	result.set_stylebox("panel","TooltipPanel",box(PANEL,LINE_STRONG,4,MD))
 	result.set_font("font","TooltipLabel",BODY_FONT)
 	result.set_font_size("font_size","TooltipLabel",SMALL)
 	result.set_color("font_color","TooltipLabel",TEXT)
@@ -162,15 +250,18 @@ static func make_theme() -> Theme:
 	result.set_color("font_color","LineEdit",TEXT)
 	result.set_color("font_placeholder_color","LineEdit",SECONDARY)
 	result.set_color("caret_color","LineEdit",TEXT)
-	result.set_color("selection_color","LineEdit",Color(ACTION,0.35))
-	result.set_stylebox("normal","LineEdit",control_box(RAISED,LINE))
-	result.set_stylebox("focus","LineEdit",focus_ring())
-	var track := box(Color("161616"),Color.TRANSPARENT,4,0)
+	result.set_color("selection_color","LineEdit",ACTION_TINT)
+	result.set_color("font_selected_color","LineEdit",TEXT)
+	result.set_stylebox("normal","LineEdit",control_box(PANEL,LINE_STRONG))
+	var field_focus := control_box(PANEL,ACTION)
+	field_focus.set_border_width_all(2)
+	result.set_stylebox("focus","LineEdit",field_focus)
+	var track := box(SUNKEN,Color.TRANSPARENT,4,0)
 	track.content_margin_left = 5
 	track.content_margin_right = 5
 	result.set_stylebox("scroll","VScrollBar",track)
 	result.set_stylebox("scroll_focus","VScrollBar",track)
-	for pair in [["grabber",Color("5a5a55")],["grabber_highlight",Color("75756e")],["grabber_pressed",Color("8a8a83")]]:
+	for pair in [["grabber",Color("b3ab9b")],["grabber_highlight",LINE_STRONG],["grabber_pressed",SECONDARY]]:
 		result.set_stylebox(pair[0],"VScrollBar",box(pair[1],Color.TRANSPARENT,4,0))
 	return result
 
@@ -222,46 +313,51 @@ static func rich(text: String) -> RichTextLabel:
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return node
 
+# Raised paper key. Primary keys are blue with paper text; all keys share the
+# same lift/press feedback, so no action type gets a more exciting response.
 static func button(text: String, callback: Callable, primary: bool = false) -> Button:
-	var node := Button.new()
+	var node := TactileButton.new(TactileButton.Kind.PRIMARY if primary else TactileButton.Kind.NORMAL)
 	node.text = text
 	node.custom_minimum_size.y = 48
 	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	node.pressed.connect(callback)
-	if primary:
-		node.add_theme_font_override("font",STRONG_FONT)
-		for pair in [["normal",ACTION],["hover",ACTION_HOVER],["pressed",ACTION_PRESSED],["hover_pressed",ACTION_HOVER]]:
-			node.add_theme_stylebox_override(pair[0],control_box(pair[1],pair[1]))
-		for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]: node.add_theme_color_override(state,ON_ACTION)
+	if primary: node.add_theme_font_override("font",STRONG_FONT)
 	return node
 
-# Low-emphasis text button (close, overview, archive). Hover still shows a surface.
+# Low-emphasis text button (close, overview, language). Hover shows a surface.
 static func quiet(text: String, callback: Callable) -> Button:
-	var node := button(text,callback)
+	var node := Button.new()
+	node.text = text
 	node.custom_minimum_size.y = 40
+	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	node.pressed.connect(callback)
 	node.add_theme_font_size_override("font_size",SMALL+1)
 	node.add_theme_color_override("font_color",SECONDARY)
-	var flat := box(Color.TRANSPARENT,Color.TRANSPARENT,3,MD)
+	for state in ["font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]: node.add_theme_color_override(state,TEXT)
+	var flat := box(Color.TRANSPARENT,Color.TRANSPARENT,6,MD)
 	flat.content_margin_top = 6
 	flat.content_margin_bottom = 6
 	node.add_theme_stylebox_override("normal",flat)
-	var hover := box(RAISED,Color.TRANSPARENT,3,MD)
+	var hover := box(SUNKEN,Color.TRANSPARENT,6,MD)
 	hover.content_margin_top = 6
 	hover.content_margin_bottom = 6
 	node.add_theme_stylebox_override("hover",hover)
-	node.add_theme_stylebox_override("pressed",hover)
+	var pressed := hover.duplicate()
+	pressed.bg_color = DISABLED_FACE
+	node.add_theme_stylebox_override("pressed",pressed)
+	node.add_theme_stylebox_override("hover_pressed",pressed)
 	return node
 
 static func caution(node: Button) -> Button:
-	node.add_theme_stylebox_override("normal",control_box(RAISED,RED))
-	node.add_theme_stylebox_override("hover",control_box(HOVER,RED))
-	for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]: node.add_theme_color_override(state,RED)
+	if node is TactileButton:
+		node.kind = TactileButton.Kind.CAUTION
+		node._apply_colors()
 	return node
 
 # One opaque note surface. Identical structure for all experimental conditions.
-static func card(parent: Node, color: Color = RAISED) -> VBoxContainer:
+static func card(parent: Node, color: Color = SUNKEN) -> VBoxContainer:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel",box(color,Color.TRANSPARENT,3,XL-4))
+	panel.add_theme_stylebox_override("panel",box(color,LINE if color == PANEL else Color.TRANSPARENT,6,XL-4))
 	parent.add_child(panel)
 	var column := VBoxContainer.new()
 	panel.add_child(column)
