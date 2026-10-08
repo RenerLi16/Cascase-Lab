@@ -140,12 +140,12 @@ func run() -> void:
 	wheel.pressed = true
 	wheel.position = app.board.size/2
 	app.board._gui_input(wheel)
-	check(app.board.zoom==1.0,"Wheel no longer zooms")
+	check(is_equal_approx(app.board.zoom,1.1),"Wheel provides bounded overview zoom")
 	await map_click("E")
 	await create_timer(0.65).timeout
-	check(is_equal_approx(app.board.zoom,2.6),"Building selection animates into a close-up")
+	check(is_equal_approx(app.board.zoom,2.0),"Building selection animates into a close-up")
 	check(app.inspector.visible,"Building opens right information panel")
-	check(app.board.camera_center.is_equal_approx(app.board.world_building("E").get_center()),"Camera centers selected building")
+	check(app.board.to_screen(app.board.world_building("E").get_center()).x < app.inspector.position.x+app.workspace.position.x,"Camera leaves selected tower clear of floating inspector")
 	var old_zoom: float = app.board.zoom
 	await map_click("E-F",true)
 	check(app.board.zoom==old_zoom,"Road selection does not zoom")

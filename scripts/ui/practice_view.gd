@@ -63,11 +63,14 @@ func reset() -> void:
 	page.add_child(UIkit.meta(t("Separate demonstration map · unscored · take your time","独立演示地图 · 不计分 · 无时间限制")))
 	instruction = UIkit.paragraph("")
 	page.add_child(instruction)
-	var body := HBoxContainer.new()
+	var body := Control.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(body)
 	board = NetworkView.new()
-	body.add_child(board)
+	add_child(board)
+	move_child(board,1)
+	board.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	board.inspection_inset = 390
 	board.configure(scenario,state)
 	board.shelter_selected.connect(select_shelter)
 	board.edge_selected.connect(select_road)
@@ -75,6 +78,8 @@ func reset() -> void:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = 350
 	body.add_child(panel)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	panel.offset_left = -350
 	detail = UIkit.scroll_column(panel)
 	status = UIkit.paragraph("",UIkit.BODY,UIkit.SECONDARY)
 	page.add_child(status)
@@ -83,7 +88,24 @@ func reset() -> void:
 	row.add_child(UIkit.button(t("Overview","全图"),overview))
 	row.add_child(UIkit.button(t("Reset practice","重新练习"),reset))
 	row.add_child(UIkit.quiet(t("Main menu","主菜单"),func(): exited.emit()))
+	row.add_child(UIkit.quiet("−",func(): board.change_zoom(-0.1)))
+	row.add_child(UIkit.quiet("+",func(): board.change_zoom(0.1)))
+	var motion := UIkit.quiet(t("Reduce motion","减少动态效果"),func(): UIkit.reduced_motion = not UIkit.reduced_motion)
+	motion.toggle_mode = true
+	motion.button_pressed = UIkit.reduced_motion
+	row.add_child(motion)
+	_pass_map_input(margin)
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	refresh()
+
+func _pass_map_input(node: Node) -> void:
+	if node is BoxContainer or node is MarginContainer: node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children(): _pass_map_input(child)
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		overview()
+		get_viewport().set_input_as_handled()
 
 func overview() -> void:
 	board.center_map()
@@ -109,6 +131,9 @@ func select_road(id: String) -> void:
 	refresh()
 
 func refresh() -> void:
+	var panel: Control = detail.get_parent().get_parent()
+	panel.visible = target != "" or busy or step == 2
+	board.inspection_inset = 390 if panel.visible else 0
 	counter.text = "%d / 6" % state.total_supply()
 	instruction.text = [t("1 / 3 · Select a shelter, then send one supply to Verify it.","1 / 3 · 选择一个避难所，再运送一份物资进行核实。"),t("2 / 3 · Return to Overview. Select a road, then close it with two deliveries.","2 / 3 · 返回全图。选择一条道路，向两端运送物资后关闭它。"),t("3 / 3 · Road closed. Inspect the map to see which supply routes remain.","3 / 3 · 道路已关闭。查看地图上剩余的补给路线。")][step]
 	status.text = receipt

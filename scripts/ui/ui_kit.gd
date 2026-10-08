@@ -1,7 +1,7 @@
 class_name UIkit
 extends RefCounted
 
-# Restrained strategy-game interface: neutral near-black surfaces, opaque reading
+# Woodland interface: dark wood/aged metal surfaces, opaque reading
 # panels, Barlow body text, and Barlow Semi Condensed reserved for headings.
 # Every face falls back to a weight-matched Noto Sans SC for Simplified Chinese.
 # The fallback sets a 1.5 line height (30px at 20px), so labels add no extra spacing.
@@ -11,26 +11,26 @@ const STRONG_FONT := preload("res://assets/fonts/UiSemiBold.tres") # Barlow Semi
 const HEADING_FONT := preload("res://assets/fonts/UiHeading.tres") # Barlow Semi Condensed SemiBold
 
 # Surfaces
-const BG := Color("050505")
-const PANEL := Color("101010")
-const RAISED := Color("191919")
-const HOVER := Color("222220")
-const PRESSED := Color("0b0b0b")
-const MAP := Color("0a0a0a")
-const LINE := Color("333330")
-const LINE_STRONG := Color("55554f")
+const BG := Color("0b181d")
+const PANEL := Color("142327")
+const RAISED := Color("29302c")
+const HOVER := Color("3c4439")
+const PRESSED := Color("17201e")
+const MAP := Color("101f23")
+const LINE := Color("4a554b")
+const LINE_STRONG := Color("9a946e")
 # Text: hierarchy comes from size and weight; every glyph core is opaque.
-const TEXT := Color("f3f3ee")
-const SECONDARY := Color("c7c7c2")
-const DISABLED := Color("a3a39e")
-# Primary actions and selected controls (dark text on a pale accent).
-const ACTION := Color("d6e5a6")
-const ACTION_HOVER := Color("e2edbd")
-const ACTION_PRESSED := Color("c3d48f")
-const ON_ACTION := Color("0b0d07")
+const TEXT := Color("f0e8cf")
+const SECONDARY := Color("c1cabb")
+const DISABLED := Color("919b91")
+# Primary actions use warm lettering and restrained brass edges.
+const ACTION := Color("433c2b")
+const ACTION_HOVER := Color("554a32")
+const ACTION_PRESSED := Color("29291f")
+const ON_ACTION := Color("ffe3a6")
 # Status colors keep their existing meanings on the map and in notices.
-const ACCENT := Color("8fff86") # functioning / playable building
-const TEAL := Color("79efa2") # shield and monitor
+const ACCENT := Color("e9cf91") # functioning / playable building
+const TEAL := Color("8fc9ca") # shield and monitor
 const RED := Color("ff6b70") # Overrun, loss, countdown
 const AMBER := Color("f2c477") # roads, privacy, caution
 
@@ -52,6 +52,7 @@ const LG := 16
 const XL := 24
 const XXL := 32
 
+static var reduced_motion := false
 static var _figures: FontVariation
 
 # Tabular figures keep timers and readouts from shifting as digits change.
@@ -75,9 +76,21 @@ static func box(color: Color = PANEL, border: Color = Color.TRANSPARENT, radius:
 	return style
 
 static func control_box(color: Color, border: Color) -> StyleBoxFlat:
-	var style := box(color,border,3,LG)
+	var style := box(color,border,4,LG)
+	style.corner_detail = 1
+	style.border_width_top = 2
+	style.border_width_bottom = 4
+	style.shadow_color = Color("081316")
+	style.shadow_size = 2
+	style.shadow_offset = Vector2(0,2)
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
+	if color == PRESSED or color == ACTION_PRESSED:
+		style.content_margin_top = 12
+		style.content_margin_bottom = 8
+		style.border_width_top = 4
+		style.border_width_bottom = 2
+		style.shadow_size = 0
 	return style
 
 static func focus_ring() -> StyleBoxFlat:
@@ -231,7 +244,7 @@ static func button(text: String, callback: Callable, primary: bool = false) -> B
 	if primary:
 		node.add_theme_font_override("font",STRONG_FONT)
 		for pair in [["normal",ACTION],["hover",ACTION_HOVER],["pressed",ACTION_PRESSED],["hover_pressed",ACTION_HOVER]]:
-			node.add_theme_stylebox_override(pair[0],control_box(pair[1],pair[1]))
+			node.add_theme_stylebox_override(pair[0],control_box(pair[1],Color("a08a54")))
 		for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]: node.add_theme_color_override(state,ON_ACTION)
 	return node
 
@@ -241,15 +254,6 @@ static func quiet(text: String, callback: Callable) -> Button:
 	node.custom_minimum_size.y = 40
 	node.add_theme_font_size_override("font_size",SMALL+1)
 	node.add_theme_color_override("font_color",SECONDARY)
-	var flat := box(Color.TRANSPARENT,Color.TRANSPARENT,3,MD)
-	flat.content_margin_top = 6
-	flat.content_margin_bottom = 6
-	node.add_theme_stylebox_override("normal",flat)
-	var hover := box(RAISED,Color.TRANSPARENT,3,MD)
-	hover.content_margin_top = 6
-	hover.content_margin_bottom = 6
-	node.add_theme_stylebox_override("hover",hover)
-	node.add_theme_stylebox_override("pressed",hover)
 	return node
 
 static func caution(node: Button) -> Button:
@@ -278,3 +282,21 @@ static func scroll_column(parent: Node) -> VBoxContainer:
 	column.add_theme_constant_override("separation",LG)
 	scroll.add_child(column)
 	return column
+
+# Phase labels/callbacks stay at their original call sites. Only the material and
+# hit shape differ from a standard accessible Button.
+static func progression(text: String, callback: Callable, _primary: bool = true) -> Button:
+	var node := preload("res://scripts/ui/progression_arrow.gd").new()
+	node.text = text
+	node.custom_minimum_size = Vector2(340,76)
+	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	node.pressed.connect(callback)
+	return node
+
+static func note(parent: Node, text: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel",box(PANEL,Color.TRANSPARENT,4,SM))
+	parent.add_child(panel)
+	var label := meta(text)
+	panel.add_child(label)
+	return label

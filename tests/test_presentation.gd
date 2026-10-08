@@ -23,6 +23,7 @@ func check_layout(label: String) -> void:
 		check(rect.position.y >= -1 and rect.end.y <= bounds.end.y+1,label+" fits vertically: "+str(node.name))
 
 func public_pixels() -> PackedByteArray:
+	UIkit.reduced_motion = true # Freeze decorative frames for exact privacy comparison.
 	app.board.queue_redraw()
 	await settle()
 	RenderingServer.force_draw()

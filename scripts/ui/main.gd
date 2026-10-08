@@ -38,9 +38,11 @@ const SUPPORT_SIDEBAR_WIDTH := 460
 const SUPPORT_NOTE_HEIGHT := 480
 const SURVEY_HEIGHT := 470
 const SURVEY_COLLAPSED := 88
-const HEADER_SIDE := 340
+const HEADER_SIDE := 310
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		UIkit.reduced_motion = bool(JavaScriptBridge.eval("matchMedia('(prefers-reduced-motion: reduce)').matches"))
 	theme = UIkit.make_theme()
 	_show_main_menu()
 
@@ -127,10 +129,11 @@ func _render() -> void:
 		return
 	workspace = Control.new()
 	workspace.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	workspace.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page.add_child(workspace)
-	var body := HBoxContainer.new()
+	var body := Control.new()
 	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	body.add_theme_constant_override("separation",UIkit.LG)
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	workspace.add_child(body)
 	workspace.resized.connect(_size_survey)
 	_build_map(body)
@@ -139,6 +142,9 @@ func _render() -> void:
 	inspector.custom_minimum_size.x = SIDEBAR_WIDTH
 	inspector.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,Color.TRANSPARENT,3,UIkit.XL-4))
 	body.add_child(inspector)
+	inspector.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	inspector.offset_left = -SIDEBAR_WIDTH
+	inspector.offset_top = 58
 	inspector_column = UIkit.scroll_column(inspector)
 	inspector_column.get_parent().follow_focus = true
 	_refresh_inspector()
@@ -150,7 +156,12 @@ func _render() -> void:
 	notes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	notes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	notes.add_theme_constant_override("separation",UIkit.XS)
-	bar.add_child(notes)
+	var note_surface := PanelContainer.new()
+	note_surface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note_surface.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	note_surface.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,UIkit.MD))
+	bar.add_child(note_surface)
+	note_surface.add_child(notes)
 	notes.add_child(UIkit.meta("Select a building or road. Solid roads carry supplies; dotted roads have no supply route."))
 	if session.dev_mode and not _private_phase(): notes.add_child(UIkit.meta("Dev mode · hidden state visible",UIkit.RED))
 	if session.is_sandbox(): notes.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
@@ -163,6 +174,7 @@ func _render() -> void:
 	if session.phase == GameManager.Phase.PRIVATE_FORM: _build_survey_drawer()
 	if selected_edge != "": _build_road_bubble()
 	if _busy(): _animate_phase.call_deferred(session.run_token)
+	_float_layout_input(margin)
 
 func _refresh_inspector() -> void:
 	for child in inspector_column.get_children():
@@ -171,6 +183,8 @@ func _refresh_inspector() -> void:
 	var phase_panel := session.phase in [GameManager.Phase.INTERVENTION,GameManager.Phase.RESULTS,GameManager.Phase.ROUND_COMPLETE] or _busy()
 	inspector.visible = selected_shelter != "" or phase_panel
 	inspector.custom_minimum_size.x = SUPPORT_SIDEBAR_WIDTH if session.phase == GameManager.Phase.INTERVENTION else SIDEBAR_WIDTH
+	inspector.offset_left = -inspector.custom_minimum_size.x
+	board.inspection_inset = inspector.custom_minimum_size.x+32 if inspector.visible else 0
 	sidebar = inspector_column
 	if session.phase == GameManager.Phase.INTERVENTION:
 		# The header already names the decision pause; the note stands alone.
@@ -194,10 +208,13 @@ func _refresh_inspector() -> void:
 			_observation_card(sidebar,session.latest_observation)
 
 func _build_header(parent: Node) -> void:
+	var surface := PanelContainer.new()
+	surface.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,10))
+	parent.add_child(surface)
 	var row := HBoxContainer.new()
-	row.custom_minimum_size.y = 72
-	row.add_theme_constant_override("separation",UIkit.XL)
-	parent.add_child(row)
+	row.custom_minimum_size.y = 62
+	row.add_theme_constant_override("separation",UIkit.LG)
+	surface.add_child(row)
 	var left := HBoxContainer.new()
 	left.custom_minimum_size.x = HEADER_SIDE
 	left.add_theme_constant_override("separation",UIkit.LG)
@@ -279,28 +296,17 @@ func _show_menu() -> void:
 	UIkit.spacer(column,UIkit.XS)
 	column.add_child(UIkit.button("Close",_close_modal,true))
 
+# Containers are transparent to map input in their unused space; actual panels,
+# buttons and forms retain their own input handling.
+func _float_layout_input(node: Node) -> void:
+	if node is BoxContainer or node is MarginContainer: node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children(): _float_layout_input(child)
+
 func _build_map(parent: Node) -> void:
-	var left := VBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation",UIkit.SM)
-	parent.add_child(left)
-	var top := HBoxContainer.new()
-	left.add_child(top)
-	var title := UIkit.text_label(session.scenario.scenario_title,UIkit.HEADING_FONT,26)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title.clip_text = true
-	top.add_child(title)
-	var overview := UIkit.quiet("Overview",_clear_selection)
-	overview.tooltip_text = "Return to the full district (Escape)"
-	top.add_child(overview)
-	var border := PanelContainer.new()
-	border.add_theme_stylebox_override("panel",UIkit.box(UIkit.MAP,Color.TRANSPARENT,0,0))
-	border.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left.add_child(border)
 	board = NetworkView.new()
-	border.add_child(board)
+	add_child(board)
+	move_child(board,1)
+	board.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	board.configure(session.scenario,session.state,session.dev_mode and not _private_phase())
 	board.zoom = map_zoom
 	board.camera_center = map_center
@@ -310,6 +316,36 @@ func _build_map(parent: Node) -> void:
 	board.shelter_selected.connect(_select_shelter)
 	board.edge_selected.connect(_select_edge)
 	board.background_selected.connect(_clear_selection)
+	var top := HBoxContainer.new()
+	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(top)
+	var title := UIkit.text_label(session.scenario.scenario_title,UIkit.HEADING_FONT,26)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.clip_text = true
+	top.add_child(title)
+	top.add_child(UIkit.quiet("Guide",_show_help))
+	var overview := UIkit.quiet("Overview",_clear_selection)
+	overview.tooltip_text = "Return to the full district (Escape)"
+	top.add_child(overview)
+	for pair in [["−",-0.1],["+",0.1]]:
+		var amount: float = pair[1]
+		var button := UIkit.quiet(pair[0],func(): board.change_zoom(amount))
+		button.custom_minimum_size.x = 44
+		button.tooltip_text = "Zoom out" if amount < 0 else "Zoom in"
+		top.add_child(button)
+	var motion := UIkit.quiet("Motion: reduced" if UIkit.reduced_motion else "Motion: on",func(): pass)
+	motion.pressed.connect(func():
+		UIkit.reduced_motion = not UIkit.reduced_motion
+		motion.text = "Motion: reduced" if UIkit.reduced_motion else "Motion: on"
+		board.queue_redraw()
+		if UIkit.reduced_motion and board.camera_tween and board.camera_tween.is_running():
+			if selected_shelter != "": board.focus_building(selected_shelter,false)
+			else: board.center_map(false))
+	motion.tooltip_text = "Reduce camera, water, beacon and courier motion. Game timing stays the same."
+	top.add_child(motion)
 
 func _build_survey_drawer() -> void:
 	survey_collapsed = false
@@ -353,7 +389,7 @@ func _toggle_survey() -> void:
 	if survey_collapsed: survey_toggle.grab_focus()
 	if survey_tween: survey_tween.kill()
 	survey_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	survey_tween.tween_property(survey_drawer,"offset_top",-float(SURVEY_COLLAPSED) if survey_collapsed else -minf(SURVEY_HEIGHT,workspace.size.y),0.3)
+	survey_tween.tween_property(survey_drawer,"offset_top",-float(SURVEY_COLLAPSED) if survey_collapsed else -minf(SURVEY_HEIGHT,workspace.size.y),0.0 if UIkit.reduced_motion else 0.3)
 
 func _clear_selection() -> void:
 	if not is_instance_valid(board): return
@@ -449,13 +485,12 @@ func _build_selection(parent: Node) -> void:
 	var shelter: ShelterState = session.state.shelters[selected_shelter]
 	var top := HBoxContainer.new()
 	parent.add_child(top)
-	var tag := UIkit.meta("Building "+selected_shelter)
+	var tag := UIkit.heading(selected_shelter+" · "+shelter.display_name)
 	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(tag)
 	var close := UIkit.quiet("×",_clear_selection)
 	close.tooltip_text = "Close"
 	top.add_child(close)
-	parent.add_child(UIkit.heading(shelter.display_name))
 	var facts := VBoxContainer.new()
 	facts.add_theme_constant_override("separation",UIkit.SM)
 	parent.add_child(facts)
@@ -497,24 +532,23 @@ func _observation_card(parent: Node, observation: Dictionary) -> void:
 func _build_phase_button() -> void:
 	match session.phase:
 		GameManager.Phase.OBSERVE:
-			if session.is_sandbox(): footer.add_child(UIkit.button("Begin actions",session.begin_sandbox_actions,true))
+			if session.is_sandbox(): footer.add_child(UIkit.progression("Begin actions",session.begin_sandbox_actions,true))
 			else:
 				footer.add_child(UIkit.meta("Record a private proposal. This does not execute a move."))
-				footer.add_child(UIkit.button("Choose your first move" if session.state.round == 1 else "Choose your next move",session.start_private,true))
+				footer.add_child(UIkit.progression("Choose your first move" if session.state.round == 1 else "Choose your next move",session.start_private,true))
 		GameManager.Phase.DISCUSSION:
 			footer.add_child(UIkit.paragraph("Discuss your next move. Actions unlock after the discussion timer.",UIkit.BODY,UIkit.SECONDARY))
 		GameManager.Phase.INTERVENTION:
-			support_countdown = UIkit.meta("Continue in %ds" % session.support_seconds_remaining())
-			footer.add_child(support_countdown)
-			support_continue = UIkit.button("Proceed to actions",session.proceed_to_actions,true)
+			support_countdown = UIkit.note(footer,"Continue in %ds" % session.support_seconds_remaining())
+			support_continue = UIkit.progression("Proceed to actions",session.proceed_to_actions,true)
 			support_continue.disabled = true
 			footer.add_child(support_continue)
 		GameManager.Phase.ACTIONS:
-			footer.add_child(UIkit.button("End round",_request_resolution,true))
+			footer.add_child(UIkit.progression("End round",_request_resolution,true))
 		GameManager.Phase.ROUND_COMPLETE:
 			var newly: Array = session.last_summary.newly_overrun
 			footer.add_child(UIkit.paragraph("Shelters lost: " + (", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED if not newly.is_empty() else UIkit.SECONDARY))
-			footer.add_child(UIkit.button("Results" if session.state.round==3 else "Next round",session.next_round,true))
+			footer.add_child(UIkit.progression("Results" if session.state.round==3 else "Next round",session.next_round,true))
 
 func _show_session_setup() -> void:
 	if not session.can_configure_condition(): return
