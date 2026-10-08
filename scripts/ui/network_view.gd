@@ -21,8 +21,10 @@ var title_rects: Dictionary = {}
 var status_positions: Dictionary = {}
 var annotation_key := ""
 var road_geometry: Dictionary = {}
-var tower_rects: Dictionary = {}
 var terrain_texture: Texture2D
+var terrain_surface: Sprite2D
+# Explicitly opt-in QA overlay, never enabled by participant/dev mode.
+var debug_anchors := false
 var ambient_frame := 0
 var ambient_elapsed := 0.0
 var dragging := false
@@ -62,13 +64,10 @@ func has_city_art() -> bool:
 	return CityMapProfiles.has_profile(scenario.scenario_id)
 
 func world_building(id: String) -> Rect2:
-	if CityMapProfiles.has_profile(scenario.scenario_id): return CityMapProfiles.building(scenario,id)
-	var point: Array = scenario.node_positions[id]
-	return Rect2(Vector2(point[0],point[1])-Vector2(28,25),Vector2(56,50))
+	return tower_world_rect(id)
 
 func configure(data: ScenarioData, current_state: GameState, debug: bool = false) -> void:
 	if scenario != data:
-		tower_rects.clear()
 		if camera_tween: camera_tween.kill()
 		selected_shelter = ""
 		selected_edge = ""
@@ -91,6 +90,15 @@ func configure(data: ScenarioData, current_state: GameState, debug: bool = false
 	for id in data.node_positions: roofs.append(tower_world_rect(id))
 	for id in state.edges: paths.append(visual_road(id))
 	terrain_texture = WoodlandArt.terrain(data,roofs,paths)
+	if terrain_surface == null:
+		terrain_surface = Sprite2D.new()
+		terrain_surface.show_behind_parent = true
+		terrain_surface.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var lighting := ShaderMaterial.new()
+		lighting.shader = preload("res://scripts/ui/forest_light.gdshader")
+		terrain_surface.material = lighting
+		add_child(terrain_surface)
+	terrain_surface.texture = terrain_texture
 	queue_redraw()
 
 func _process(delta: float) -> void:
@@ -104,16 +112,16 @@ func _process(delta: float) -> void:
 func map_scale() -> float:
 	if scenario == null: return 1.0
 	# Frame the playable district; only outer scenery is cropped on wide screens.
-	return minf((size.x-140.0)/float(scenario.world_size[0]),(size.y-270.0)/float(scenario.world_size[1])) * zoom
+	return minf((size.x-140.0)/float(scenario.world_size[0]),(size.y-240.0)/float(scenario.world_size[1])) * zoom
 
 func world_center() -> Vector2:
 	return Vector2(scenario.world_size[0],scenario.world_size[1])*0.5
 
 func to_screen(point: Vector2) -> Vector2:
-	return (point-camera_center)*map_scale()+size*0.5+Vector2(0,45)
+	return (point-camera_center)*map_scale()+size*0.5+Vector2(0,35)
 
 func to_world(point: Vector2) -> Vector2:
-	return (point-size*0.5-Vector2(0,45))/map_scale()+camera_center
+	return (point-size*0.5-Vector2(0,35))/map_scale()+camera_center
 
 func focus_building(id: String, animated: bool = true) -> void:
 	if not scenario.node_positions.has(id): return
@@ -167,7 +175,7 @@ func _refresh_geometry() -> void:
 	positions.clear()
 	road_geometry.clear()
 	for id in scenario.node_positions:
-		positions[id] = to_screen(world_building(id).get_center())
+		positions[id] = to_screen(network_anchor(id))
 	for id in state.edges:
 		var points := PackedVector2Array()
 		for point in visual_road(id): points.append(to_screen(point))
@@ -186,30 +194,36 @@ func _place_annotations() -> void:
 	var occupied: Array[Rect2] = []
 	for id in positions: occupied.append(tower_screen_rect(id).grow(4))
 	# Place each public name/status together, near its building, avoiding streets.
-	for id in positions:
+	var order := positions.keys()
+	if selected_shelter in order:
+		order.erase(selected_shelter)
+		order.push_front(selected_shelter)
+	for id in order:
 		var rect := tower_screen_rect(id)
-		if not Rect2(Vector2.ZERO,size).intersects(rect): continue
+		var safe := Rect2(6,152,size.x-inspection_inset-12,size.y-256)
+		if not safe.encloses(rect): continue
 		var title: String = id+" / "+state.shelters[id].display_name
 		var width := UIkit.HEADING_FONT.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
 		var status := " · ".join(_public_tags(id))
 		width = maxf(width,UIkit.HEADING_FONT.get_string_size(status,HORIZONTAL_ALIGNMENT_LEFT,-1,_stamp_size(status,UIkit.MAP_TAG)).x+8)
 		var preferred := Rect2(Vector2(rect.get_center().x-width/2,rect.end.y+8),Vector2(width,NAME_BLOCK))
-		var label := _free_annotation(preferred,occupied,rect.get_center())
+		var label := _free_annotation(preferred,occupied,rect)
 		title_rects[id] = Rect2(label.position,Vector2(width,NAME_PLATE))
 		status_positions[id] = Vector2(label.get_center().x,label.position.y+STATUS_BASELINE)
 		occupied.append(label.grow(3))
 
-func _free_annotation(preferred: Rect2, occupied: Array[Rect2], landmark: Vector2) -> Rect2:
+func _free_annotation(preferred: Rect2, occupied: Array[Rect2], landmark: Rect2) -> Rect2:
 	var best := preferred
 	var best_distance := INF
-	for dy in range(-12,13):
-		for dx in range(-12,13):
+	for dy in range(-20,11):
+		for dx in range(-10,11):
 			var candidate := preferred
-			candidate.position += Vector2(dx,dy)*22
+			candidate.position += Vector2(dx,dy)*14
 			candidate.position.x = clampf(candidate.position.x,6,maxf(6,size.x-candidate.size.x-6))
-			candidate.position.y = clampf(candidate.position.y,178,maxf(178,size.y-candidate.size.y-116))
+			candidate.position.y = clampf(candidate.position.y,152,maxf(152,size.y-candidate.size.y-104))
 			if inspection_inset > 0 and candidate.end.x > size.x-inspection_inset: continue
-			var distance := candidate.get_center().distance_squared_to(landmark)
+			var gap := Vector2(maxf(0,maxf(landmark.position.x-candidate.end.x,candidate.position.x-landmark.end.x)),maxf(0,maxf(landmark.position.y-candidate.end.y,candidate.position.y-landmark.end.y)))
+			var distance := gap.length_squared()*4+candidate.get_center().distance_squared_to(landmark.get_center())*0.15
 			if distance >= best_distance: continue
 			var collision := false
 			for other in occupied:
@@ -231,15 +245,6 @@ func _annotation_hides_road(rect: Rect2) -> bool:
 				if Geometry2D.segment_intersects_segment(points[i],points[i+1],corners[j],corners[(j+1)%4]) != null: return true
 	return false
 
-# Asphalt, curbs, and intersections are generated from the same paths used by
-# clicks and vehicles. All edge borders precede all interiors, avoiding seams.
-func _draw_streets() -> void:
-	# These existing driveways connect roofs to their authoritative junctions.
-	if not has_city_art(): return
-	for id in positions:
-		var n: Dictionary = CityMapProfiles.node(scenario,id)
-		draw_line(to_screen(network_anchor(id)),to_screen(CityMapProfiles.vector(n.entrance)),Color("59665b"),5.0*map_scale(),false)
-
 func _draw_bridges() -> void:
 	# Deck boards lie only on the authoritative route where it crosses water.
 	for points: PackedVector2Array in road_geometry.values():
@@ -260,37 +265,35 @@ func _draw_bridges() -> void:
 func _draw() -> void:
 	if scenario == null or state == null: return
 	_refresh_geometry()
-	draw_rect(Rect2(Vector2.ZERO,size),UIkit.MAP)
+	if terrain_texture == null: draw_rect(Rect2(Vector2.ZERO,size),UIkit.MAP)
 	_draw_city()
-	_draw_streets()
 	_draw_bridges()
 	if not show_annotations: return
 	for edge: EdgeState in state.edges.values(): _draw_road(edge)
 	for id in positions: _draw_shelter(id)
 	_draw_animation()
-func tower_world_rect(id: String) -> Rect2:
-	if tower_rects.has(id): return tower_rects[id]
-	var base := world_building(id)
-	if not has_city_art():
-		return Rect2(base.get_center()-Vector2(32,86),Vector2(64,96))
-	var rect := Rect2(Vector2(base.get_center().x-32,base.end.y-86),Vector2(64,96))
-	# Taller cosmetic silhouettes extend away from streets. The authoritative
-	# roof/entrance/junction and all route coordinates remain untouched.
-	for top in [base.end.y-86,base.position.y-4,base.get_center().y-48]:
-		rect.position.y = top
-		if not _roof_hides_road(rect.grow(3)): break
-	tower_rects[id] = rect
-	return rect
+	if debug_anchors: _draw_anchor_overlay()
 
-func _roof_hides_road(rect: Rect2) -> bool:
-	var corners := [rect.position,Vector2(rect.end.x,rect.position.y),rect.end,Vector2(rect.position.x,rect.end.y)]
-	for id in state.edges:
-		var path := visual_road(id)
-		for i in path.size()-1:
-			if rect.has_point(path[i]) or rect.has_point(path[i+1]): return true
-			for j in 4:
-				if Geometry2D.segment_intersects_segment(path[i],path[i+1],corners[j],corners[(j+1)%4]) != null: return true
-	return false
+func tower_world_rect(id: String) -> Rect2:
+	return Rect2(network_anchor(id)-sprite_metadata(id).ground,Vector2(64,96))
+
+func sprite_metadata(id: String) -> Dictionary:
+	return WoodlandArt.metadata(posmod(id.unicode_at(0)-65,8))
+
+func lamp_world_position(id: String) -> Vector2:
+	return tower_world_rect(id).position+sprite_metadata(id).lamp
+
+func _draw_anchor_overlay() -> void:
+	for id in positions:
+		var anchor: Vector2 = positions[id]
+		draw_rect(tower_screen_rect(id),Color.CYAN,false,1)
+		draw_circle(anchor,4,Color.MAGENTA)
+		draw_circle(to_screen(tower_world_rect(id).position+sprite_metadata(id).ground),2,Color.WHITE)
+		draw_circle(to_screen(lamp_world_position(id)),3,Color.YELLOW)
+		for edge: EdgeState in state.edges.values():
+			if id not in [edge.from,edge.to]: continue
+			var endpoint: Vector2 = road_geometry[edge.id][0 if edge.from == id else -1]
+			draw_rect(Rect2(endpoint-Vector2.ONE*6,Vector2.ONE*12),Color.GREEN,false,1)
 
 func tower_screen_rect(id: String) -> Rect2:
 	var rect := tower_world_rect(id)
@@ -299,19 +302,21 @@ func tower_screen_rect(id: String) -> Rect2:
 func _draw_city() -> void:
 	var padding := float(WoodlandArt.PAD)
 	var rect := Rect2(to_screen(Vector2(-padding,-padding)),(Vector2(scenario.world_size[0],scenario.world_size[1])+Vector2.ONE*padding*2)*map_scale())
-	if terrain_texture: draw_texture_rect(terrain_texture,rect,false)
+	if terrain_surface:
+		terrain_surface.position = rect.get_center()
+		terrain_surface.scale = rect.size/terrain_texture.get_size()
+		var lights := PackedVector3Array()
+		for id in positions:
+			var at := network_anchor(id)
+			lights.append(Vector3(at.x,at.y,1.0 if beacon_lit(id) else 0.0))
+		while lights.size() < 8: lights.append(Vector3.ZERO)
+		terrain_surface.material.set_shader_parameter("beacons",lights)
+		terrain_surface.material.set_shader_parameter("world_extent",Vector2(scenario.world_size[0],scenario.world_size[1])+Vector2.ONE*padding*2)
 	var frame := 0 if UIkit.reduced_motion else ambient_frame
 	for y in range(-100,int(scenario.world_size[1])+100,48):
 		var point := Vector2(WoodlandArt.river_x(y,scenario.world_size[0])-8+frame*3,y+frame*2)
 		draw_rect(Rect2(to_screen(point),Vector2(15,2)*map_scale()),Color("3b5964"))
-	for id in positions:
-		if not beacon_lit(id): continue
-		var base := tower_world_rect(id)
-		var at := Vector2(base.get_center().x,base.end.y-12)
-		# The gradient has no boundary, state radius, or range indicator.
-		draw_texture_rect(WoodlandArt.light_texture(),Rect2(to_screen(at-Vector2(112,72)),Vector2(224,144)*map_scale()),false)
-
-# Screen-space widths: 4–6px core (previously 1.5px), with 2px dark casing.
+# Screen-space widths: 7–13px stone core, with 2px dark casing.
 # Visual geometry and logical path costs are unchanged.
 func road_core_width() -> float:
 	return clampf(8.0*map_scale(),7.0,13.0)
@@ -379,8 +384,16 @@ func _draw_shelter(id: String) -> void:
 	var artwork := WoodlandArt.tower(posmod(variant,8),zoom > 1.45,lit,frame,state.depots.has(id))
 	draw_texture_rect(artwork,rect,false)
 	if lit:
-		var core := rect.position+Vector2(32,17)*map_scale()
-		draw_texture_rect(WoodlandArt.light_texture(true),Rect2(core-Vector2.ONE*29*map_scale(),Vector2.ONE*58*map_scale()),false)
+		var core := to_screen(lamp_world_position(id))
+		draw_texture_rect(WoodlandArt.light_texture(true),Rect2(core-Vector2.ONE*36*map_scale(),Vector2.ONE*72*map_scale()),false)
+	# Short visible road mouths meet the forecourt, including north approaches.
+	# They reuse only the terminal section of a real edge (never a driveway).
+	for edge: EdgeState in state.edges.values():
+		if id not in [edge.from,edge.to]: continue
+		var road := visual_road(edge.id)
+		if edge.to == id: road.reverse()
+		var mouth := road[0].move_toward(road[1],10)
+		draw_line(to_screen(mouth),positions[id],UIkit.RED if edge.isolated else Color("9aab92"),road_core_width(),false)
 	# Cool corner brackets indicate selection; warm lamp light is never selection.
 	if selected:
 		var selection := rect.grow(5)
@@ -403,8 +416,11 @@ func _draw_shelter(id: String) -> void:
 	var font := UIkit.HEADING_FONT
 	var label_width := font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
 	var at := _pixel_aligned(title_rects[id].position if title_rects.has(id) else Vector2(rect.get_center().x-label_width/2,rect.end.y+8))
-	if at.distance_to(rect.end) > 80:
-		draw_line(Vector2(rect.get_center().x,rect.end.y),at+Vector2(label_width/2,0),Color("687c73"),1)
+	var label_block := Rect2(title_rects[id].position,Vector2(title_rects[id].size.x,NAME_BLOCK))
+	var leader_start := label_block.get_center().clamp(rect.position,rect.end)
+	var leader_end := leader_start.clamp(label_block.position,label_block.end)
+	if leader_start.distance_to(leader_end) > 36:
+		draw_line(leader_start,leader_end,Color("687c73"),1)
 	draw_rect(Rect2(at,Vector2(label_width,NAME_PLATE)),UIkit.PANEL)
 	draw_line(at+Vector2(0,NAME_PLATE),at+Vector2(label_width,NAME_PLATE),ink,1)
 	_draw_caption(font,at+Vector2(7,20),title,UIkit.MAP_NAME,ink)
@@ -429,7 +445,7 @@ func hit_test(point: Vector2) -> String:
 	if scenario == null: return ""
 	_refresh_geometry()
 	for id in positions:
-		var selection := CityMapProfiles.rectangle(CityMapProfiles.node(scenario,id).selection) if has_city_art() else world_building(id)
+		var selection := tower_world_rect(id)
 		if selection.has_point(to_world(point)): return id
 	var nearest := ""
 	var distance := road_hit_radius()

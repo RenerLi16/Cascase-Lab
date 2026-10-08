@@ -1,6 +1,8 @@
 class_name CityMapProfiles
 extends RefCounted
 
+# Medieval towers use only anchor() and road(); historical building, selection,
+# entrance and label records remain recoverable but do not position live artwork.
 # Visual coordinates only. ScenarioData still owns simulation geometry/route costs.
 const FILES := {
 	"riverside_01_v2": "res://assets/maps/layouts/riverside.json",

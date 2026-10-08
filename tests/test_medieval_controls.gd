@@ -1,7 +1,7 @@
 extends "res://tests/test_presentation.gd"
 
 func run() -> void:
-	capture_dir = ProjectSettings.globalize_path("res://build/medieval-review")
+	capture_dir = ProjectSettings.globalize_path("res://build/medieval-refinement/after")
 	DirAccess.make_dir_recursive_absolute(capture_dir)
 	root.content_scale_size = Vector2i(1440,900)
 	root.size = Vector2i(1440,900)
@@ -54,6 +54,7 @@ func run() -> void:
 	await snapshot("arrow-disabled")
 	arrow.disabled = false
 	UIkit.reduced_motion = false
+	await settle(3) # Finish control redraws before measuring the existing timer.
 	var delivery_started := Time.get_ticks_msec()
 	var result: Dictionary = app.session.dispatch_action("VERIFY","H",["A"] as Array[String])
 	check(result.ok,"Delivery accepted for motion timing check")
@@ -62,6 +63,7 @@ func run() -> void:
 	await click("Motion:")
 	check(app.board == original_board and app.session.phase == GameManager.Phase.DELIVERY,"Mid-delivery motion toggle retains animation owner and delivery phase")
 	await wait_delivery()
+	print("Delivery wall time: %d ms" % (Time.get_ticks_msec()-delivery_started))
 	check(Time.get_ticks_msec()-delivery_started >= 2000,"Long delivery retains original 1.5-second transit plus 0.55-second arrival timing")
 	check(app.session.state.actions.size() == 1 and app.session.state.total_supply() == 5,"Motion toggle produces exactly one action and one supply deduction")
 	app._select_shelter("G")
@@ -73,11 +75,14 @@ func run() -> void:
 	app.session.state.shelters.E.zombie_pressure = 2
 	app.board.configure(app.session.scenario,app.session.state)
 	await snapshot("public-states")
+	var lighting: PackedVector3Array = app.board.terrain_surface.material.get_shader_parameter("beacons")
+	check(lighting[4].z == 0 and lighting[2].z == 1,"Rendered forest receives only public Overrun light mask")
 	check(not app.board.beacon_lit("E") and app.board.beacon_lit("C"),"Only the public Overrun beacon is extinguished")
 	for depot in app.session.state.depots.values(): depot.supply_remaining = 0
 	app.board.configure(app.session.scenario,app.session.state)
 	check(app.board.beacon_lit("C") and app.board.beacon_lit("G"),"Functioning beacons stay lit with no stocked supply access")
 	await snapshot("no-supply-still-lit")
+	check(app.board.terrain_surface.material.get_shader_parameter("beacons") == lighting,"Supply loss does not change any forest illumination input")
 	root.content_scale_size = Vector2i(1200,800)
 	root.size = Vector2i(1200,800)
 	app.session.phase = GameManager.Phase.INTERVENTION

@@ -159,10 +159,10 @@ func _render() -> void:
 	var note_surface := PanelContainer.new()
 	note_surface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	note_surface.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	note_surface.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,UIkit.MD))
+	note_surface.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,UIkit.SM))
 	bar.add_child(note_surface)
 	note_surface.add_child(notes)
-	notes.add_child(UIkit.meta("Select a building or road. Solid roads carry supplies; dotted roads have no supply route."))
+	notes.add_child(UIkit.meta("Select a tower or road. Solid: supply route · Dotted: no supply route."))
 	if session.dev_mode and not _private_phase(): notes.add_child(UIkit.meta("Dev mode · hidden state visible",UIkit.RED))
 	if session.is_sandbox(): notes.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
 	footer = VBoxContainer.new()
@@ -209,10 +209,10 @@ func _refresh_inspector() -> void:
 
 func _build_header(parent: Node) -> void:
 	var surface := PanelContainer.new()
-	surface.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,10))
+	surface.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,6))
 	parent.add_child(surface)
 	var row := HBoxContainer.new()
-	row.custom_minimum_size.y = 62
+	row.custom_minimum_size.y = 50
 	row.add_theme_constant_override("separation",UIkit.LG)
 	surface.add_child(row)
 	var left := HBoxContainer.new()

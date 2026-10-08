@@ -9,6 +9,13 @@ static var sprites: Dictionary = {}
 static var lamp: Texture2D
 static var halo: Texture2D
 
+# Sprite-local ground/lantern coordinates. Shared by art, camera, hit targets,
+# lights and the QA overlay; none are legacy building/driveway coordinates.
+static func metadata(variant: int) -> Dictionary:
+	var grounds := [Vector2(32,87),Vector2(32,87),Vector2(32,88),Vector2(32,87),Vector2(32,87),Vector2(32,88),Vector2(32,87),Vector2(32,87)]
+	var lamps := [Vector2(32,17),Vector2(32,10),Vector2(32,12),Vector2(32,17),Vector2(32,17),Vector2(32,10),Vector2(32,17),Vector2(32,17)]
+	return {"ground":grounds[variant],"lamp":lamps[variant]}
+
 static func river_x(y: float, width: float) -> float:
 	return width*0.63+sin(y/118.0)*22.0
 
@@ -20,7 +27,7 @@ static func terrain(data: ScenarioData, buildings: Array[Rect2], paths: Array) -
 	im.fill(Color("102328"))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 943 # Independent of experimental/hidden state.
-	for i in 6800:
+	for i in 2600:
 		var p := Vector2(rng.randf_range(-PAD,w+PAD),rng.randf_range(-PAD,h+PAD))
 		patch(im,p,Vector2(rng.randi_range(2,9)*2,2),Color("182e30") if i%3 else Color("1c3231"))
 	for y in range(-PAD,h+PAD,4):
@@ -31,9 +38,10 @@ static func terrain(data: ScenarioData, buildings: Array[Rect2], paths: Array) -
 		if y%24 == 0: patch(im,Vector2(x-18,y),Vector2(23,2),Color("315361"))
 	# Sort trunks by depth, then exclude the entire canopy from playable roads.
 	var trees: Array[Vector2] = []
-	for i in 1800:
+	for i in 1250:
 		var p := Vector2(rng.randf_range(-PAD,w+PAD),rng.randf_range(-PAD,h+PAD))
 		if absf(p.x-river_x(p.y,w)) < 55: continue
+		if sin(p.x/91.0)+cos(p.y/73.0) > 1.25: continue
 		var canopy := Rect2(p-Vector2(24,54),Vector2(48,65))
 		var blocked := false
 		for building in buildings:
@@ -61,8 +69,8 @@ static func terrain(data: ScenarioData, buildings: Array[Rect2], paths: Array) -
 			patch(im,p+Vector2(-span/2-4,y+7),Vector2(span+8,7),Color("152e30"))
 			patch(im,p+Vector2(-span/2,y+3),Vector2(4,5),shade.lightened(0.05))
 	for r in buildings:
-		patch(im,r.position-Vector2(10,-r.size.y+2),Vector2(r.size.x+20,12),Color("34423a"))
-		for i in 7: patch(im,Vector2(r.position.x-6+i*10,r.end.y+7+(i%2)*2),Vector2(6,2),Color("64705a"))
+		patch(im,r.position-Vector2(10,-r.size.y+2),Vector2(r.size.x+20,12),Color("28352f"))
+		for i in 7: patch(im,Vector2(r.position.x-6+i*10,r.end.y+7+(i%2)*2),Vector2(6,2),Color("46504a"))
 	var texture := ImageTexture.create_from_image(im)
 	terrain_cache[data.scenario_id] = texture
 	return texture
@@ -138,18 +146,21 @@ static func tower(variant: int, detail: bool, lit: bool, frame: int, depot: bool
 			r.call(5,49,17,21,"745c3d")
 			r.call(3,46,21,4,"999376")
 			for x in [7,17]: r.call(x,51,2,21,"b2a37c")
-	# Equal-sized lamp at the same altitude on every structure.
-	r.call(25,22,14,3,"b09d64" if lit else "485955")
-	r.call(27,13,10,9,"dd9343" if lit else "263d42")
+	# Each housing's artwork and glow use the same per-sprite lamp anchor.
+	var lamp_at: Vector2 = metadata(variant).lamp
+	var lx := int(lamp_at.x)-32
+	var ly := int(lamp_at.y)-17
+	r.call(25+lx,22+ly,14,3,"b09d64" if lit else "485955")
+	r.call(27+lx,13+ly,10,9,"dd9343" if lit else "263d42")
 	if lit:
-		r.call(29,10-frame,6,11+frame,"f5c165")
-		r.call(31+frame%2,12,3,7,"fff0b4")
+		r.call(29+lx,10+ly-frame,6,11+frame,"f5c165")
+		r.call(31+lx+frame%2,12+ly,3,7,"fff0b4")
 		r.call(left+3,35,span-8,2,"af9b68")
 		r.call(23,49,6,9,"e5b865")
 		r.call(25,50,2,6,"ffe5a0")
 	if detail:
-		for x in [26,36]: r.call(x,13,1,9,"7c6a43")
-		r.call(26,19,12,1,"8c784b")
+		for x in [26,36]: r.call(x+lx,13+ly,1,9,"7c6a43")
+		r.call(26+lx,19+ly,12,1,"8c784b")
 		for y in [57,64]: r.call(19,y,4,2,"a2a389")
 	# A small cloth pennant: cosmetic frame, never strategic state.
 	if variant in [1,4,7]:
@@ -181,7 +192,7 @@ static func light_texture(core: bool = false) -> Texture2D:
 	for y in 128:
 		for x in 128:
 			var d := Vector2(x-63.5,y-63.5).length()/64.0
-			var strength := pow(maxf(0,1-d),2.6)*(0.48 if core else 0.26)
+			var strength := pow(maxf(0,1-d),2.6)*(0.72 if core else 0.26)
 			im.set_pixel(x,y,Color(1.0,0.70,0.30,strength))
 	var texture := ImageTexture.create_from_image(im)
 	if core: halo = texture
