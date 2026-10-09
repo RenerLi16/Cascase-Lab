@@ -1,3 +1,5 @@
+> **Main menu + Dev Mode password:** New pixel-title menu with a decorative node network that never covers the interface; Play opens a focused access-code step; Dev Mode is password-gated in web/instructor builds (a convenience gate, not authentication) and sandbox runs are never uploaded. See [Main menu and Dev Mode](docs/MAIN_MENU.md). The title font is Silkscreen (SIL OFL, `assets/fonts/Silkscreen-OFL.txt`).
+
 > **Bridge-only closure:** Only designated bridges can be closed (player action **Close bridge**, internal `ISOLATE`). Scenarios 2–4 have new terrain, and scenario IDs, session schema 7, context `cascade-context-3` and `support-1.2.0` were versioned. See [Bridge-only closure](docs/BRIDGE_CLOSURE.md).
 
 > **First-play review:** Local implementation, screenshots, validation, and protocol-sensitive changes are in [First-play and readability review](docs/FIRST_PLAY_REVIEW.md). Practice is a proposed addition and remains off by default in participant builds pending supervisor review.

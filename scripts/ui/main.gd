@@ -2,6 +2,8 @@ extends Control
 
 const AccessCodeEntry = preload("res://scripts/ui/access_code_entry.gd")
 const SupplySourcePicker = preload("res://scripts/ui/supply_source_picker.gd")
+const TitleScreen = preload("res://scripts/ui/title_screen.gd")
+var title_screen: Control
 var source_picker: PanelContainer
 var access_entry: VBoxContainer
 var practice: PracticeView
@@ -803,11 +805,15 @@ func _request_dev_mode(enabled: bool) -> void:
 
 func _request_restart() -> void:
 	_show_modal("Restart scenario?","Current progress will be cleared.","Restart scenario",func(): _start_dev(session.scenario.scenario_id))
+func _export_payload() -> Dictionary:
+	var exported := mission_session.export_dictionary() if mission_session != null else {"record_mode":"synthetic-development","research_eligible":false}
+	# Developer sandbox exports never include other sessions' pending research records.
+	if session == null or not session.is_sandbox(): exported["upload_recovery"] = StudySync.recovery_export()
+	return exported
+
 func _export_session() -> void:
 	var filename := ("cascade_recovery_" if session == null else "cascade_DEV_" if session.is_sandbox() else "cascade_session_")+Time.get_datetime_string_from_system().replace(":","-")+".json"
-	var exported := mission_session.export_dictionary() if mission_session != null else {"record_mode":"synthetic-development","research_eligible":false}
-	exported["upload_recovery"] = StudySync.recovery_export()
-	var text := JSON.stringify(exported,"\t")
+	var text := JSON.stringify(_export_payload(),"\t")
 	if OS.has_feature("web"):
 		JavaScriptBridge.download_buffer(text.to_utf8_buffer(),filename,"application/json")
 		export_status = "Session JSON download requested."
@@ -851,6 +857,7 @@ func _modal_base(title: String, width: float = 640) -> VBoxContainer:
 	panel.custom_minimum_size = Vector2(minf(width,size.x-48),0)
 	panel.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,UIkit.XXL))
 	center.add_child(panel)
+	if is_instance_valid(title_screen): title_screen.set_overlay(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation",UIkit.LG)
 	panel.add_child(column)
@@ -887,6 +894,7 @@ func _close_modal() -> void:
 		remove_child(modal)
 		modal.queue_free()
 	modal = null
+	if is_instance_valid(title_screen): title_screen.set_overlay(null)
 	if is_instance_valid(board):
 		board.supply_paths.clear()
 		board.preview_edge = ""
@@ -927,12 +935,14 @@ func _build_operation(parent: Node) -> void:
 			var newly: Array = session.last_summary.newly_overrun
 			parent.add_child(UIkit.paragraph("Newly Overrun: "+(", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED if not newly.is_empty() else UIkit.TEXT))
 
+# Whether this build offers the developer sandbox at all (participant builds never do).
 func _dev_access_enabled() -> bool:
-	return not OS.has_feature("participant") and bool(ProjectSettings.get_setting("cascade/development_access",true))
+	return DevGate.available()
 
 func _dispose_run() -> void:
 	_close_source_picker()
 	access_entry = null
+	title_screen = null
 	practice = null
 	StudySync.detach()
 	if session != null:
@@ -981,45 +991,25 @@ func _menu_page() -> VBoxContainer:
 	return column
 
 func _show_main_menu() -> void:
-	var column := _menu_page()
-	column.add_child(UIkit.heading("Cascade Lab: Outbreak",UIkit.DISPLAY+6))
-	var premise := UIkit.paragraph(FirstPlayText.premise())
-	premise.custom_minimum_size.x = 640
-	column.add_child(premise)
-	var language := UIkit.quiet("Introduction & practice: English / 简体中文",func(): FirstPlayText.chinese = not FirstPlayText.chinese; _show_main_menu())
-	column.add_child(language)
-	UIkit.spacer(column,UIkit.SM)
-	var play := UIkit.button("Play",_begin_play,true)
-	var replay: Button
-	if _practice_enabled() and practice_completed_version != "":
-		replay = UIkit.button(FirstPlayText.choose("Replay practice","重玩练习"),_start_practice)
-	play.custom_minimum_size.y = 56
-	if StudySync.access_required():
-		var entry := AccessCodeEntry.new()
-		entry.name = "AccessCodeEntry"
-		access_entry = entry
-		column.add_child(entry)
-		entry.code_changed.connect(func(_value: String, valid: bool):
-			play.disabled = not valid
-			if replay != null: replay.disabled = play.disabled)
-		entry.field.text = StudySync.access_code
-		entry.field.text_changed.emit(entry.field.text)
-	column.add_child(play)
-	if replay != null:
-		replay.disabled = play.disabled
-		column.add_child(replay)
-	if _practice_enabled(): column.add_child(UIkit.meta(FirstPlayText.choose("Start with a short, unscored practice. Replay it before the measured missions.","先进行简短、不计分的练习。正式任务开始前可以重玩。")))
-	if _dev_access_enabled(): column.add_child(UIkit.button("Dev Mode",_show_level_picker))
-	save_indicator = UIkit.meta("")
-	if not StudySync.sessions.is_empty(): save_indicator.set_meta("show_routine",true)
-	save_text = ""
-	column.add_child(save_indicator)
-	_refresh_save_notice()
-	if not StudySync.sessions.is_empty(): column.add_child(UIkit.button("Export pending recovery JSON",_export_session))
-	_focus_if_present.call_deferred(play)
+	_dispose_run()
+	var screen := TitleScreen.new()
+	screen.access_required = StudySync.access_required()
+	screen.replay_available = _practice_enabled() and practice_completed_version != ""
+	screen.dev_available = _dev_access_enabled()
+	screen.show_recovery = not StudySync.sessions.is_empty()
+	screen.start_requested.connect(_begin_play)
+	screen.replay_requested.connect(_start_practice)
+	screen.dev_requested.connect(_show_level_picker)
+	screen.export_requested.connect(_export_session)
+	screen.status_label_changed.connect(func(label: Label):
+		save_indicator = label
+		save_text = ""
+		_refresh_save_notice())
+	title_screen = screen
+	add_child(screen)
 
 func _show_level_picker() -> void:
-	if not _dev_access_enabled(): return
+	if not DevGate.is_open(): return
 	var column := _menu_page()
 	column.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
 	column.add_child(UIkit.heading("Choose a district",UIkit.DISPLAY))
@@ -1037,7 +1027,17 @@ func _show_level_picker() -> void:
 		if first_start == null: first_start = start
 	var back := UIkit.button("Back",_show_main_menu)
 	column.add_child(back)
+	if DevGate.password_required():
+		# The unlock lasts until the app closes or an instructor locks it here.
+		column.add_child(UIkit.quiet("Lock Dev Mode",func():
+			DevGate.lock()
+			_show_main_menu()))
 	_focus_if_present.call_deferred(first_start)
+	# Open at the top so the "not research data" label is the first thing seen.
+	var scroll := column.get_parent().get_parent() as ScrollContainer
+	(func():
+		for frame in 2: await get_tree().process_frame
+		if is_instance_valid(scroll): scroll.scroll_vertical = 0).call_deferred()
 
 func _practice_enabled() -> bool:
 	# Proposed protocol addition: existing participant builds retain the prior entry
@@ -1048,6 +1048,7 @@ func _practice_enabled() -> bool:
 # commits the code; pending recovery uploads cannot submit a half-entered code.
 func _accept_access_entry() -> bool:
 	if not StudySync.access_required(): return true
+	if is_instance_valid(title_screen) and is_instance_valid(title_screen.access_entry): access_entry = title_screen.access_entry
 	if is_instance_valid(access_entry):
 		if not AccessCodeEntry.valid_code(access_entry.field.text): return false
 		StudySync.set_access_code(access_entry.field.text)
@@ -1077,7 +1078,7 @@ func _start_normal() -> void:
 	_connect_mission()
 
 func _start_dev(id: String) -> void:
-	if not _dev_access_enabled(): return
+	if not DevGate.is_open(): return
 	_dispose_run()
 	mission_session = MissionSession.new(GameManager.RunPurpose.DEV_SANDBOX,GameManager.InterventionType.NONE,[id])
 	_connect_mission()
@@ -1089,7 +1090,11 @@ func _connect_mission() -> void:
 		_show_message("Could not start mission",message)
 		return
 	session = mission_session.current
-	StudySync.attach(mission_session)
+	if session.is_sandbox():
+		# Local sandbox: never uploaded, never sent to the support backend.
+		session.support_provider = MockSupportProvider.new()
+	else:
+		StudySync.attach(mission_session)
 	session.changed.connect(_render)
 	_render()
 

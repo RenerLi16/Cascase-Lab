@@ -210,9 +210,12 @@ func clipboard_checks() -> void:
 		FirstPlayText.chinese = chinese
 		sync.access_code = ""
 		app._show_main_menu()
+		# The title stays uncluttered; Play opens the focused access-code step.
+		check(app.find_child("AccessCodeEntry",true,false) == null,"Title screen has no code field")
+		await click("开始游戏" if chinese else "Play")
 		var entry = app.find_child("AccessCodeEntry",true,false)
-		var play := button_containing("Play")
-		check(play.disabled,"Empty code disables Play")
+		var play := button_containing("开始" if chinese else "Start")
+		check(play.disabled,"Empty code disables Start")
 		entry.apply_pasted_text("  Synthetic-Code_Aa-123 \n")
 		check(entry.field.text == "Synthetic-Code_Aa-123" and sync.access_code == "","Paste trims surrounding whitespace, preserves case and does not submit credentials")
 		check(not play.disabled and app.session == null,"Paste updates manual validation without starting play")
@@ -232,6 +235,7 @@ func clipboard_checks() -> void:
 		sync.access_code = ""
 		CodeEntry.browser_denied = false
 		app._show_main_menu()
+		app.title_screen.show_setup()
 		await snapshot("1200-paste-"+("zh" if chinese else "en"))
 	sync.enabled = false
 	sync.access_code = ""

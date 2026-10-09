@@ -14,7 +14,7 @@ func run() -> void:
 			app = load("res://scenes/Main.tscn").instantiate()
 			root.add_child(app)
 			await snapshot(tag+"-opening")
-			await click("Play")
+			await click("开始游戏" if chinese else "Play")
 			check(app.session == null and app.mission_session == null,"Practice has no measured session")
 			var practice: PracticeView = app.practice
 			check(not ScenarioData.registry().development_default_order.has(practice.scenario.scenario_id),"Demo is outside research registry")
@@ -59,6 +59,8 @@ func run() -> void:
 				check(app.session.configure_condition(condition),"Assigned condition is available after common practice")
 				check(app.session.state.total_supply() == 6,"Condition configuration retains fresh mission")
 			app._show_main_menu()
+			# Replay sits in the focused setup step that Play opens after a practice.
+			await click("开始游戏" if chinese else "Play")
 			check(button_containing("重玩练习" if chinese else "Replay practice") != null,"Replay remains available")
 			app.queue_free()
 			await settle()
