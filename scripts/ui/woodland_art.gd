@@ -16,31 +16,197 @@ static func metadata(variant: int) -> Dictionary:
 	var lamps := [Vector2(32,17),Vector2(32,10),Vector2(32,12),Vector2(32,17),Vector2(32,17),Vector2(32,10),Vector2(32,17),Vector2(32,17)]
 	return {"ground":grounds[variant],"lamp":lamps[variant]}
 
-static func river_x(y: float, width: float) -> float:
-	return width*0.63+sin(y/118.0)*22.0
+# One scenery definition drives raster terrain, ripples, tree/stone exclusion and bridge
+# spans. Coordinates fit the existing visual graphs; no routes or anchors are changed.
+# Feature modes:
+#   "column" — legacy river whose x is a function of y (Riverside, practice); pixel-identical
+#              to terrain version 2.
+#   "path"   — any polyline (rivers, brooks, ravines, gullies, ponds) measured by true distance.
+# Kinds: "water" (river/brook/pond) or "ravine" (dry, rocky). `width` is the obstacle core
+# half-width; `bank` is the distance from the centreline at which solid ground begins.
+static func terrain_definition(data: ScenarioData) -> Dictionary:
+	match data.scenario_id.get_slice("_v",0):
+		"practice_demo":
+			return {"version":3,"seed":943,"stones":true,"features":[
+				{"mode":"column","kind":"water","width":22.0,"bank":30.0,"points":[Vector2(488,-320),Vector2(490,160),Vector2(504,300),Vector2(490,420),Vector2(470,1020)]}]}
+		"twin_districts_02":
+			# A river forks around the island outpost D; each arm is crossed by one bridge.
+			return {"version":3,"seed":2143,"stones":true,"features":[
+				{"mode":"path","kind":"water","width":18.0,"bank":26.0,"points":[Vector2(452,-320),Vector2(455,60),Vector2(450,170)]},
+				{"mode":"path","kind":"water","width":11.0,"bank":19.0,"points":[Vector2(450,170),Vector2(404,212),Vector2(383,290),Vector2(380,360),Vector2(392,430),Vector2(450,490)]},
+				{"mode":"path","kind":"water","width":11.0,"bank":19.0,"points":[Vector2(450,170),Vector2(497,212),Vector2(518,290),Vector2(521,360),Vector2(508,430),Vector2(450,490)]},
+				{"mode":"path","kind":"water","width":18.0,"bank":26.0,"points":[Vector2(450,490),Vector2(446,600),Vector2(455,1020)]}]}
+		"lifeline_03":
+			# A dry north–south ravine with two eastern side gullies around E's promontory.
+			return {"version":3,"seed":3191,"stones":true,"features":[
+				{"mode":"path","kind":"ravine","width":16.0,"bank":30.0,"points":[Vector2(430,-320),Vector2(432,40),Vector2(420,160),Vector2(428,290),Vector2(418,420),Vector2(430,560),Vector2(425,1020)]},
+				{"mode":"path","kind":"ravine","width":10.0,"bank":22.0,"points":[Vector2(424,150),Vector2(500,188),Vector2(575,216),Vector2(628,252),Vector2(660,290)]},
+				{"mode":"path","kind":"ravine","width":10.0,"bank":22.0,"points":[Vector2(420,525),Vector2(505,505),Vector2(580,480),Vector2(627,434),Vector2(662,400)]}]}
+		"crossfire_04":
+			# Broken woodland: a dry gully west of D, a brook ending in a pool east of D,
+			# and a short southern hollow that no road enters.
+			return {"version":3,"seed":4297,"stones":true,"features":[
+				{"mode":"path","kind":"ravine","width":12.0,"bank":24.0,"points":[Vector2(380,-320),Vector2(378,40),Vector2(388,120),Vector2(384,200),Vector2(380,245),Vector2(352,285),Vector2(322,318)]},
+				{"mode":"path","kind":"water","width":10.0,"bank":19.0,"points":[Vector2(620,-320),Vector2(622,40),Vector2(612,120),Vector2(616,200),Vector2(620,245),Vector2(648,285),Vector2(680,322)]},
+				{"mode":"path","kind":"water","width":20.0,"bank":28.0,"points":[Vector2(684,326),Vector2(696,338)]},
+				{"mode":"path","kind":"ravine","width":10.0,"bank":21.0,"points":[Vector2(500,1020),Vector2(498,700),Vector2(505,600)]}]}
+		_:
+			# Riverside keeps its original sine-curve river (terrain version 2 appearance).
+			return {"version":3,"seed":943,"stones":false,"features":[
+				{"mode":"column","kind":"water","width":30.0,"bank":38.0,"points":[],"sine":true}]}
+
+static var feature_cache: Dictionary = {}
+
+static func features(data: ScenarioData) -> Array:
+	var key := str([data.scenario_id,data.world_size])
+	if not feature_cache.has(key): feature_cache[key] = terrain_definition(data).features
+	return feature_cache[key]
+
+static func column_x(feature: Dictionary, data: ScenarioData, y: float) -> float:
+	var curve: Array = feature.points
+	if curve.is_empty(): return float(data.world_size[0])*0.63+sin(y/118.0)*22.0
+	for i in curve.size()-1:
+		if y <= curve[i+1].y:
+			return lerpf(curve[i].x,curve[i+1].x,clampf((y-curve[i].y)/(curve[i+1].y-curve[i].y),0,1))
+	return curve[-1].x
+
+# Compatibility helper: x of the first column river (or the scenario's main obstacle line).
+static func river_x(data: ScenarioData, y: float) -> float:
+	for feature: Dictionary in features(data):
+		if feature.mode == "column": return column_x(feature,data,y)
+	return float(data.world_size[0])*0.5
+
+static func centre_distance(feature: Dictionary, data: ScenarioData, at: Vector2) -> float:
+	if feature.mode == "column": return absf(at.x-column_x(feature,data,at.y))
+	var points: Array = feature.points
+	var best := INF
+	for i in points.size()-1:
+		best = minf(best,Geometry2D.get_closest_point_to_segment(at,points[i],points[i+1]).distance_to(at))
+	return best
+
+# Signed distance to solid ground: <= 0 inside water/ravine or its banks.
+static func bank_distance(data: ScenarioData, at: Vector2) -> float:
+	var best := INF
+	for feature: Dictionary in features(data):
+		best = minf(best,centre_distance(feature,data,at)-float(feature.bank))
+	return best
+
+static func obstacle_kind(data: ScenarioData, at: Vector2) -> String:
+	var best := INF
+	var kind := ""
+	for feature: Dictionary in features(data):
+		var d := centre_distance(feature,data,at)-float(feature.bank)
+		if d < best:
+			best = d
+			kind = feature.kind
+	return kind
+
+# Crossings of one road polyline: each span begins and ends on dry ground.
+static func crossing_spans(data: ScenarioData, path: PackedVector2Array) -> Array:
+	var spans: Array = []
+	for i in path.size()-1:
+		var a := path[i]
+		var b := path[i+1]
+		var steps := maxi(1,ceili(a.distance_to(b)/2.0))
+		var start := -1
+		for step in steps+1:
+			var at := a.lerp(b,float(step)/steps)
+			var on_bank := bank_distance(data,at) <= 10
+			if on_bank and start < 0: start = maxi(0,step-1)
+			if start >= 0 and (not on_bank or step == steps):
+				spans.append(PackedVector2Array([a.lerp(b,float(start)/steps),at]))
+				start = -1
+	return spans
+
+# Bridges come only from scenario data (ScenarioData.bridges). Geometry decides where the
+# deck sits on that edge; it never decides whether an edge is a bridge.
+static func bridge_spans(data: ScenarioData, paths: Dictionary) -> Dictionary:
+	var output := {}
+	for id in data.bridges:
+		if paths.has(id): output[id] = crossing_spans(data,paths[id])
+	return output
+
+static func stamp(im: Image, centre: Vector2, radius: float, color: Color) -> void:
+	# Pixel-art disc built from the same 4px rows as the legacy river.
+	var r := maxf(radius,2.0)
+	var y := -r
+	while y < r:
+		var half := sqrt(maxf(0.0,r*r-(y+2.0)*(y+2.0)))
+		patch(im,Vector2(snappedf(centre.x-half,2),snappedf(centre.y+y,2)),Vector2(snappedf(half*2,2),4),color)
+		y += 4.0
+
+static func walk(feature: Dictionary, spacing: float) -> Array:
+	# Evenly spaced [point, tangent] samples along a path feature.
+	var out: Array = []
+	var points: Array = feature.points
+	var carry := 0.0
+	for i in points.size()-1:
+		var a: Vector2 = points[i]
+		var b: Vector2 = points[i+1]
+		var length := a.distance_to(b)
+		var t := carry
+		while t < length:
+			out.append([a.lerp(b,t/length),(b-a).normalized()])
+			t += spacing
+		carry = t-length
+	if not points.is_empty(): out.append([points[-1],(points[-1]-points[maxi(0,points.size()-2)]).normalized()])
+	return out
+
+static func paint_feature(im: Image, data: ScenarioData, feature: Dictionary, layer: int, noise: RandomNumberGenerator) -> void:
+	var w := float(feature.width)
+	var bank := float(feature.bank)
+	var water: bool = feature.kind == "water"
+	var h := int(data.world_size[1])
+	if feature.mode == "column":
+		if layer != 0: return
+		for y in range(-PAD,h+PAD,4):
+			var x := snappedf(column_x(feature,data,y),2)
+			patch(im,Vector2(x-bank,y),Vector2(bank*2,4),Color("263c3c"))
+			patch(im,Vector2(x-w,y),Vector2(w*2,4),Color("102b36"))
+			patch(im,Vector2(x-w*0.7,y),Vector2(w*1.4,4),Color("193945"))
+			if y%24 == 0: patch(im,Vector2(x-18,y),Vector2(23,2),Color("315361"))
+		return
+	for sample in walk(feature,3.0):
+		var p: Vector2 = sample[0]
+		var jitter := noise.randf_range(-1.5,1.5)
+		match layer:
+			0: stamp(im,p,bank+jitter,Color("263c3c") if water else Color("3a3d35"))
+			1: stamp(im,p,w+(bank-w)*0.45+jitter,Color("1d3134") if water else Color("252b2a"))
+			2: stamp(im,p,w,Color("102b36") if water else Color("141b1d"))
+			3: stamp(im,p+(Vector2(0,1.5) if water else Vector2(0,3)),w*(0.62 if water else 0.45),Color("193945") if water else Color("0b1113"))
+	if layer == 1 and not water:
+		# Rim rubble and lit north-facing ledge give the dry ravine a rocky edge.
+		for sample in walk(feature,9.0):
+			var p: Vector2 = sample[0]
+			var n: Vector2 = Vector2(-sample[1].y,sample[1].x)
+			for side in [-1.0,1.0]:
+				var at: Vector2 = p+n*side*(bank-3.0+noise.randf_range(-2,2))
+				patch(im,at,Vector2(noise.randi_range(2,4)*2,4),Color("4c4f45") if noise.randf() < 0.6 else Color("5d5d50"))
+			patch(im,p-n*(w+2.0)+Vector2(0,-2),Vector2(6,2),Color("5a5a4c"))
 
 static func terrain(data: ScenarioData, buildings: Array[Rect2], paths: Array) -> Texture2D:
-	if terrain_cache.has(data.scenario_id): return terrain_cache[data.scenario_id]
+	var definition := terrain_definition(data)
+	var cache_key := str([data.scenario_id,data.world_size,definition,buildings,paths])
+	if terrain_cache.has(cache_key): return terrain_cache[cache_key]
 	var w := int(data.world_size[0])
 	var h := int(data.world_size[1])
 	var im := Image.create((w+PAD*2)/2,(h+PAD*2)/2,false,Image.FORMAT_RGBA8)
 	im.fill(Color("102328"))
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 943 # Independent of experimental/hidden state.
+	rng.seed = definition.seed # Independent of experimental/hidden state.
 	for i in 2600:
 		var p := Vector2(rng.randf_range(-PAD,w+PAD),rng.randf_range(-PAD,h+PAD))
 		patch(im,p,Vector2(rng.randi_range(2,9)*2,2),Color("182e30") if i%3 else Color("1c3231"))
-	for y in range(-PAD,h+PAD,4):
-		var x := snappedf(river_x(y,w),2)
-		patch(im,Vector2(x-38,y),Vector2(76,4),Color("263c3c"))
-		patch(im,Vector2(x-30,y),Vector2(60,4),Color("102b36"))
-		patch(im,Vector2(x-21,y),Vector2(42,4),Color("193945"))
-		if y%24 == 0: patch(im,Vector2(x-18,y),Vector2(23,2),Color("315361"))
+	# A separate stream keeps legacy tree/stone placement identical for column rivers.
+	var noise := RandomNumberGenerator.new()
+	noise.seed = int(definition.seed)*31+7
+	for layer in 4:
+		for feature: Dictionary in definition.features: paint_feature(im,data,feature,layer,noise)
 	# Sort trunks by depth, then exclude the entire canopy from playable roads.
 	var trees: Array[Vector2] = []
 	for i in 1250:
 		var p := Vector2(rng.randf_range(-PAD,w+PAD),rng.randf_range(-PAD,h+PAD))
-		if absf(p.x-river_x(p.y,w)) < 55: continue
+		if bank_distance(data,p) < 22: continue
 		if sin(p.x/91.0)+cos(p.y/73.0) > 1.25: continue
 		var canopy := Rect2(p-Vector2(24,54),Vector2(48,65))
 		var blocked := false
@@ -68,12 +234,48 @@ static func terrain(data: ScenarioData, buildings: Array[Rect2], paths: Array) -
 			patch(im,p+Vector2(-span/2,y),Vector2(span,7),shade)
 			patch(im,p+Vector2(-span/2-4,y+7),Vector2(span+8,7),Color("152e30"))
 			patch(im,p+Vector2(-span/2,y+3),Vector2(4,5),shade.lightened(0.05))
+	# Small bank stones use the same terrain geometry, avoiding every playable road.
+	if definition.stones:
+		for i in 46:
+			var p := Vector2.ZERO
+			var feature: Dictionary = definition.features[i%definition.features.size()]
+			if feature.mode == "column":
+				var y := rng.randf_range(-PAD,h+PAD)
+				p = Vector2(column_x(feature,data,y)+(float(feature.bank)+rng.randf_range(4,15))*(-1 if i%2 else 1),y)
+			else:
+				var samples := walk(feature,6.0)
+				var sample: Array = samples[rng.randi_range(0,samples.size()-1)]
+				p = sample[0]+Vector2(-sample[1].y,sample[1].x)*(float(feature.bank)+rng.randf_range(4,15))*(-1 if i%2 else 1)
+			var blocked := bank_distance(data,p) < 2
+			for building in buildings:
+				if building.grow(20).has_point(p): blocked = true
+			for path: PackedVector2Array in paths:
+				for j in path.size()-1:
+					if Geometry2D.get_closest_point_to_segment(p,path[j],path[j+1]).distance_to(p) < 26: blocked = true
+			if not blocked:
+				patch(im,p,Vector2(10,6),Color("354748"))
+				patch(im,p+Vector2(2,-2),Vector2(6,2),Color("50605b"))
 	for r in buildings:
 		patch(im,r.position-Vector2(10,-r.size.y+2),Vector2(r.size.x+20,12),Color("28352f"))
 		for i in 7: patch(im,Vector2(r.position.x-6+i*10,r.end.y+7+(i%2)*2),Vector2(6,2),Color("46504a"))
 	var texture := ImageTexture.create_from_image(im)
-	terrain_cache[data.scenario_id] = texture
+	terrain_cache[cache_key] = texture
 	return texture
+
+# Animated surface ripples for water features only; ravines stay still.
+static func ripples(data: ScenarioData, frame: int) -> Array:
+	var out: Array = []
+	for feature: Dictionary in features(data):
+		if feature.kind != "water": continue
+		if feature.mode == "column":
+			for y in range(-100,int(data.world_size[1])+100,48):
+				out.append([Vector2(column_x(feature,data,y)-8+frame*3,y+frame*2),Vector2(15,2)])
+		else:
+			for sample in walk(feature,48.0):
+				var t: Vector2 = sample[1]
+				var size := Vector2(clampf(float(feature.width)*0.8,6,15),2)
+				out.append([sample[0]-Vector2(size.x*0.5,0)+t*frame*3,size])
+	return out
 
 static func patch(im: Image, at: Vector2, extent: Vector2, color: Color) -> void:
 	im.fill_rect(Rect2i(Vector2i((at+Vector2.ONE*PAD)/2),Vector2i(extent/2)).intersection(Rect2i(0,0,im.get_width(),im.get_height())),color)

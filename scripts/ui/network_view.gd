@@ -23,6 +23,15 @@ var annotation_key := ""
 var road_geometry: Dictionary = {}
 var terrain_texture: Texture2D
 var terrain_surface: Sprite2D
+# Visible bridge decks, derived from ScenarioData.bridges only: edge ID -> world spans.
+var bridge_edges: Dictionary = {}
+# Flat list of every deck span (all belong to designated bridge edges).
+var bridges: Array = []
+var bridge_fractions: Dictionary = {}
+var source_mode := false
+var source_destinations: Array[String] = []
+var eligible_sources: Array[String] = []
+var chosen_sources: Array[String] = []
 # Explicitly opt-in QA overlay, never enabled by participant/dev mode.
 var debug_anchors := false
 var ambient_frame := 0
@@ -87,9 +96,18 @@ func configure(data: ScenarioData, current_state: GameState, debug: bool = false
 	reachable = SupplyManager.new(state).stocked_reachability()
 	var roofs: Array[Rect2] = []
 	var paths: Array = []
+	var paths_by_id := {}
 	for id in data.node_positions: roofs.append(tower_world_rect(id))
-	for id in state.edges: paths.append(visual_road(id))
+	for id in state.edges:
+		paths.append(visual_road(id))
+		paths_by_id[id] = visual_road(id)
 	terrain_texture = WoodlandArt.terrain(data,roofs,paths)
+	bridge_edges = WoodlandArt.bridge_spans(data,paths_by_id)
+	bridges.clear()
+	bridge_fractions.clear()
+	for id in bridge_edges:
+		bridges.append_array(bridge_edges[id])
+		bridge_fractions[id] = _bridge_fraction(paths_by_id[id],bridge_edges[id])
 	if terrain_surface == null:
 		terrain_surface = Sprite2D.new()
 		terrain_surface.show_behind_parent = true
@@ -111,17 +129,32 @@ func _process(delta: float) -> void:
 
 func map_scale() -> float:
 	if scenario == null: return 1.0
+	if source_mode:
+		var bounds := graph_bounds()
+		return minf((size.x-200.0)/bounds.size.x,(size.y-510.0)/bounds.size.y)*zoom
 	# Frame the playable district; only outer scenery is cropped on wide screens.
 	return minf((size.x-140.0)/float(scenario.world_size[0]),(size.y-240.0)/float(scenario.world_size[1])) * zoom
+
+func graph_bounds() -> Rect2:
+	var bounds := tower_world_rect(scenario.node_positions.keys()[0])
+	for id in scenario.node_positions: bounds = bounds.merge(tower_world_rect(id))
+	return bounds.grow(28)
+
+func focus_sources() -> void:
+	focus_id = ""
+	_move_camera(graph_bounds().get_center(),1.0,false)
+
+func screen_origin() -> Vector2:
+	return Vector2(size.x*0.5,(166+size.y-344)*0.5) if source_mode else size*0.5+Vector2(0,35)
 
 func world_center() -> Vector2:
 	return Vector2(scenario.world_size[0],scenario.world_size[1])*0.5
 
 func to_screen(point: Vector2) -> Vector2:
-	return (point-camera_center)*map_scale()+size*0.5+Vector2(0,35)
+	return (point-camera_center)*map_scale()+screen_origin()
 
 func to_world(point: Vector2) -> Vector2:
-	return (point-size*0.5-Vector2(0,35))/map_scale()+camera_center
+	return (point-screen_origin())/map_scale()+camera_center
 
 func focus_building(id: String, animated: bool = true) -> void:
 	if not scenario.node_positions.has(id): return
@@ -151,7 +184,7 @@ func _update_camera() -> void:
 	if scenario == null: return
 	# Allow edge towers to be inspected, while always retaining map context.
 	var freedom := clampf(0.12+(zoom-1.0)/0.65,0,1)
-	camera_center = camera_center.clamp(world_center().lerp(Vector2(-70,-40),freedom),world_center().lerp(Vector2(scenario.world_size[0]+70,scenario.world_size[1]+40),freedom))
+	if not source_mode: camera_center = camera_center.clamp(world_center().lerp(Vector2(-70,-40),freedom),world_center().lerp(Vector2(scenario.world_size[0]+70,scenario.world_size[1]+40),freedom))
 	pan = (world_center()-camera_center)*map_scale() if scenario != null else Vector2.ZERO
 	view_changed.emit()
 	queue_redraw()
@@ -165,7 +198,26 @@ func network_anchor(id: String) -> Vector2:
 	return CityMapProfiles.vector(scenario.node_positions[id])
 
 func closure_fraction(id: String) -> float:
+	# A bridge's barricade, selection brackets and bubble anchor sit at mid-deck.
+	if bridge_fractions.has(id): return bridge_fractions[id]
 	return CityMapProfiles.layout(scenario).edges[id].closure_fraction if has_city_art() else 0.5
+
+func _bridge_fraction(path: PackedVector2Array, spans: Array) -> float:
+	if spans.is_empty(): return 0.5
+	var longest: PackedVector2Array = spans[0]
+	for span: PackedVector2Array in spans:
+		if span[0].distance_to(span[1]) > longest[0].distance_to(longest[1]): longest = span
+	var middle := (longest[0]+longest[1])*0.5
+	var total := 0.0
+	var before := 0.0
+	var best := INF
+	for index in path.size()-1:
+		var closest := Geometry2D.get_closest_point_to_segment(middle,path[index],path[index+1])
+		if closest.distance_to(middle) < best:
+			best = closest.distance_to(middle)
+			before = total+path[index].distance_to(closest)
+		total += path[index].distance_to(path[index+1])
+	return before/maxf(total,0.001)
 
 func building_rect(id: String) -> Rect2:
 	var rect: Rect2 = world_building(id)
@@ -186,7 +238,7 @@ func _refresh_geometry() -> void:
 func _place_annotations() -> void:
 	var public_status: Array = []
 	for id in positions: public_status.append(_public_tags(id))
-	var key := str([scenario.scenario_id,camera_center,zoom,size,inspection_inset,public_status])
+	var key := str([scenario.scenario_id,camera_center,zoom,size,inspection_inset,source_mode,source_destinations,eligible_sources,chosen_sources,public_status])
 	if key == annotation_key: return
 	annotation_key = key
 	title_rects.clear()
@@ -199,10 +251,11 @@ func _place_annotations() -> void:
 		order.erase(selected_shelter)
 		order.push_front(selected_shelter)
 	for id in order:
+		if source_mode and id not in source_destinations and id not in eligible_sources and id not in chosen_sources: continue
 		var rect := tower_screen_rect(id)
 		var safe := Rect2(6,152,size.x-inspection_inset-12,size.y-256)
 		if not safe.encloses(rect): continue
-		var title: String = id+" / "+state.shelters[id].display_name
+		var title: String = _node_title(id)
 		var width := UIkit.HEADING_FONT.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
 		var status := " · ".join(_public_tags(id))
 		width = maxf(width,UIkit.HEADING_FONT.get_string_size(status,HORIZONTAL_ALIGNMENT_LEFT,-1,_stamp_size(status,UIkit.MAP_TAG)).x+8)
@@ -216,11 +269,11 @@ func _free_annotation(preferred: Rect2, occupied: Array[Rect2], landmark: Rect2)
 	var best := preferred
 	var best_distance := INF
 	for dy in range(-20,11):
-		for dx in range(-10,11):
+		for dx in range(-20 if source_mode else -10,21 if source_mode else 11):
 			var candidate := preferred
 			candidate.position += Vector2(dx,dy)*14
 			candidate.position.x = clampf(candidate.position.x,6,maxf(6,size.x-candidate.size.x-6))
-			candidate.position.y = clampf(candidate.position.y,152,maxf(152,size.y-candidate.size.y-104))
+			candidate.position.y = clampf(candidate.position.y,152,maxf(152,size.y-candidate.size.y-(344 if source_mode else 104)))
 			if inspection_inset > 0 and candidate.end.x > size.x-inspection_inset: continue
 			var gap := Vector2(maxf(0,maxf(landmark.position.x-candidate.end.x,candidate.position.x-landmark.end.x)),maxf(0,maxf(landmark.position.y-candidate.end.y,candidate.position.y-landmark.end.y)))
 			var distance := gap.length_squared()*4+candidate.get_center().distance_squared_to(landmark.get_center())*0.15
@@ -246,21 +299,31 @@ func _annotation_hides_road(rect: Rect2) -> bool:
 	return false
 
 func _draw_bridges() -> void:
-	# Deck boards lie only on the authoritative route where it crosses water.
-	for points: PackedVector2Array in road_geometry.values():
-		for index in points.size()-1:
-			var a := to_world(points[index])
-			var b := to_world(points[index+1])
-			var steps := maxi(1,ceili(a.distance_to(b)/5.0))
-			for step in steps:
-				var at := a.lerp(b,float(step)/steps)
-				if absf(at.x-WoodlandArt.river_x(at.y,scenario.world_size[0])) > 34: continue
-				draw_set_transform(to_screen(at),(b-a).angle(),Vector2.ONE*map_scale())
-				draw_rect(Rect2(-3,-14,6,28),Color("78694c"))
-				draw_rect(Rect2(-2,-11,3,22),Color("a08b60"))
-				draw_rect(Rect2(-3,-16,6,3),Color("b6a171"))
-				draw_rect(Rect2(-3,13,6,3),Color("4f5341"))
-				draw_set_transform(Vector2.ZERO)
+	# Complete decks span water or ravine AND both banks. Only designated bridge edges
+	# (ScenarioData.bridges) receive a deck; every closable edge therefore shows one.
+	for id in bridge_edges:
+		for span: PackedVector2Array in bridge_edges[id]:
+			var a := span[0]
+			var b := span[1]
+			var length := a.distance_to(b)
+			var ravine := WoodlandArt.obstacle_kind(scenario,a.lerp(b,0.5)) == "ravine"
+			draw_set_transform(to_screen(a),(b-a).angle(),Vector2.ONE*map_scale())
+			if ravine:
+				# Long drop shadow into the ravine floor and stone abutments on each rim.
+				draw_rect(Rect2(4,14,length-8,8),Color("070c0e"))
+				for x in [-8,length-4]: draw_rect(Rect2(x,-20,12,40),Color("5d6156"))
+				for x in [-8,length-4]: draw_rect(Rect2(x,-20,12,3),Color("8b8d7b"))
+			draw_rect(Rect2(-3,-16,length+6,32),Color("343d37"))
+			for step in range(0,ceili(length)+1,5):
+				draw_rect(Rect2(step,-14,4,28),Color("a08b60"))
+				draw_rect(Rect2(step,-12,2,24),Color("78694c"))
+			for y in [-16,13]: draw_rect(Rect2(-3,y,length+6,3),Color("b6a171"))
+			for x in [-4,length-2]:
+				for y in [-19,13]: draw_rect(Rect2(x,y,6,6),Color("8b947e"))
+			if ravine:
+				for x in range(12,int(length)-8,18):
+					for y in [-19,16]: draw_rect(Rect2(x,y,3,3),Color("6f6448"))
+			draw_set_transform(Vector2.ZERO)
 
 func _draw() -> void:
 	if scenario == null or state == null: return
@@ -313,9 +376,8 @@ func _draw_city() -> void:
 		terrain_surface.material.set_shader_parameter("beacons",lights)
 		terrain_surface.material.set_shader_parameter("world_extent",Vector2(scenario.world_size[0],scenario.world_size[1])+Vector2.ONE*padding*2)
 	var frame := 0 if UIkit.reduced_motion else ambient_frame
-	for y in range(-100,int(scenario.world_size[1])+100,48):
-		var point := Vector2(WoodlandArt.river_x(y,scenario.world_size[0])-8+frame*3,y+frame*2)
-		draw_rect(Rect2(to_screen(point),Vector2(15,2)*map_scale()),Color("3b5964"))
+	for ripple: Array in WoodlandArt.ripples(scenario,frame):
+		draw_rect(Rect2(to_screen(ripple[0]),ripple[1]*map_scale()),Color("3b5964"))
 # Screen-space widths: 7–13px stone core, with 2px dark casing.
 # Visual geometry and logical path costs are unchanged.
 func road_core_width() -> float:
@@ -362,11 +424,19 @@ func _draw_road(edge: EdgeState) -> void:
 		var center := _point_on_path(points,fraction)
 		var direction := (_point_on_path(points,fraction+0.02)-_point_on_path(points,fraction-0.02)).angle()
 		var drop := 10.0*(1.0-animation_progress) if edge.id == closing_edge else 0.0
-		draw_set_transform(center-Vector2(0,drop),direction,Vector2.ONE*clampf(map_scale()*0.8,0.85,1.25))
-		draw_rect(Rect2(-17,-13,34,26),UIkit.MAP)
-		draw_line(Vector2(-13,-14),Vector2(-13,14),UIkit.RED if closed else UIkit.AMBER,5,true)
-		draw_line(Vector2(13,-14),Vector2(13,14),UIkit.RED if closed else UIkit.AMBER,5,true)
-		for y in [-9,0,9]: draw_line(Vector2(-9,y+3),Vector2(9,y-3),UIkit.RED if closed else UIkit.AMBER,4,true)
+		var gate_ink := UIkit.RED if closed else UIkit.AMBER
+		draw_set_transform(center-Vector2(0,drop),direction,Vector2.ONE*clampf(map_scale()*0.9,0.85,2.2))
+		# Closed bridge gate: stone posts on both rails, a timber barricade across the deck
+		# and a cross brace in the closure ink. Permanent once both deliveries arrive.
+		draw_rect(Rect2(-12,-24,24,48),UIkit.MAP)
+		draw_rect(Rect2(-8,-20,16,40),Color("5b4b32"))
+		for y in [-14,-6,2,10]: draw_rect(Rect2(-8,y,16,2),Color("3c3224"))
+		draw_line(Vector2(-6,-18),Vector2(6,18),gate_ink,4,true)
+		draw_line(Vector2(6,-18),Vector2(-6,18),gate_ink,4,true)
+		for y in [-26,18]:
+			draw_rect(Rect2(-6,y,12,8),Color("8b947e"))
+			draw_rect(Rect2(-6,y,12,2),Color("b4ad88"))
+		draw_rect(Rect2(-9,-21,18,42),gate_ink,false,2)
 		draw_set_transform(Vector2.ZERO)
 		_stamp(center+Vector2(0,-24),"CLOSED" if closed else ("CLOSING" if edge.id == closing_edge else "PREVIEW"),UIkit.RED if closed else UIkit.AMBER)
 	if dev_mode:
@@ -376,7 +446,7 @@ func _draw_shelter(id: String) -> void:
 	var shelter: ShelterState = state.shelters[id]
 	var rect := tower_screen_rect(id)
 	if not Rect2(Vector2.ZERO,size).intersects(rect): return
-	var selected := selected_shelter == id or hover_target == id
+	var selected := not source_mode and (selected_shelter == id or hover_target == id)
 	var ink := shelter_ink(id)
 	var variant := id.unicode_at(0)-65
 	var frame := 0 if UIkit.reduced_motion else ambient_frame
@@ -395,12 +465,13 @@ func _draw_shelter(id: String) -> void:
 		var mouth := road[0].move_toward(road[1],10)
 		draw_line(to_screen(mouth),positions[id],UIkit.RED if edge.isolated else Color("9aab92"),road_core_width(),false)
 	# Cool corner brackets indicate selection; warm lamp light is never selection.
-	if selected:
+	if selected or id in eligible_sources or id in source_destinations:
 		var selection := rect.grow(5)
 		for corner in [selection.position,Vector2(selection.end.x,selection.position.y),selection.end,Vector2(selection.position.x,selection.end.y)]:
 			var direction: Vector2 = (selection.get_center()-corner).sign()
-			draw_line(corner,corner+Vector2(direction.x*12,0),Color("d3eaf6"),2)
-			draw_line(corner,corner+Vector2(0,direction.y*12),Color("d3eaf6"),2)
+			draw_line(corner,corner+Vector2(direction.x*12,0),UIkit.AMBER if id in source_destinations else Color("d3eaf6"),2)
+			draw_line(corner,corner+Vector2(0,direction.y*12),UIkit.AMBER if id in source_destinations else Color("d3eaf6"),2)
+	if id in chosen_sources: draw_line(rect.position+Vector2(0,rect.size.y),rect.end,UIkit.TEAL,3)
 	if shelter.is_overrun: _draw_overrun_mark(rect.get_center(),12*map_scale())
 	if shelter.shielded_this_round:
 		var c := rect.position+Vector2(54,56)*map_scale()
@@ -412,7 +483,7 @@ func _draw_shelter(id: String) -> void:
 		draw_line(c,c-Vector2(0,26),UIkit.SECONDARY,2)
 		draw_arc(c-Vector2(0,28),8,PI,TAU,8,UIkit.TEAL,2)
 	if not title_rects.has(id): return
-	var title := id+" / "+shelter.display_name
+	var title := _node_title(id)
 	var font := UIkit.HEADING_FONT
 	var label_width := font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
 	var at := _pixel_aligned(title_rects[id].position if title_rects.has(id) else Vector2(rect.get_center().x-label_width/2,rect.end.y+8))
@@ -429,8 +500,15 @@ func _draw_shelter(id: String) -> void:
 	if preview_lost.has(id): draw_rect(rect.grow(8),UIkit.AMBER,false,3)
 	if dev_mode: _stamp(rect.get_center(),"DEV P%d" % shelter.zombie_pressure,UIkit.RED)
 
+func _node_title(id: String) -> String:
+	if source_mode and (id in eligible_sources or id in chosen_sources):
+		return FirstPlayText.choose("Depot ","仓库 ")+id
+	return id+" / "+state.shelters[id].display_name
+
 func _public_tags(id: String) -> Array[String]:
 	var shelter: ShelterState = state.shelters[id]
+	if source_mode and (id in eligible_sources or id in chosen_sources):
+		return [FirstPlayText.choose("%d SUPPLY","%d 份物资") % state.depots[id].supply_remaining]
 	var tags: Array[String] = []
 	if shelter.is_overrun: tags.append("OVERRUN")
 	elif shelter.monitor_known_pressure >= 0: tags.append("M:%d" % shelter.monitor_known_pressure)
@@ -493,6 +571,7 @@ func _gui_input(event: InputEvent) -> void:
 				camera_center -= event.relative/map_scale()
 				_update_camera()
 		hover_target = hit_test(event.position) if not drag_moved else ""
+		if source_mode and hover_target not in eligible_sources: hover_target = ""
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if hover_target != "" else Control.CURSOR_ARROW
 		queue_redraw()
 	elif event is InputEventMagnifyGesture:

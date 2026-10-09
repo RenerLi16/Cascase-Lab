@@ -147,7 +147,7 @@ func run() -> void:
 		await create_timer(0.7).timeout
 		await map_click("E-F",true)
 		await shot(tag,"23-road-bubble")
-		await click("ISOLATE")
+		await click("CLOSE BRIDGE")
 		await shot(tag,"24-isolate-confirm")
 		app._close_modal()
 		await click("End round")

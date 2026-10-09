@@ -25,7 +25,8 @@ var support_shown := false
 var support_deadline_ms := 0
 const DISCUSSION_SECONDS := 120
 # Export schema 5: narrative dispatches retired (no public_intel, no PUBLIC_INTEL_SHOWN events).
-const EXPORT_SCHEMA := 5
+# Export schema 6: bridge-only closure; exported edges carry a bridge flag.
+const EXPORT_SCHEMA := 6
 var discussion_deadline_ms := 0
 var _support_clock: Callable
 var private_player := 0
@@ -125,7 +126,12 @@ func open_private_form() -> void:
 
 func survey_targets(kind: String) -> Array:
 	if kind == "WAIT": return ["NONE"]
-	return state.edges.keys() if kind == "ISOLATE" else state.shelters.keys()
+	if kind != "ISOLATE": return state.shelters.keys()
+	# The survey offers closure only where the rule permits it (bridge-only-1).
+	var bridges: Array = []
+	for id in state.edges:
+		if state.edges[id].bridge: bridges.append(id)
+	return bridges
 
 func submit_belief(belief: PlayerBelief) -> bool:
 	if phase != Phase.PRIVATE_FORM: return false
@@ -337,7 +343,7 @@ func anonymous_surveys() -> Array:
 	return surveys
 
 func export_dictionary() -> Dictionary:
-	return {"schema_version":EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
+	return {"schema_version":EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"closure_rule":"bridge-only-1","bridges":scenario.bridges.duplicate(),"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
 		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"development_private_audit":confidential_records.duplicate(true),
 		"observations":state.observations.duplicate(true),"final_state":state.to_dictionary(),
 		"ground_truth":{"initial_exposure_ids":scenario.initial_exposure_ids(),"original_source":scenario.original_source,"initial_pressures":scenario.initial_pressures,"timeline":scenario.ground_truth_timeline}}

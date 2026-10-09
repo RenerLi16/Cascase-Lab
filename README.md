@@ -1,3 +1,5 @@
+> **Bridge-only closure:** Only designated bridges can be closed (player action **Close bridge**, internal `ISOLATE`). Scenarios 2–4 have new terrain, and scenario IDs, session schema 7, context `cascade-context-3` and `support-1.2.0` were versioned. See [Bridge-only closure](docs/BRIDGE_CLOSURE.md).
+
 > **First-play review:** Local implementation, screenshots, validation, and protocol-sensitive changes are in [First-play and readability review](docs/FIRST_PLAY_REVIEW.md). Practice is a proposed addition and remains off by default in participant builds pending supervisor review.
 
 > **Development backend update:** See [local Qwen integration, automatic saving, tests, and setup](docs/BACKEND_SETUP.md). Qwen is implemented but not live-verified; all runs remain synthetic and non-research-eligible.
@@ -44,7 +46,7 @@ The action meanings are:
 | `VERIFY` | 1 | Delivers a precise, dated pressure snapshot immediately on arrival. |
 | `MONITOR` | 1 | Delivers permanent monitoring; later pressure changes create a concise alert. Installation does not reveal a baseline. |
 | `SHIELD` | 1 | Blocks incoming infection for the upcoming resolution, then expires. It does not cure an existing exposure or stop outgoing spread. |
-| `ISOLATE` | 2 | Delivers to both endpoints, warns about supply-route losses, then permanently closes the road in both directions. |
+| `ISOLATE` (shown as **Close bridge**) | 2 | Bridges only. Delivers to both endpoints, warns about supply-route losses, then permanently closes the bridge in both directions. Ordinary roads cannot be closed. |
 
 There are no scripted narrative reports. Public evidence is the map itself: road connections and closures, depot supplies, visible Overrun shelters, and the dated observations the team buys with Verify and Monitor. See [No-dispatch context](docs/NO_DISPATCH_CONTEXT.md).
 

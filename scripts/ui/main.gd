@@ -1,5 +1,9 @@
 extends Control
 
+const AccessCodeEntry = preload("res://scripts/ui/access_code_entry.gd")
+const SupplySourcePicker = preload("res://scripts/ui/supply_source_picker.gd")
+var source_picker: PanelContainer
+var access_entry: VBoxContainer
 var practice: PracticeView
 var practice_completed_version := ""
 var mission_session: MissionSession
@@ -84,6 +88,8 @@ func _refresh_save_notice() -> void:
 	save_indicator.add_theme_color_override("font_color",UIkit.SECONDARY if routine else UIkit.AMBER)
 
 func _render() -> void:
+	if is_instance_valid(source_picker): source_picker.clear_map()
+	source_picker = null
 	if map_token != session.run_token:
 		map_zoom = 1.0
 		map_center = Vector2(session.scenario.world_size[0],session.scenario.world_size[1])*0.5
@@ -162,7 +168,7 @@ func _render() -> void:
 	note_surface.add_theme_stylebox_override("panel",UIkit.box(UIkit.PANEL,UIkit.LINE,4,UIkit.SM))
 	bar.add_child(note_surface)
 	note_surface.add_child(notes)
-	notes.add_child(UIkit.meta("Select a tower or road. Solid: supply route · Dotted: no supply route."))
+	notes.add_child(UIkit.meta("Select a tower, road or bridge. Solid: supply route · Dotted: no supply route."))
 	if session.dev_mode and not _private_phase(): notes.add_child(UIkit.meta("Dev mode · hidden state visible",UIkit.RED))
 	if session.is_sandbox(): notes.add_child(UIkit.meta("Dev mode — not research data",UIkit.AMBER))
 	footer = VBoxContainer.new()
@@ -195,10 +201,10 @@ func _refresh_inspector() -> void:
 		sidebar.add_child(UIkit.heading("Round %d · What changed" % session.last_summary.round))
 		var newly: Array = session.last_summary.newly_overrun
 		sidebar.add_child(UIkit.paragraph("Newly Overrun: " + (", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED if not newly.is_empty() else UIkit.TEXT))
-		sidebar.add_child(UIkit.strong("%d supplies remaining · %d roads closed" % [session.state.total_supply(),session.closed_road_count()]))
+		sidebar.add_child(UIkit.strong("%d supplies remaining · %d bridges closed" % [session.state.total_supply(),session.closed_road_count()]))
 		for action: GameAction in session.state.actions:
 			if action.round == session.last_summary.round:
-				sidebar.add_child(UIkit.meta("%s · %s · delivery complete" % [action.type,action.target]))
+				sidebar.add_child(UIkit.meta("%s · %s · delivery complete" % [PresentationText.action_name(action.type),action.target]))
 		for observation in session.state.observations:
 			if observation.round == session.last_summary.round: _observation_card(sidebar,observation)
 		if not session.last_summary.shields.is_empty(): sidebar.add_child(UIkit.meta("Shields expired: " + ", ".join(session.last_summary.shields)))
@@ -392,6 +398,7 @@ func _toggle_survey() -> void:
 	survey_tween.tween_property(survey_drawer,"offset_top",-float(SURVEY_COLLAPSED) if survey_collapsed else -minf(SURVEY_HEIGHT,workspace.size.y),0.0 if UIkit.reduced_motion else 0.3)
 
 func _clear_selection() -> void:
+	_close_source_picker()
 	if not is_instance_valid(board): return
 	selected_shelter = ""
 	selected_edge = ""
@@ -439,16 +446,21 @@ func _build_road_bubble() -> void:
 	var edge: EdgeState = session.state.edges[selected_edge]
 	var row := HBoxContainer.new()
 	content.add_child(row)
-	var title := UIkit.strong("Road "+selected_edge.replace("-"," — "),UIkit.BODY,UIkit.AMBER)
+	var title := UIkit.strong(PresentationText.connection_name(edge),UIkit.BODY,UIkit.AMBER)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(title)
 	var close := UIkit.quiet("×",func(): selected_edge = ""; board.selected_edge = ""; board.queue_redraw(); _clear_road_bubble())
 	close.tooltip_text = "Close"
 	row.add_child(close)
-	content.add_child(UIkit.meta("Closed · both directions" if edge.isolated else "Open · two-way route"))
-	if session.phase == GameManager.Phase.ACTIONS: _action_button(content,"ISOLATE",selected_edge)
-	else: content.add_child(UIkit.paragraph("Road decisions unlock in the action phase.",UIkit.BODY,UIkit.SECONDARY))
+	content.add_child(UIkit.meta("Closed · both directions" if edge.isolated else ("Open bridge · two-way route" if edge.bridge else "Ordinary road · two-way route")))
+	# Ordinary roads stay inspectable but never offer closure (bridge-only-1).
+	if not edge.bridge: content.add_child(UIkit.paragraph(PresentationText.BRIDGE_ONLY,UIkit.BODY,UIkit.SECONDARY))
+	elif edge.isolated: pass
+	elif session.phase == GameManager.Phase.ACTIONS:
+		content.add_child(UIkit.meta(PresentationText.CLOSURE_EFFECT))
+		_action_button(content,"ISOLATE",selected_edge)
+	else: content.add_child(UIkit.paragraph("Bridge decisions unlock in the action phase.",UIkit.BODY,UIkit.SECONDARY))
 	_position_road_bubble.call_deferred()
 
 func _position_road_bubble() -> void:
@@ -460,8 +472,11 @@ func _position_road_bubble() -> void:
 	var extent := road_bubble.size
 	var best := Vector2(8,8)
 	var best_score := INF
+	# Corners of the map area left clear by the floating header and phase footer.
+	var top := 160.0
+	var bottom := maxf(top,board.size.y-112.0-extent.y)
 	for x in [8.0,maxf(8,board.size.x-extent.x-8)]:
-		for y in [8.0,maxf(8,board.size.y-extent.y-8)]:
+		for y in [top,bottom]:
 			var rect := Rect2(Vector2(x,y),extent)
 			var score := rect.get_center().distance_to(anchor)*0.01
 			if rect.grow(24).has_point(anchor): score += 10000
@@ -515,7 +530,7 @@ func _action_button(parent: Node, kind: String, target: String) -> void:
 	var group := VBoxContainer.new()
 	group.add_theme_constant_override("separation",UIkit.XS+2)
 	parent.add_child(group)
-	var button := UIkit.button("%s  ·  %d supply" % [kind,2 if kind == "ISOLATE" else 1],func(): _request_action(kind,target))
+	var button := UIkit.button("%s  ·  %d supply" % [PresentationText.action_name(kind),2 if kind == "ISOLATE" else 1],func(): _request_action(kind,target))
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.disabled = reason != ""
 	button.tooltip_text = PresentationText.unavailable_text(reason) if reason != "" else PresentationText.ACTION_DETAILS[kind]
@@ -594,6 +609,9 @@ func _mark_support_visible(token: int, round_number: int) -> void:
 		session.mark_support_shown()
 
 func _select_shelter(id: String) -> void:
+	if is_instance_valid(source_picker):
+		source_picker.choose(id)
+		return
 	if _busy(): return
 	selected_shelter = id
 	selected_edge = ""
@@ -604,6 +622,7 @@ func _select_shelter(id: String) -> void:
 	board.focus_building(id)
 
 func _select_edge(id: String) -> void:
+	if is_instance_valid(source_picker): return
 	if _busy(): return
 	selected_edge = id
 	board.selected_edge = id
@@ -611,48 +630,37 @@ func _select_edge(id: String) -> void:
 	_build_road_bubble()
 
 func _request_action(kind: String, target: String) -> void:
-	if session.phase != GameManager.Phase.ACTIONS: return
-	var options := session.action_manager.supply.delivery_options(kind,target)
-	if options.is_empty(): return
-	var column := _modal_base("%s %s?" % [kind,target.replace("-"," — ")])
-	var picker := OptionButton.new()
-	picker.custom_minimum_size.y = 48
-	for option in options:
-		var text: String = "1 supply · " + session.scenario.shelter_names[option[0]]
-		if kind == "ISOLATE":
-			var edge: EdgeState = session.state.edges[target]
-			text = "%s to %s  +  %s to %s" % [session.scenario.shelter_names[option[0]],edge.from,session.scenario.shelter_names[option[1]],edge.to]
-		picker.add_item(text)
-	column.add_child(picker)
-	column.add_child(UIkit.strong("Cost: %d supply" % (2 if kind=="ISOLATE" else 1)))
-	if kind=="ISOLATE":
-		column.add_child(UIkit.paragraph("Stops zombie movement. Supply impact:"))
-		var losses := session.action_manager.preview_isolation(target)
-		for depot in losses:
-			column.add_child(UIkit.paragraph("%s: %s" % [session.scenario.shelter_names[depot],"no route loss" if losses[depot].is_empty() else ", ".join(losses[depot])+" lose access"],UIkit.BODY,UIkit.AMBER))
-		column.add_child(UIkit.paragraph("One unit to each endpoint. Road closes after both arrive.",UIkit.BODY,UIkit.SECONDARY))
-		board.preview_edge = target
-		for lost: Array in losses.values():
-			for id in lost:
-				if not board.preview_lost.has(id): board.preview_lost.append(id)
-	var preview_paths := func():
-		var assignments: Array[String] = []
-		assignments.assign(options[picker.selected])
-		board.supply_paths.clear()
-		for delivery in session.action_manager.supply.delivery_plan(kind,target,assignments): board.supply_paths.append(delivery.path)
-		board.queue_redraw()
-	picker.item_selected.connect(func(_index: int): preview_paths.call())
-	preview_paths.call()
-	var buttons := _button_row(column)
-	buttons.add_child(_sized(UIkit.button("Cancel",_close_modal)))
-	buttons.add_child(_sized(UIkit.button("Confirm delivery",func():
-		var assignments: Array[String] = []
-		assignments.assign(options[picker.selected])
-		_close_modal()
-		var result := session.dispatch_action(kind,target,assignments)
-		if not result.ok: _show_message("Unavailable",PresentationText.unavailable_text(str(result.error))),true)))
+	if session.phase != GameManager.Phase.ACTIONS or is_instance_valid(source_picker): return
+	_clear_road_bubble()
+	inspector.hide()
+	for child in footer.get_children():
+		if child is Button: child.disabled = true
+	board.inspection_inset = 0
+	source_picker = SupplySourcePicker.new()
+	add_child(source_picker)
+	source_picker.setup(session.action_manager,board,kind,target)
+	var token := session.run_token
+	source_picker.cancelled.connect(func(): _close_source_picker(); _refresh_inspector())
+	source_picker.confirmed.connect(func(action_kind: String, action_target: String, assignments: Array[String]):
+		if session == null or session.run_token != token or session.phase != GameManager.Phase.ACTIONS: return
+		_close_source_picker()
+		var result := session.dispatch_action(action_kind,action_target,assignments)
+		if not result.ok:
+			_refresh_inspector()
+			_show_message("Unavailable",PresentationText.unavailable_text(str(result.error))))
+
+func _close_source_picker() -> void:
+	if not is_instance_valid(source_picker): return
+	source_picker.clear_map()
+	remove_child(source_picker)
+	source_picker.queue_free()
+	source_picker = null
+	if is_instance_valid(footer):
+		for child in footer.get_children():
+			if child is Button: child.disabled = false
 
 func _request_resolution() -> void:
+	if is_instance_valid(source_picker): return
 	_show_modal("End round %d?" % session.state.round,"Unused supply carries forward. Active shields expire after resolution.","Resolve",func(): session.begin_resolution())
 
 func _animate_phase(token: int) -> void:
@@ -724,8 +732,8 @@ func _fill_picker(picker: OptionButton, values: Array) -> void:
 	for value in values:
 		var text := str(value)
 		if session.state.shelters.has(text): text += " · " + session.scenario.shelter_names[text]
-		elif session.state.edges.has(text): text = "Road " + text.replace("-"," — ")
-		elif text=="WAIT": text = "WAIT / SAVE SUPPLY"
+		elif session.state.edges.has(text): text = PresentationText.connection_name(session.state.edges[text])
+		elif PresentationText.ACTION_NAMES.has(text): text = PresentationText.action_name(text)
 		elif text=="NONE": text = "No target"
 		picker.add_item(text)
 		picker.set_item_metadata(picker.item_count-1,value)
@@ -741,7 +749,7 @@ func _build_results(parent: Node) -> void:
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation",UIkit.SM)
 	parent.add_child(rows)
-	for entry in [["Shelters lost",str(session.state.overrun_ids().size())],["Supplies spent","%d / 6" % (6-session.state.total_supply())],["Roads closed",str(session.closed_road_count())]]:
+	for entry in [["Shelters lost",str(session.state.overrun_ids().size())],["Supplies spent","%d / 6" % (6-session.state.total_supply())],["Bridges closed",str(session.closed_road_count())]]:
 		var row := HBoxContainer.new()
 		rows.add_child(row)
 		var key := UIkit.label(entry[0],UIkit.BODY,UIkit.SECONDARY)
@@ -885,6 +893,8 @@ func _close_modal() -> void:
 		board.preview_lost.clear()
 		board.queue_redraw()
 
+	if is_instance_valid(source_picker): source_picker.refresh()
+
 func _build_handoff(parent: Node) -> void:
 	var center := CenterContainer.new()
 	center.name = "PrivacyScreen"
@@ -907,7 +917,7 @@ func _build_handoff(parent: Node) -> void:
 func _build_operation(parent: Node) -> void:
 	if session.phase == GameManager.Phase.DELIVERY:
 		var action: GameAction = session.pending_action
-		parent.add_child(UIkit.heading(action.type+" · "+action.target))
+		parent.add_child(UIkit.heading(PresentationText.action_name(action.type)+" · "+action.target))
 		var spent := action.deliveries.size()
 		parent.add_child(UIkit.paragraph("Supplies: %d → %d · %d spent" % [session.state.total_supply()+spent,session.state.total_supply(),spent]))
 		parent.add_child(UIkit.paragraph("Supply en route. The action takes effect on arrival."))
@@ -921,6 +931,8 @@ func _dev_access_enabled() -> bool:
 	return not OS.has_feature("participant") and bool(ProjectSettings.get_setting("cascade/development_access",true))
 
 func _dispose_run() -> void:
+	_close_source_picker()
+	access_entry = null
 	practice = null
 	StudySync.detach()
 	if session != null:
@@ -983,19 +995,15 @@ func _show_main_menu() -> void:
 		replay = UIkit.button(FirstPlayText.choose("Replay practice","重玩练习"),_start_practice)
 	play.custom_minimum_size.y = 56
 	if StudySync.access_required():
-		# Online builds: the facilitator enters the study access code before play.
-		var code := LineEdit.new()
-		code.name = "AccessCode"
-		code.placeholder_text = "Study access code"
-		code.secret = true
-		code.text = StudySync.access_code
-		code.custom_minimum_size.y = 52
-		code.text_changed.connect(func(value: String):
-			StudySync.set_access_code(value)
-			play.disabled = StudySync.access_code.length() < 12
+		var entry := AccessCodeEntry.new()
+		entry.name = "AccessCodeEntry"
+		access_entry = entry
+		column.add_child(entry)
+		entry.code_changed.connect(func(_value: String, valid: bool):
+			play.disabled = not valid
 			if replay != null: replay.disabled = play.disabled)
-		play.disabled = StudySync.access_code.length() < 12
-		column.add_child(code)
+		entry.field.text = StudySync.access_code
+		entry.field.text_changed.emit(entry.field.text)
 	column.add_child(play)
 	if replay != null:
 		replay.disabled = play.disabled
@@ -1036,14 +1044,23 @@ func _practice_enabled() -> bool:
 	# until a supervisor explicitly approves and configures this practice version.
 	return _dev_access_enabled() or bool(ProjectSettings.get_setting("cascade/practice_approved",false))
 
+# Editing, including Paste, only validates the field. An explicit Play/Replay
+# commits the code; pending recovery uploads cannot submit a half-entered code.
+func _accept_access_entry() -> bool:
+	if not StudySync.access_required(): return true
+	if is_instance_valid(access_entry):
+		if not AccessCodeEntry.valid_code(access_entry.field.text): return false
+		StudySync.set_access_code(access_entry.field.text)
+	return AccessCodeEntry.valid_code(StudySync.access_code)
+
 func _begin_play() -> void:
-	if StudySync.access_required() and StudySync.access_code.length() < 12: return
+	if not _accept_access_entry(): return
 	if _practice_enabled(): _start_practice()
 	else: _start_normal()
 
 func _start_practice() -> void:
 	if not _practice_enabled(): return
-	if StudySync.access_required() and StudySync.access_code.length() < 12: return
+	if not _accept_access_entry(): return
 	_dispose_run()
 	practice = PracticeView.new()
 	add_child(practice)
@@ -1053,7 +1070,7 @@ func _start_practice() -> void:
 		_start_normal())
 
 func _start_normal() -> void:
-	if StudySync.access_required() and StudySync.access_code.length() < 12: return
+	if not _accept_access_entry(): return
 	_dispose_run()
 	var configured: Array = ProjectSettings.get_setting("cascade/scenario_order",[])
 	mission_session = MissionSession.new(GameManager.RunPurpose.NORMAL,GameManager.InterventionType.NONE,configured)
@@ -1087,5 +1104,5 @@ func _request_leave(destination: Callable) -> void:
 		return
 	_show_modal("Leave this mission?","This unfinished mission will be discarded. Export any records you need before leaving.","Leave mission",destination)
 
-func _focus_if_present(button: Button) -> void:
+func _focus_if_present(button) -> void:
 	if is_instance_valid(button) and button.is_inside_tree(): button.grab_focus()

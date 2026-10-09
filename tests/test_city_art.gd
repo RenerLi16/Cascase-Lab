@@ -89,7 +89,7 @@ func run() -> void:
 			app.session.begin_sandbox_actions()
 			await settle()
 			app.board.dev_mode = false
-			var target := "H" if entry.id == "riverside_01_v2" else "G"
+			var target := "H" if entry.id == "riverside_01_v3" else "G"
 			var depots: Array[String] = ["A"]
 			var result: Dictionary = app.session.dispatch_action("VERIFY",target,depots)
 			check(result.ok,"Real delivery accepted")
@@ -104,12 +104,13 @@ func run() -> void:
 			await wait_delivery()
 			check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery completes")
 			app.board.center_map(false)
-			var edge := "E-F" if entry.id == "riverside_01_v2" else "D-E"
+			var edge := "E-F" if entry.id == "riverside_01_v3" else ("D-F" if entry.id == "crossfire_04_v2" else "D-E")
 			await map_click(edge,true)
 			await snapshot(tag+"-selected")
-			await click("ISOLATE")
+			await click("CLOSE BRIDGE")
 			check(app.board.preview_edge == edge,"Preview references authoritative edge")
 			await snapshot(tag+"-preview")
+			await select_delivery_sources()
 			await click("Confirm delivery")
 			await wait_delivery()
 			check(app.session.state.edges[edge].isolated,"Real closure completes after deliveries")

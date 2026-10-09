@@ -22,7 +22,7 @@ func run() -> void:
 	await click("Motion:")
 	check(descendants(app,"OptionButton")[0] == draft_field and draft_field.get_selected_metadata() == "E","Motion toggle preserves the actual private-form controls and draft")
 	await snapshot("private-form-controls")
-	app._start_dev("riverside_01_v2")
+	app._start_dev("riverside_01_v3")
 	app.session.set_dev_mode(false)
 	app.session.begin_sandbox_actions()
 	await settle()

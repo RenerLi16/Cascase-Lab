@@ -1,6 +1,6 @@
 # Cascade Lab: Outbreak — Fixed Message Library
 
-Version: `support-1.1.0` (1.1.0 removed references to the retired narrative reports from two templates)
+Version: `support-1.2.0` (1.1.0 removed references to the retired narrative reports from two templates; 1.2.0 applies the bridge-only closure rule and rewords `direct.isolate` — see [Bridge-only closure](BRIDGE_CLOSURE.md))
 
 This is the complete currently implemented template library. Wording is fixed and generated locally without a language model. `%s` is replaced only by a shelter ID or road ID. One message is selected after initial discussion in each round, before final action selection. All conditions use the same 15-second minimum pause.
 
@@ -40,11 +40,11 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 ### direct.isolate
 
-47 words, including section labels.
+49 words, including section labels.
 
-**Recommendation:** Isolate Road %s next.
+**Recommendation:** Close Bridge %s next.
 
-**Why:** Structured proposals include closing this currently usable road. Both endpoints have funded delivery routes, and closure would block infection along this connection.
+**Why:** Structured proposals include closing this currently usable bridge. Both ends have funded delivery routes, and closure would block infection and supplies across this connection.
 
 **Check:** Inspect the supply access lost on each side before committing both units; alternative roads may still carry infection.
 
@@ -143,8 +143,8 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
    - Add 3 per matching proposed action and target.
    - Verify: add 10 and 1 per open incident road.
    - Shield: require an openly connected, visibly Overrun neighbor. Exclude a target with public known pressure 1 or a latest dated Verify result of 1. Add 25 and 3 per visible Overrun neighbor.
-   - Monitor / Isolate: require at least one matching proposal; add 12.
-4. Pick the highest score. Ties retain the first candidate: sorted shelter IDs with VERIFY, MONITOR, SHIELD order, followed by sorted road IDs for ISOLATE.
+   - Monitor / Isolate: require at least one matching proposal; add 12. Isolate (shown as Close bridge) is eligible only for roads whose public `bridge` flag is true.
+4. Pick the highest score. Ties retain the first candidate: sorted shelter IDs with VERIFY, MONITOR, SHIELD order, followed by sorted bridge IDs for ISOLATE.
 
 Eligibility uses public closures, public Overrun state, depot stock and reachability, existing monitors/shields, and the two-endpoint funding requirement. Hidden exposure never enters selection.
 

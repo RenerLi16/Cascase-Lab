@@ -1,12 +1,13 @@
 {
-  "pack_version": "1.0.0",
+  "pack_version": "1.1.0",
   "status": "engineering_prototypes_not_research_validated",
+  "closure_rule": "bridge-only-1: only edges listed in a scenario's bridges array can be closed. Pack 1.1.0 introduced this rule and the v2/v3 scenario IDs.",
   "scenarios": [
-    {"id": "riverside_01_v2", "path": "res://scenarios/scenario_01.json", "title": "Riverside", "included_in_pack": false, "blurb": "Manage an outbreak across a district with a busy central interchange."},
-    {"id": "twin_districts_02_v1", "path": "res://scenarios/scenario_02.json", "title": "Twin Districts: The Bridge", "included_in_pack": true, "blurb": "Two neighborhoods share a narrow crossing. Decide where to investigate, protect, and close routes."},
-    {"id": "lifeline_03_v1", "path": "res://scenarios/scenario_03.json", "title": "Lifeline: The Cost of Containment", "included_in_pack": true, "blurb": "Both depots sit on one side of the district. Every road closure also changes where help can travel."},
-    {"id": "crossfire_04_v1", "path": "res://scenarios/scenario_04.json", "title": "Crossfire: Converging Threats", "included_in_pack": true, "blurb": "Shared junctions connect response routes from opposite sides of the district."}
+    {"id": "riverside_01_v3", "path": "res://scenarios/scenario_01.json", "title": "Riverside", "included_in_pack": false, "blurb": "Manage an outbreak across a district with a busy central interchange."},
+    {"id": "twin_districts_02_v2", "path": "res://scenarios/scenario_02.json", "title": "Twin Districts: The Island Outpost", "included_in_pack": true, "blurb": "Two forest settlements meet at a small island outpost, reached by two separate bridges. Decide where to investigate, protect, and close bridges."},
+    {"id": "lifeline_03_v2", "path": "res://scenarios/scenario_03.json", "title": "Lifeline: The Cost of Containment", "included_in_pack": true, "blurb": "Both depots sit on one side of a dry ravine. Every bridge closure also changes where help can travel."},
+    {"id": "crossfire_04_v2", "path": "res://scenarios/scenario_04.json", "title": "Crossfire: Converging Threats", "included_in_pack": true, "blurb": "Shared junctions in broken woodland connect response routes from opposite sides of the district."}
   ],
-  "development_default_order": ["riverside_01_v2", "twin_districts_02_v1", "lifeline_03_v1", "crossfire_04_v1"],
+  "development_default_order": ["riverside_01_v3", "twin_districts_02_v2", "lifeline_03_v2", "crossfire_04_v2"],
   "order_note": "Development convenience only, not an approved research order or randomization schedule."
 }

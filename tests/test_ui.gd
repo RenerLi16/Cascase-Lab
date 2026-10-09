@@ -44,6 +44,13 @@ func click(fragment: String) -> void:
 	button.pressed.emit()
 	await settle()
 
+# Repeated clicks on one depot must clear the picker's 160 ms real-time debounce. A scene
+# timer can fire early in real time after a slow frame (software rendering), so wait on
+# the wall clock instead.
+func real_delay(msec: int) -> void:
+	var start := Time.get_ticks_msec()
+	while Time.get_ticks_msec()-start < msec: await process_frame
+
 func settle(frames: int = 3) -> void:
 	for _frame in frames: await process_frame
 
@@ -105,6 +112,28 @@ func submit_private(round_number: int, index: int) -> void:
 	check(app.session.private_surveys[round_number].size()==index+1,"Private response stored internally only")
 
 # Await the public phase instead of assuming a fixed vehicle/arrival duration.
+# Exercise actual map selection; fixtures explicitly click each chosen source.
+func select_delivery_sources(assignments: Array = []) -> void:
+	var picker = app.source_picker
+	check(picker != null,"Non-blocking map source picker exists")
+	if picker == null: return
+	var chosen: Array = assignments if not assignments.is_empty() else picker.feasible_options()[0]
+	for index in chosen.size():
+		if index > 0 and chosen[index] == chosen[index-1]: await real_delay(230)
+		app._select_shelter(chosen[index])
+	await settle()
+
+func practice_delivery(kind: String, target: String, wait: bool = true) -> void:
+	var practice: PracticeView = app.practice
+	practice.deliver(kind,target)
+	var chosen: Array = practice.source_picker.feasible_options()[0]
+	for index in chosen.size():
+		if index > 0 and chosen[index] == chosen[index-1]: await real_delay(230)
+		practice.select_shelter(chosen[index])
+	practice.source_picker.confirm_selection()
+	if wait:
+		while practice.busy: await create_timer(0.05).timeout
+
 func wait_delivery() -> void:
 	var deadline := Time.get_ticks_msec()+4000
 	while app.session.phase == GameManager.Phase.DELIVERY and Time.get_ticks_msec() < deadline:
@@ -181,8 +210,9 @@ func run() -> void:
 	await dispatch("MONITOR","E",["A"])
 	await dispatch("SHIELD","E",["A"])
 	await map_click("E-F",true)
-	await click("ISOLATE")
-	check(app.modal != null,"Isolation opens concise confirmation modal")
+	await click("CLOSE BRIDGE")
+	check(app.modal == null and app.source_picker != null,"Isolation keeps map available for source selection")
+	await select_delivery_sources()
 	check(button_containing("Confirm delivery")!=null,"Isolation has explicit confirmation")
 	check(app.board.preview_edge=="E-F" and not app.board.preview_lost.is_empty(),"Isolation previews supply losses on map")
 	await click("Confirm delivery")

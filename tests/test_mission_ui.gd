@@ -27,10 +27,10 @@ func run() -> void:
 			await snapshot(str(viewport_size.x)+"-"+entry.id)
 			for id in app.session.state.shelters:
 				check(app.board.hit_test(app.board.positions[id]) == id,"Actual map position clickable: "+id)
-				if entry.id != "riverside_01_v2":
+				if entry.id != "riverside_01_v3":
 					check(app.board.world_building(id) == CityMapProfiles.building(app.session.scenario,id),"Artwork building registration rendered")
 			for id in app.session.state.edges:
-				if entry.id != "riverside_01_v2": check(app.board.visual_road(id) == CityMapProfiles.road(app.session.scenario,id),"Artwork road registration rendered")
+				if entry.id != "riverside_01_v3": check(app.board.visual_road(id) == CityMapProfiles.road(app.session.scenario,id),"Artwork road registration rendered")
 			if DisplayServer.get_name() != "headless":
 				var before := await public_pixels()
 				for shelter in app.session.state.shelters.values(): shelter.zombie_pressure = 1 - shelter.zombie_pressure
@@ -82,7 +82,7 @@ func run() -> void:
 	app = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(app)
 	for stage in ["delivery","resolution","support"]:
-		app._start_dev("riverside_01_v2")
+		app._start_dev("riverside_01_v3")
 		app.session.begin_sandbox_actions()
 		var funding: Array[String] = ["A"]
 		if stage == "delivery": app.session.dispatch_action("VERIFY","A",funding)
@@ -97,7 +97,7 @@ func run() -> void:
 			support_time += 120000
 			app.session.begin_support()
 		await settle(1)
-		app._start_dev("crossfire_04_v1")
+		app._start_dev("crossfire_04_v2")
 		await create_timer(2.0).timeout
 		check(app.session.state.total_supply() == 6 and app.session.state.round == 1 and app.session.phase == GameManager.Phase.OBSERVE,"Stale "+stage+" callback cannot mutate new scenario")
 		check(app.selected_shelter == "" and app.selected_edge == "" and app.session.support_message.is_empty(),"Switch clears selections and messages")
@@ -105,7 +105,7 @@ func run() -> void:
 	ProjectSettings.set_setting("cascade/development_access",false)
 	app._show_main_menu()
 	check(button_containing("Dev Mode") == null,"Participant configuration hides development entry")
-	app._start_dev("riverside_01_v2")
+	app._start_dev("riverside_01_v3")
 	check(app.session == null,"Participant configuration disables dev entry point")
 	ProjectSettings.set_setting("cascade/development_access",true)
 	app.queue_free()

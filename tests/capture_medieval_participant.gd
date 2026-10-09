@@ -30,7 +30,7 @@ func run() -> void:
 			support_time += 15000
 			app.session.proceed_to_actions()
 			await snapshot(prefix+"overview-"+str(id))
-			if id == "riverside_01_v2":
+			if id == "riverside_01_v3":
 				for tower in ["A","C","G"]:
 					app._select_shelter(tower)
 					await snapshot(prefix+"inspection-"+tower)

@@ -5,9 +5,10 @@ import re
 CONDITIONS = ('NONE', 'DIRECT_RECOMMENDATION', 'CONSTRUCTIVE_DISSENT')
 # Support-context contract. cascade-context-2 retired the narrative dispatches that context v1
 # carried as public_reports. The game sends this version with every intervention request.
-CONTEXT_VERSION = 'cascade-context-2'
+CONTEXT_VERSION = 'cascade-context-3'
 # Field names from the retired narrative-report contract. Any occurrence, at any depth, is
 # rejected explicitly instead of being dropped or forwarded to a model.
+# cascade-context-3 adds each road's public bridge flag (bridge-only closure).
 DEPRECATED_FIELDS = frozenset({'public_reports', 'published_reports', 'public_intel', 'reports', 'report',
                                'intel', 'dispatch', 'dispatches', 'field_dispatch', 'field_dispatches'})
 ACTIONS = ('VERIFY', 'MONITOR', 'SHIELD', 'ISOLATE', 'WAIT')
@@ -16,8 +17,8 @@ REASONS = ('', 'visible outbreak', 'suspected hidden exposure', 'protect importa
 RULES = {
     'costs': {'VERIFY': 1, 'MONITOR': 1, 'SHIELD': 1, 'ISOLATE': 2, 'WAIT': 0},
     'observations': 'known_pressure=-1 means unknown. Verification is dated evidence, not current pressure. Monitoring reveals no installation baseline, only later changes.',
-    'effects': 'VERIFY reveals a snapshot. MONITOR reports later changes. SHIELD blocks incoming infection for this round only and does not cure exposure. ISOLATE closes a road permanently for both infection and supplies; pay one unit to each endpoint. WAIT spends nothing.',
-    'access': 'Deliver from stocked depots along open roads through functioning shelters. Overrun shelters cannot receive or relay supplies. Already monitored/shielded targets cannot repeat that action. Closed roads cannot be isolated again.',
+    'effects': 'VERIFY reveals a snapshot. MONITOR reports later changes. SHIELD blocks incoming infection for this round only and does not cure exposure. ISOLATE (shown to players as Close bridge) closes a bridge permanently for both infection and supplies; pay one unit to each endpoint. WAIT spends nothing.',
+    'access': 'Deliver from stocked depots along open roads through functioning shelters. Overrun shelters cannot receive or relay supplies. Already monitored/shielded targets cannot repeat that action. Only roads with bridge=true can be isolated; ordinary roads always stay open. Closed bridges cannot be isolated again.',
     'resolution': 'Overrun shelters transmit along open roads at resolution. Existing exposure progresses when exposure_progresses is true. Incoming infection is simultaneous; newly overrun shelters transmit next round.',
 }
 
@@ -96,8 +97,8 @@ def validate_context(c):
             keys(h, 'round pressure'); integer(h['round'], 1, c['round']); integer(h['pressure'], 0, 2)
     require(isinstance(c['roads'], dict) and len(c['roads']) <= 28)
     for rid, r in c['roads'].items():
-        keys(r, 'endpoints closed')
-        require(type(r['closed']) is bool and isinstance(r['endpoints'], list) and len(r['endpoints']) == 2)
+        keys(r, 'endpoints closed bridge')
+        require(type(r['closed']) is bool and type(r['bridge']) is bool and isinstance(r['endpoints'], list) and len(r['endpoints']) == 2)
         require(all(x in c['shelters'] for x in r['endpoints']) and rid == '-'.join(r['endpoints']))
     require(isinstance(c['depots'], dict) and len(c['depots']) == 2)
     for sid, amount in c['depots'].items():
@@ -125,7 +126,8 @@ def validate_context(c):
 
 def validate_action(action, target, c):
     require(action in ACTIONS)
-    require(target == 'NONE' if action == 'WAIT' else target in c['roads'] if action == 'ISOLATE' else target in c['shelters'])
+    # Only bridges can be closed: an ISOLATE target must be a road flagged bridge=true.
+    require(target == 'NONE' if action == 'WAIT' else (target in c['roads'] and c['roads'][target]['bridge']) if action == 'ISOLATE' else target in c['shelters'])
 
 
 def legal_actions(c):
@@ -150,7 +152,7 @@ def legal_actions(c):
             actions.append({'action': action, 'target': sid})
     for rid in sorted(c['roads']):
         r = c['roads'][rid]
-        if not r['closed'] and any(a != b or c['depots'][a] >= 2 for a in funded(r['endpoints'][0]) for b in funded(r['endpoints'][1])):
+        if r['bridge'] and not r['closed'] and any(a != b or c['depots'][a] >= 2 for a in funded(r['endpoints'][0]) for b in funded(r['endpoints'][1])):
             actions.append({'action': 'ISOLATE', 'target': rid})
     return actions + [{'action': 'WAIT', 'target': 'NONE'}]
 

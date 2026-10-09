@@ -10,6 +10,9 @@ var road_bends: Dictionary
 var shelter_names: Dictionary
 var initial_pressures: Dictionary
 var edges: Array
+# Bridge-only closure (rule bridge-only-1): the sole authority for which edges can close.
+# Rendering, action validation, survey targets and support context all read this list.
+var bridges: Array
 var supply_depots: Array
 var supply_amounts: Dictionary
 var exposure_progresses := true
@@ -18,7 +21,7 @@ var ground_truth_timeline: Array
 
 static var last_error := ""
 const REGISTRY_PATH := "res://scenarios/registry.json"
-const FIELDS := ["scenario_id", "scenario_title", "rounds", "node_positions", "world_size", "road_bends", "shelter_names", "initial_pressures", "edges", "supply_depots", "supply_amounts", "exposure_progresses", "original_source", "ground_truth_timeline"]
+const FIELDS := ["scenario_id", "scenario_title", "rounds", "node_positions", "world_size", "road_bends", "shelter_names", "initial_pressures", "edges", "bridges", "supply_depots", "supply_amounts", "exposure_progresses", "original_source", "ground_truth_timeline"]
 # Retired narrative dispatches (context cascade-context-2). Older scenario files may still
 # carry this field; it is explicitly ignored and never copied into active gameplay.
 const DEPRECATED_FIELDS := ["public_intel"]
@@ -28,7 +31,7 @@ static func registry() -> Dictionary:
 	return parsed if parsed is Dictionary else {}
 
 static func load_default() -> ScenarioData:
-	return load_by_id("riverside_01_v2")
+	return load_by_id("riverside_01_v3")
 
 static func load_by_id(id: String) -> ScenarioData:
 	var matches: Array = []
@@ -58,7 +61,7 @@ static func validate(data: Dictionary) -> String:
 		if not data.has(field): return "Missing scenario field: " + field
 	for field in ["node_positions", "road_bends", "shelter_names", "initial_pressures", "supply_amounts"]:
 		if not data[field] is Dictionary: return field + " must be an object."
-	for field in ["world_size", "edges", "supply_depots", "ground_truth_timeline"]:
+	for field in ["world_size", "edges", "bridges", "supply_depots", "ground_truth_timeline"]:
 		if not data[field] is Array: return field + " must be an array."
 	if not data.scenario_id is String or data.scenario_id.is_empty() or not data.scenario_title is String: return "Invalid scenario identity."
 	if data.rounds != 3: return "A mission requires three rounds."
@@ -79,7 +82,7 @@ static func validate(data: Dictionary) -> String:
 		positions.append(point)
 	exposed.sort()
 	# Registered ground-truth declarations; never included in support inputs.
-	var expected := {"riverside_01_v2": ["E"], "twin_districts_02_v1": ["D"], "lifeline_03_v1": ["F"], "crossfire_04_v1": ["B", "F"]}
+	var expected := {"riverside_01_v3": ["E"], "twin_districts_02_v2": ["D"], "lifeline_03_v2": ["F"], "crossfire_04_v2": ["B", "F"]}
 	if expected.has(data.scenario_id) and exposed != expected[data.scenario_id]: return "Starting exposures do not match registered scenario."
 	if exposed.is_empty(): return "At least one initial exposure is required."
 	var seen := {}
@@ -104,6 +107,11 @@ static func validate(data: Dictionary) -> String:
 			if not reached.has(neighbor): reached.append(neighbor)
 		cursor += 1
 	if reached.size() != 8: return "Starting graph must be connected."
+	var bridge_ids: Array = []
+	for id in data.bridges:
+		# Exact edge IDs, as in road_bends; a bridge never names an absent or reversed road.
+		if not id is String or not edge_ids.has(id) or bridge_ids.has(id): return "Invalid bridge ID: " + str(id)
+		bridge_ids.append(id)
 	for id in data.road_bends:
 		if not edge_ids.has(id) or not data.road_bends[id] is Array: return "Invalid road bend ID."
 		for point in data.road_bends[id]:
@@ -139,6 +147,9 @@ func initial_exposure_ids() -> Array[String]:
 		if initial_pressures[id] == 1: result.append(id)
 	result.sort()
 	return result
+
+func is_bridge(edge_id: String) -> bool:
+	return bridges.has(edge_id)
 
 func road_points(edge_id: String) -> PackedVector2Array:
 	var endpoints := edge_id.split("-")

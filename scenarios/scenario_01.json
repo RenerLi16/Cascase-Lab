@@ -1,5 +1,5 @@
 {
-  "scenario_id": "riverside_01_v2",
+  "scenario_id": "riverside_01_v3",
   "scenario_title": "Riverside district",
   "rounds": 3,
   "world_size": [
@@ -98,6 +98,7 @@
       "H"
     ]
   ],
+  "bridges": ["E-F"],
   "road_bends": {
     "A-B": [
       [

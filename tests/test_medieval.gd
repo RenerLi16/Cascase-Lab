@@ -67,16 +67,17 @@ func run() -> void:
 			check(app.board.camera_center.x <= app.session.scenario.world_size[0]+70,"Pan remains bounded")
 			app.board.center_map(false)
 			# Actual delivery and isolation still use the existing route and action manager.
-			var target := "H" if entry.id == "riverside_01_v2" else "G"
+			var target := "H" if entry.id == "riverside_01_v3" else "G"
 			var assignment: Array[String] = ["A"]
 			var result: Dictionary = app.session.dispatch_action("VERIFY",target,assignment)
 			check(result.ok,"Actual routed delivery accepted")
 			await create_timer(0.3).timeout
 			check(app.board.animation_paths[0] == app.board.world_path_for_nodes(app.session.pending_action.deliveries[0].path),"Courier follows authoritative route")
 			await wait_delivery()
-			var edge := "E-F" if entry.id == "riverside_01_v2" else "D-E"
+			var edge := "E-F" if entry.id == "riverside_01_v3" else ("D-F" if entry.id == "crossfire_04_v2" else "D-E")
 			await map_click(edge,true)
-			await click("ISOLATE")
+			await click("CLOSE BRIDGE")
+			await select_delivery_sources()
 			await click("Confirm delivery")
 			check(not app.session.state.edges[edge].isolated,"Road stays open until arrival")
 			await wait_delivery()
@@ -127,7 +128,7 @@ func record_demo() -> void:
 	root.size = Vector2i(1440,900)
 	app = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(app)
-	app._start_dev("riverside_01_v2")
+	app._start_dev("riverside_01_v3")
 	app.session.set_dev_mode(false)
 	app.session.begin_sandbox_actions()
 	UIkit.reduced_motion = false

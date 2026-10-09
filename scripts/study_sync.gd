@@ -20,9 +20,10 @@ var base_url := "http://127.0.0.1:8787"
 var access_code := ""
 var outbox_path := "user://synthetic_pending_v1.json"
 # Schema 6 / cascade-development-6: sessions use the no-dispatch support context (SupportContext.VERSION).
+# Schema 7 / cascade-development-7: bridge-only closure, scenario pack 1.1.0, context cascade-context-3.
 # Older queued schema-5 records keep their own metadata and still upload as historical records.
-const SESSION_SCHEMA := 6
-const GAME_VERSION := "cascade-development-6"
+const SESSION_SCHEMA := 7
+const GAME_VERSION := "cascade-development-7"
 var storage_key := "cascade.synthetic.outbox.v1"
 
 func _ready() -> void:

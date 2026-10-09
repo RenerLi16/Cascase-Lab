@@ -11,11 +11,12 @@ from .providers import Failure, MockProvider, QwenProvider, PROMPT_VERSION
 from .storage import SQLiteStorage, Conflict, Unauthorized
 from .validation import CONDITIONS, CONTEXT_VERSION, Invalid, canonical, identifier, integer, keys, require, validate_request
 
-# Session protocol. Schema 6 sessions use the no-dispatch context (CONTEXT_VERSION).
-SESSION_VERSION = (6, 'cascade-development-6')
+# Session protocol. Schema 7 sessions use the bridge-only, no-dispatch context (CONTEXT_VERSION).
+SESSION_VERSION = (7, 'cascade-development-7')
 # Older clients' queued records may still upload as historical records, but such sessions can
-# never request a model intervention: their context contract carried narrative dispatches.
-LEGACY_RECORD_VERSIONS = {(5, 'cascade-development-5')}
+# never request a model intervention: schema 5 carried narrative dispatches, and schema 6
+# used context cascade-context-2, whose roads had no bridge flag and allowed any road to close.
+LEGACY_RECORD_VERSIONS = {(5, 'cascade-development-5'), (6, 'cascade-development-6')}
 
 class Service:
     def __init__(self, config, store=None, provider=None):

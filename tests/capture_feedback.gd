@@ -8,7 +8,7 @@ func run() -> void:
 		root.content_scale_size = viewport_size
 		app = load("res://scenes/Main.tscn").instantiate()
 		root.add_child(app)
-		app._start_dev("riverside_01_v2")
+		app._start_dev("riverside_01_v3")
 		await snapshot("roads-overview-%d" % viewport_size.x)
 		app._select_shelter("E")
 		await create_timer(0.65).timeout
@@ -17,7 +17,7 @@ func run() -> void:
 		await create_timer(0.65).timeout
 		app.session.begin_sandbox_actions()
 		await dispatch("MONITOR","E",["A"])
-		await dispatch("ISOLATE","A-B",["A","A"])
+		await dispatch("ISOLATE","E-F",["A","H"])
 		app.session.begin_resolution()
 		await create_timer(1.7).timeout
 		await snapshot("recap-%d" % viewport_size.x)

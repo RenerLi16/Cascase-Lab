@@ -17,7 +17,7 @@ func run() -> void:
 	app = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(app)
 	await shot("opening-1440")
-	app._start_dev("riverside_01_v2")
+	app._start_dev("riverside_01_v3")
 	await shot("roads-overview-1440")
 	app._select_shelter("E")
 	await create_timer(0.7).timeout

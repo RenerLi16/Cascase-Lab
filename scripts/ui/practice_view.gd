@@ -3,9 +3,12 @@ extends Control
 
 signal finished(version: String)
 signal exited
-const VERSION := "practice-1"
+# practice-2: closure step teaches the bridge-only rule used in every mission.
+const VERSION := "practice-2"
 # A separate controller has no MissionSession, provider, survey, or StudySync binding.
 # Only the shared action, routing, state, and presentation mechanics are reused.
+const SupplySourcePicker = preload("res://scripts/ui/supply_source_picker.gd")
+var source_picker: PanelContainer
 var scenario := ScenarioData.load_path("res://scenarios/practice_demo.json")
 var state: GameState
 var logger: EventLogger
@@ -31,6 +34,7 @@ func _ready() -> void:
 	reset()
 
 func reset() -> void:
+	close_sources()
 	generation += 1
 	state = GameState.new(scenario)
 	logger = EventLogger.new()
@@ -108,6 +112,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func overview() -> void:
+	close_sources()
 	board.center_map()
 	board.selected_shelter = ""
 	board.selected_edge = ""
@@ -115,6 +120,9 @@ func overview() -> void:
 	refresh()
 
 func select_shelter(id: String) -> void:
+	if is_instance_valid(source_picker):
+		source_picker.choose(id)
+		return
 	if busy: return
 	board.selected_shelter = id
 	board.selected_edge = ""
@@ -123,6 +131,7 @@ func select_shelter(id: String) -> void:
 	refresh()
 
 func select_road(id: String) -> void:
+	if is_instance_valid(source_picker): return
 	if busy: return
 	board.selected_edge = id
 	board.selected_shelter = ""
@@ -135,7 +144,8 @@ func refresh() -> void:
 	panel.visible = target != "" or busy or step == 2
 	board.inspection_inset = 390 if panel.visible else 0
 	counter.text = "%d / 6" % state.total_supply()
-	instruction.text = [t("1 / 3 · Select a shelter, then send one supply to Verify it.","1 / 3 · 选择一个避难所，再运送一份物资进行核实。"),t("2 / 3 · Return to Overview. Select a road, then close it with two deliveries.","2 / 3 · 返回全图。选择一条道路，向两端运送物资后关闭它。"),t("3 / 3 · Road closed. Inspect the map to see which supply routes remain.","3 / 3 · 道路已关闭。查看地图上剩余的补给路线。")][step]
+	instruction.text = [t("1 / 3 · Select a tower, choose Verify, then click a highlighted source depot.","1 / 3 · 选择塔楼并点击核实，再点击高亮仓库选择补给来源。"),t("2 / 3 · Select a bridge (a timber deck over the river). Only bridges can be closed. Choose a source depot for each end, then confirm.","2 / 3 · 选择一座桥梁（河上的木桥）。只有桥梁可以关闭。分别为两端选择补给仓库，再确认运送。"),t("3 / 3 · Bridge closed. Inspect the map to see which supply routes remain.","3 / 3 · 桥梁已关闭。查看地图上剩余的补给路线。")][step]
+	status.visible = true
 	status.text = receipt
 	board.configure(scenario,state)
 	for child in detail.get_children():
@@ -152,17 +162,19 @@ func refresh() -> void:
 		detail.add_child(UIkit.paragraph(t("Supply from: ","可补给的仓库：")+(", ".join(depots) if not depots.is_empty() else t("none","无"))))
 		if step == 0: detail.add_child(UIkit.button(t("Deliver · VERIFY · 1 supply","运送 · 核实 · 1 份物资"),func(): deliver("VERIFY",target),true))
 	elif state.edges.has(target):
-		detail.add_child(UIkit.heading(t("Road ","道路 ")+target))
-		if state.edges[target].isolated: detail.add_child(UIkit.paragraph(t("Closed in both directions.","双向关闭。")))
+		var bridge: bool = state.edges[target].bridge
+		detail.add_child(UIkit.heading((t("Bridge ","桥梁 ") if bridge else t("Road ","道路 "))+target))
+		if not bridge: detail.add_child(UIkit.paragraph(t("Ordinary road. Only bridges can be closed.","普通道路。只有桥梁可以关闭。")))
+		elif state.edges[target].isolated: detail.add_child(UIkit.paragraph(t("Closed in both directions.","双向关闭。")))
 		elif step == 1:
-			detail.add_child(UIkit.paragraph(t("ISOLATE spends two supplies, one at each end. The road closes after both arrive. Infection and supplies can no longer pass along it.","隔离消耗两份物资，每端一份。全部送达后道路关闭，感染和物资都无法沿此路通过。")))
+			detail.add_child(UIkit.paragraph(t("Close bridge spends two supplies, one at each end. The bridge closes after both arrive. It blocks outbreak spread and supply deliveries across this connection.","关闭桥梁消耗两份物资，每端一份。全部送达后桥梁关闭，将阻止疫情传播和物资运送经过此连接。")))
 			for depot in actions.preview_isolation(target):
 				var lost: Array = actions.preview_isolation(target)[depot]
 				detail.add_child(UIkit.meta(t("Depot %s loses routes to: %s","仓库 %s 将无法到达：%s") % [depot,", ".join(lost) if not lost.is_empty() else t("none","无")]))
-			detail.add_child(UIkit.button(t("Close road · 2 supplies","关闭道路 · 2 份物资"),func(): deliver("ISOLATE",target),true))
+			detail.add_child(UIkit.button(t("Close bridge · 2 supplies","关闭桥梁 · 2 份物资"),func(): deliver("ISOLATE",target),true))
 	else:
 		detail.add_child(UIkit.heading(t("Try a move","试着行动")))
-		detail.add_child(UIkit.paragraph(t("Click a named shelter to inspect it. Click a road line to select that connection. Overview returns to the whole map.","点击标有名称的避难所查看详情。点击道路选择连接。点击全图返回整个地图。")))
+		detail.add_child(UIkit.paragraph(t("Click a named shelter to inspect it. Click a road or bridge to select that connection. Overview returns to the whole map.","点击标有名称的避难所查看详情。点击道路或桥梁选择连接。点击全图返回整个地图。")))
 	if step == 2:
 		UIkit.rule(detail)
 		detail.add_child(UIkit.paragraph(route_changes))
@@ -171,10 +183,30 @@ func refresh() -> void:
 
 func deliver(kind: String, id: String) -> void:
 	if busy or not ((step == 0 and kind == "VERIFY") or (step == 1 and kind == "ISOLATE")): return
-	var options := actions.supply.delivery_options(kind,id)
-	if options.is_empty(): return
+	if is_instance_valid(source_picker): return
+	detail.get_parent().get_parent().hide()
+	status.hide()
+	source_picker = SupplySourcePicker.new()
+	add_child(source_picker)
+	source_picker.setup(actions,board,kind,id)
+	var token := generation
+	source_picker.cancelled.connect(func(): close_sources(); refresh())
+	source_picker.confirmed.connect(func(action_kind: String, action_target: String, assignments: Array[String]):
+		if token != generation or busy: return
+		close_sources()
+		perform_delivery(action_kind,action_target,assignments))
+
+func close_sources() -> void:
+	if not is_instance_valid(source_picker): return
+	source_picker.clear_map()
+	remove_child(source_picker)
+	source_picker.queue_free()
+	source_picker = null
+
+func perform_delivery(kind: String, id: String, assignments: Array[String]) -> void:
+	if busy or not ((step == 0 and kind == "VERIFY") or (step == 1 and kind == "ISOLATE")): return
 	var request := GameAction.new(kind,id,"",state.round)
-	request.endpoint_depots.assign(options[0])
+	request.endpoint_depots.assign(assignments)
 	var before := state.total_supply()
 	var losses := actions.preview_isolation(id) if kind == "ISOLATE" else {}
 	var result := actions.reserve(request)
@@ -195,7 +227,7 @@ func deliver(kind: String, id: String) -> void:
 	if kind == "VERIFY":
 		receipt += t(" · Delivered to %s. Verify: Pressure %d at round 1 (dated reading)."," · 已送达 %s。核实：第 1 轮压力 %d（历史读数）。") % [id,completed.observation.pressure]
 	else:
-		receipt += t(" · Both deliveries arrived. Road %s closed."," · 两端物资均已送达。道路 %s 已关闭。") % id
+		receipt += t(" · Both deliveries arrived. Bridge %s closed."," · 两端物资均已送达。桥梁 %s 已关闭。") % id
 		var changes: Array[String] = []
 		for depot in losses:
 			changes.append(t("Depot %s lost routes to: %s","仓库 %s 已无法到达：%s") % [depot,", ".join(losses[depot]) if not losses[depot].is_empty() else t("none","无")])
