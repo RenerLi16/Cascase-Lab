@@ -14,6 +14,8 @@ preset never offers Dev Mode. The Dev Mode password is a convenience gate, not a
 """
 from pathlib import Path
 import argparse
+import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -55,8 +57,20 @@ def main():
         project.write_text(text)
         subprocess.run([args.godot, '--headless', '--log-file', str(copy / 'import.log'), '--path', temp, '--editor', '--import', '--quit'], check=True, stdout=subprocess.DEVNULL)
         subprocess.run([args.godot, '--headless', '--log-file', str(copy / 'export.log'), '--path', temp, '--export-release', args.preset, str(output / 'index.html')], check=True, stdout=subprocess.DEVNULL)
+    # Keep the intended audience next to the upload files so an older participant
+    # zip cannot be mistaken for the password-gated instructor/demo export.
+    manifest = {
+        'preset': args.preset,
+        'audience': 'instructor-demo' if instructor else 'research-participant',
+        'developer_sandbox': instructor,
+        'developer_gate': 'session-only convenience password' if instructor else 'unavailable',
+        'backend_origin': url,
+        'files_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                         for path in sorted(output.iterdir()) if path.is_file()},
+    }
+    (output / 'build-info.json').write_text(json.dumps(manifest, indent=2) + '\n')
     archive = shutil.make_archive(str(output.parent / ('cascade-lab-itch-instructor' if instructor else 'cascade-lab-itch')), 'zip', output)
-    print(f'itch.io build: {output}\nUpload this zip to itch.io (Kind of project: HTML): {archive}')
+    print(f'Export preset: {args.preset}\nDeveloper sandbox: {"password-gated" if instructor else "unavailable"}\nitch.io build: {output}\nUpload this zip to itch.io (Kind of project: HTML): {archive}')
 
 
 if __name__ == '__main__':

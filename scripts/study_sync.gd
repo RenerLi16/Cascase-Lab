@@ -45,6 +45,12 @@ func _ready() -> void:
 	_persist()
 
 func attach(value: MissionSession) -> void:
+	# Enforce the local-only boundary here too, even if a future caller bypasses
+	# the menu's sandbox branch. Never bind sandbox events or a backend provider.
+	if value.purpose == GameManager.RunPurpose.DEV_SANDBOX:
+		detach()
+		value.current.support_provider = MockSupportProvider.new()
+		return
 	if not enabled:
 		value.current.support_provider = MockSupportProvider.new()
 		return

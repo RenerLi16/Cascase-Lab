@@ -1,6 +1,8 @@
 # Main menu and password-gated Dev Mode (2026-10-08)
 
-Status: implemented locally, **not committed, pushed or deployed**. No cloud or backend settings were changed.
+For the current instructor/participant upload locations and actual release-build tests, see [2026-10-09 web verification](DEV_WEB_VERIFICATION.md).
+
+Status: the original menu/Dev Mode work is in commit `275f021`; the 2026-10-09 release-metadata and saving-boundary follow-up is local and **not committed, pushed or deployed**. No cloud or backend settings were changed.
 
 ## What changed
 

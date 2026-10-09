@@ -2,6 +2,8 @@
 
 > **Main menu + Dev Mode password:** New pixel-title menu with a decorative node network that never covers the interface; Play enters the existing practice/normal flow without a code; Dev Mode is password-gated in web/instructor builds (a convenience gate, not authentication) and sandbox runs are never uploaded. See [Main menu and Dev Mode](docs/MAIN_MENU.md). The title font is Silkscreen (SIL OFL, `assets/fonts/Silkscreen-OFL.txt`).
 
+> **Instructor/demo itch.io upload:** use preset **Web Instructor** through `tools/build_web_release.py --preset "Web Instructor"`; upload `build/cascade-lab-itch-instructor.zip` (files in `build/itch-instructor/`). The default **Web Participant** build intentionally has no Dev Mode. Each new release includes `build-info.json` identifying its preset and file hashes. See [2026-10-09 exported-build verification](docs/DEV_WEB_VERIFICATION.md).
+
 > **Bridge-only closure:** Only designated bridges can be closed (player action **Close bridge**, internal `ISOLATE`). Scenarios 2–4 have new terrain, and scenario IDs, session schema 7, context `cascade-context-3` and `support-1.2.0` were versioned. See [Bridge-only closure](docs/BRIDGE_CLOSURE.md).
 
 > **First-play review:** Local implementation, screenshots, validation, and protocol-sensitive changes are in [First-play and readability review](docs/FIRST_PLAY_REVIEW.md). Practice is a proposed addition and remains off by default in participant builds pending supervisor review.
