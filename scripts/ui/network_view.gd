@@ -185,6 +185,11 @@ func _update_camera() -> void:
 	# Allow edge towers to be inspected, while always retaining map context.
 	var freedom := clampf(0.12+(zoom-1.0)/0.65,0,1)
 	if not source_mode: camera_center = camera_center.clamp(world_center().lerp(Vector2(-70,-40),freedom),world_center().lerp(Vector2(scenario.world_size[0]+70,scenario.world_size[1]+40),freedom))
+	# Keep the whole viewport inside painted scenery, including source-picker pans.
+	var scale := maxf(map_scale(),0.01)
+	var low := Vector2.ONE*(-WoodlandArt.PAD)+screen_origin()/scale
+	var high := Vector2(scenario.world_size[0],scenario.world_size[1])+Vector2.ONE*WoodlandArt.PAD-(size-screen_origin())/scale
+	if low.x <= high.x and low.y <= high.y: camera_center = camera_center.clamp(low,high)
 	pan = (world_center()-camera_center)*map_scale() if scenario != null else Vector2.ZERO
 	view_changed.emit()
 	queue_redraw()
@@ -238,13 +243,18 @@ func _refresh_geometry() -> void:
 func _place_annotations() -> void:
 	var public_status: Array = []
 	for id in positions: public_status.append(_public_tags(id))
-	var key := str([scenario.scenario_id,camera_center,zoom,size,inspection_inset,source_mode,source_destinations,eligible_sources,chosen_sources,public_status])
+	var closures: Array = []
+	for edge in state.edges.values(): closures.append(edge.isolated)
+	var key := str([scenario.scenario_id,camera_center,zoom,size,inspection_inset,source_mode,source_destinations,eligible_sources,chosen_sources,public_status,closures,preview_edge,closing_edge])
 	if key == annotation_key: return
 	annotation_key = key
 	title_rects.clear()
 	status_positions.clear()
 	var occupied: Array[Rect2] = []
 	for id in positions: occupied.append(tower_screen_rect(id).grow(4))
+	for edge in state.edges.values():
+		if edge.isolated or edge.id == preview_edge or edge.id == closing_edge:
+			occupied.append(bridge_notice_rect(edge.id).grow(4))
 	# Place each public name/status together, near its building, avoiding streets.
 	var order := positions.keys()
 	if selected_shelter in order:
@@ -253,7 +263,7 @@ func _place_annotations() -> void:
 	for id in order:
 		if source_mode and id not in source_destinations and id not in eligible_sources and id not in chosen_sources: continue
 		var rect := tower_screen_rect(id)
-		var safe := Rect2(6,152,size.x-inspection_inset-12,size.y-256)
+		var safe := Rect2(6,170,size.x-inspection_inset-12,size.y-274)
 		if not safe.encloses(rect): continue
 		var title: String = _node_title(id)
 		var width := UIkit.HEADING_FONT.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
@@ -265,15 +275,23 @@ func _place_annotations() -> void:
 		status_positions[id] = Vector2(label.get_center().x,label.position.y+STATUS_BASELINE)
 		occupied.append(label.grow(3))
 
+# Same stamp dimensions as _draw_road/_stamp; public closure/preview state only.
+func bridge_notice_rect(id: String) -> Rect2:
+	var text := "CLOSED" if state.edges[id].isolated else ("CLOSING" if id == closing_edge else "PREVIEW")
+	var font_size := _stamp_size(text,UIkit.MAP_TAG)
+	var width := UIkit.HEADING_FONT.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
+	var at := _point_on_path(road_geometry[id],closure_fraction(id))+Vector2(0,-24)
+	return Rect2(at-Vector2(width/2+5,font_size+1),Vector2(ceilf(width)+10,font_size+6))
+
 func _free_annotation(preferred: Rect2, occupied: Array[Rect2], landmark: Rect2) -> Rect2:
 	var best := preferred
 	var best_distance := INF
-	for dy in range(-20,11):
-		for dx in range(-20 if source_mode else -10,21 if source_mode else 11):
+	for dy in range(-30,16):
+		for dx in range(-20,21):
 			var candidate := preferred
 			candidate.position += Vector2(dx,dy)*14
 			candidate.position.x = clampf(candidate.position.x,6,maxf(6,size.x-candidate.size.x-6))
-			candidate.position.y = clampf(candidate.position.y,152,maxf(152,size.y-candidate.size.y-(344 if source_mode else 104)))
+			candidate.position.y = clampf(candidate.position.y,170,maxf(170,size.y-candidate.size.y-(376 if source_mode else 104)))
 			if inspection_inset > 0 and candidate.end.x > size.x-inspection_inset: continue
 			var gap := Vector2(maxf(0,maxf(landmark.position.x-candidate.end.x,candidate.position.x-landmark.end.x)),maxf(0,maxf(landmark.position.y-candidate.end.y,candidate.position.y-landmark.end.y)))
 			var distance := gap.length_squared()*4+candidate.get_center().distance_squared_to(landmark.get_center())*0.15
@@ -374,12 +392,13 @@ func _draw_city() -> void:
 			lights.append(Vector3(at.x,at.y,1.0 if beacon_lit(id) else 0.0))
 		while lights.size() < 8: lights.append(Vector3.ZERO)
 		terrain_surface.material.set_shader_parameter("beacons",lights)
+		terrain_surface.material.set_shader_parameter("world_padding",padding)
 		terrain_surface.material.set_shader_parameter("world_extent",Vector2(scenario.world_size[0],scenario.world_size[1])+Vector2.ONE*padding*2)
 	var frame := 0 if UIkit.reduced_motion else ambient_frame
 	for ripple: Array in WoodlandArt.ripples(scenario,frame):
 		draw_rect(Rect2(to_screen(ripple[0]),ripple[1]*map_scale()),Color("3b5964"))
 # Screen-space widths: 7–13px stone core, with 2px dark casing.
-# Visual geometry and logical path costs are unchanged.
+# Visual geometry is shared by drawing, selection and animation; logical costs are separate.
 func road_core_width() -> float:
 	return clampf(8.0*map_scale(),7.0,13.0)
 
@@ -605,18 +624,25 @@ func _point_on_path(points: PackedVector2Array, progress: float) -> Vector2:
 		distance -= segment
 	return points[points.size()-1]
 
+# The old rendered lengths are frozen presentation timing data. Simulation edge.length
+# still owns routing; new visual distances only position the courier, never its clock.
+func delivery_duration(deliveries: Array) -> float:
+	var longest := 0.0
+	for delivery in deliveries:
+		var length := 0.0
+		for i in delivery.path.size()-1:
+			var edge := NetworkManager.new(state).road_between(delivery.path[i],delivery.path[i+1])
+			length += float(CityMapProfiles.layout(scenario).edges[edge].delivery_length) if has_city_art() else state.edges[edge].length
+		longest = maxf(longest,length)
+	return clampf(0.7+longest/900.0,0.7,1.5)
+
 func play_deliveries(deliveries: Array) -> void:
 	animation_paths.clear()
 	delivery_targets.clear()
-	var longest := 0.0
 	for delivery in deliveries:
 		delivery_targets.append(delivery.target)
-		var path := world_path_for_nodes(delivery.path)
-		animation_paths.append(path)
-		var length := 0.0
-		for index in path.size()-1: length += path[index].distance_to(path[index+1])
-		longest = maxf(longest,length)
-	await _animate("delivery",clampf(0.7+longest/900.0,0.7,1.5))
+		animation_paths.append(world_path_for_nodes(delivery.path))
+	await _animate("delivery",delivery_duration(deliveries))
 	await _animate("arrival",0.55)
 
 func play_outbreak(movements: Array) -> void:

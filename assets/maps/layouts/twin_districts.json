@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "scenario_id": "twin_districts_02_v2",
   "world_size": [
     1000,
@@ -13,8 +13,8 @@
   "nodes": {
     "A": {
       "anchor": [
-        112.7418,
-        171.4967
+        140,
+        185
       ],
       "junction_radius": 10,
       "building": [
@@ -40,8 +40,8 @@
     },
     "B": {
       "anchor": [
-        112.7418,
-        520.4957
+        155,
+        515
       ],
       "junction_radius": 10,
       "building": [
@@ -67,8 +67,8 @@
     },
     "C": {
       "anchor": [
-        310.8739,
-        348.999
+        315,
+        385
       ],
       "junction_radius": 10,
       "building": [
@@ -94,8 +94,8 @@
     },
     "D": {
       "anchor": [
-        450.3002,
-        348.999
+        510,
+        330
       ],
       "junction_radius": 10,
       "building": [
@@ -121,8 +121,8 @@
     },
     "E": {
       "anchor": [
-        586.3909,
-        348.999
+        725,
+        420
       ],
       "junction_radius": 10,
       "building": [
@@ -148,8 +148,8 @@
     },
     "F": {
       "anchor": [
-        760.507,
-        171.4967
+        785,
+        180
       ],
       "junction_radius": 10,
       "building": [
@@ -175,8 +175,8 @@
     },
     "G": {
       "anchor": [
-        760.507,
-        520.4957
+        815,
+        590
       ],
       "junction_radius": 10,
       "building": [
@@ -202,8 +202,8 @@
     },
     "H": {
       "anchor": [
-        907.2715,
-        348.999
+        965,
+        365
       ],
       "junction_radius": 10,
       "building": [
@@ -234,171 +234,392 @@
       "to": "B",
       "centerline": [
         [
-          112.7418,
-          171.4967
+          140,
+          185
         ],
         [
-          112.7418,
-          520.4957
+          105,
+          350
+        ],
+        [
+          155,
+          515
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 348.999
     },
     "A-C": {
       "from": "A",
       "to": "C",
       "centerline": [
         [
-          112.7418,
-          171.4967
+          140,
+          185
         ],
         [
-          310.8739,
-          348.999
+          250,
+          240
+        ],
+        [
+          315,
+          385
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 266.01390105725676
     },
     "B-C": {
       "from": "B",
       "to": "C",
       "centerline": [
         [
-          112.7418,
-          520.4957
+          155,
+          515
         ],
         [
-          310.8739,
-          348.999
+          255,
+          490
+        ],
+        [
+          315,
+          385
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 262.04474267059817
     },
     "C-D": {
       "from": "C",
       "to": "D",
       "centerline": [
         [
-          310.8739,
-          348.999
+          315,
+          385
         ],
         [
-          450.3002,
-          348.999
+          510,
+          330
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 139.42630000000003
     },
     "D-E": {
       "from": "D",
       "to": "E",
       "centerline": [
         [
-          450.3002,
-          348.999
+          510,
+          330
         ],
         [
-          586.3909,
-          348.999
+          725,
+          420
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 136.09069999999997
     },
     "E-F": {
       "from": "E",
       "to": "F",
       "centerline": [
         [
-          586.3909,
-          348.999
+          725,
+          420
         ],
         [
-          760.507,
-          171.4967
+          720,
+          285
+        ],
+        [
+          785,
+          180
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 248.64328421354958
     },
     "E-G": {
       "from": "E",
       "to": "G",
       "centerline": [
         [
-          586.3909,
-          348.999
+          725,
+          420
         ],
         [
-          760.507,
-          520.4957
+          745,
+          520
+        ],
+        [
+          815,
+          590
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 244.39217334051432
     },
     "F-G": {
       "from": "F",
       "to": "G",
       "centerline": [
         [
-          760.507,
-          171.4967
+          785,
+          180
         ],
         [
-          760.507,
-          520.4957
+          845,
+          365
+        ],
+        [
+          850,
+          480
+        ],
+        [
+          815,
+          590
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 348.999
     },
     "F-H": {
       "from": "F",
       "to": "H",
       "centerline": [
         [
-          760.507,
-          171.4967
+          785,
+          180
         ],
         [
-          907.2715,
-          348.999
+          900,
+          235
+        ],
+        [
+          965,
+          365
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 230.3190937928074
     },
     "G-H": {
       "from": "G",
       "to": "H",
       "centerline": [
         [
-          760.507,
-          520.4957
+          815,
+          590
         ],
         [
-          907.2715,
-          348.999
+          935,
+          515
+        ],
+        [
+          965,
+          365
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 225.723141416958
     }
   },
-  "artwork_notes": "Guide-based regenerated terrain. Final anchors refined within the generated open plazas; simulation coordinates and weights remain unchanged."
+  "artwork_notes": "Guide-based regenerated terrain. Final anchors refined within the generated open plazas; simulation coordinates and weights remain unchanged.",
+  "terrain": {
+    "version": 4,
+    "seed": 2143,
+    "stones": true,
+    "features": [
+      {
+        "mode": "path",
+        "kind": "water",
+        "points": [
+          [
+            545,
+            -1200
+          ],
+          [
+            535,
+            -130
+          ],
+          [
+            505,
+            65
+          ]
+        ],
+        "width": 24,
+        "bank": 34
+      },
+      {
+        "mode": "path",
+        "kind": "water",
+        "points": [
+          [
+            505,
+            65
+          ],
+          [
+            450,
+            130
+          ],
+          [
+            415,
+            240
+          ],
+          [
+            415,
+            365
+          ],
+          [
+            445,
+            465
+          ],
+          [
+            515,
+            560
+          ]
+        ],
+        "width": 16,
+        "bank": 25,
+        "scales": [
+          1.1,
+          1,
+          0.9,
+          1.1,
+          1,
+          1.2
+        ]
+      },
+      {
+        "mode": "path",
+        "kind": "water",
+        "points": [
+          [
+            505,
+            65
+          ],
+          [
+            580,
+            140
+          ],
+          [
+            625,
+            250
+          ],
+          [
+            650,
+            390
+          ],
+          [
+            600,
+            515
+          ],
+          [
+            515,
+            560
+          ]
+        ],
+        "width": 22,
+        "bank": 32,
+        "scales": [
+          1.1,
+          1.1,
+          0.9,
+          1,
+          1.2,
+          1.1
+        ]
+      },
+      {
+        "mode": "path",
+        "kind": "water",
+        "points": [
+          [
+            515,
+            560
+          ],
+          [
+            490,
+            660
+          ],
+          [
+            540,
+            830
+          ],
+          [
+            565,
+            1900
+          ]
+        ],
+        "width": 27,
+        "bank": 38
+      }
+    ],
+    "landforms": [
+      {
+        "points": [
+          [
+            405,
+            140
+          ],
+          [
+            510,
+            85
+          ],
+          [
+            585,
+            165
+          ],
+          [
+            605,
+            280
+          ],
+          [
+            617,
+            385
+          ],
+          [
+            565,
+            490
+          ],
+          [
+            510,
+            520
+          ],
+          [
+            467,
+            437
+          ],
+          [
+            446,
+            320
+          ]
+        ],
+        "color": "203831"
+      }
+    ]
+  },
+  "composition": "A north-to-south river divides around a long, uneven island. The narrower west arm crosses C\u2013D; the stronger east channel crosses D\u2013E. D occupies a raised central clearing. Western roads skirt a wooded hollow; the eastern settlement follows an oblique ridge."
 }

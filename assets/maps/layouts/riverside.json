@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "scenario_id": "riverside_01_v3",
   "world_size": [
     1000,
@@ -244,7 +244,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 233.04628771051043
     },
     "B-C": {
       "from": "B",
@@ -261,7 +262,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 201.03261781213513
     },
     "C-E": {
       "from": "C",
@@ -278,7 +280,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 182.40849437361737
     },
     "E-D": {
       "from": "E",
@@ -295,7 +298,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 234.2086267885536
     },
     "D-A": {
       "from": "D",
@@ -312,7 +316,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 244.15314970309106
     },
     "B-E": {
       "from": "B",
@@ -329,7 +334,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 284.9373709716751
     },
     "E-F": {
       "from": "E",
@@ -346,7 +352,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 296.5873040966184
     },
     "F-G": {
       "from": "F",
@@ -363,7 +370,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 207.35392461185774
     },
     "G-H": {
       "from": "G",
@@ -380,7 +388,8 @@
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 239.77924669149334
     }
   },
   "artwork_notes": "Guide-based regenerated terrain. Final anchors refined within the generated open plazas; simulation coordinates and weights remain unchanged."

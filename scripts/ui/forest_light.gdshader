@@ -5,9 +5,10 @@ render_mode unshaded;
 // surface colors so tree detail remains visible, rather than overlaying discs.
 uniform vec3 beacons[8];
 uniform vec2 world_extent;
+uniform float world_padding = 320.0;
 void fragment() {
     vec4 surface = texture(TEXTURE, UV);
-    vec2 world = UV * world_extent - vec2(320.0);
+    vec2 world = UV * world_extent - vec2(world_padding);
     float light = 0.0;
     for (int i = 0; i < 8; i++) {
         vec2 delta = (world - beacons[i].xy) / vec2(130.0, 105.0);

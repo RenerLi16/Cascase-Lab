@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "scenario_id": "lifeline_03_v2",
   "world_size": [
     1000,
@@ -13,8 +13,8 @@
   "nodes": {
     "A": {
       "anchor": [
-        103.4023,
-        196.1868
+        140,
+        180
       ],
       "junction_radius": 10,
       "building": [
@@ -40,8 +40,8 @@
     },
     "B": {
       "anchor": [
-        103.4023,
-        497.8074
+        100,
+        425
       ],
       "junction_radius": 10,
       "building": [
@@ -67,8 +67,8 @@
     },
     "C": {
       "anchor": [
-        316.8779,
-        497.8074
+        285,
+        570
       ],
       "junction_radius": 10,
       "building": [
@@ -94,8 +94,8 @@
     },
     "D": {
       "anchor": [
-        316.8779,
-        238.2269
+        315,
+        280
       ],
       "junction_radius": 10,
       "building": [
@@ -121,8 +121,8 @@
     },
     "E": {
       "anchor": [
-        533.6891,
-        340.3241
+        575,
+        380
       ],
       "junction_radius": 10,
       "building": [
@@ -148,8 +148,8 @@
     },
     "F": {
       "anchor": [
-        720.4803,
-        166.1582
+        765,
+        160
       ],
       "junction_radius": 10,
       "building": [
@@ -175,8 +175,8 @@
     },
     "G": {
       "anchor": [
-        720.4803,
-        527.836
+        825,
+        555
       ],
       "junction_radius": 10,
       "building": [
@@ -202,8 +202,8 @@
     },
     "H": {
       "anchor": [
-        877.2515,
-        345.6625
+        980,
+        360
       ],
       "junction_radius": 10,
       "building": [
@@ -234,171 +234,456 @@
       "to": "B",
       "centerline": [
         [
-          103.4023,
-          196.1868
+          140,
+          180
         ],
         [
-          103.4023,
-          497.8074
+          95,
+          290
+        ],
+        [
+          100,
+          425
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 301.62059999999997
     },
     "B-C": {
       "from": "B",
       "to": "C",
       "centerline": [
         [
-          103.4023,
-          497.8074
+          100,
+          425
         ],
         [
-          316.8779,
-          497.8074
+          180,
+          535
+        ],
+        [
+          285,
+          570
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 213.47560000000001
     },
     "C-D": {
       "from": "C",
       "to": "D",
       "centerline": [
         [
-          316.8779,
-          497.8074
+          285,
+          570
         ],
         [
-          316.8779,
-          238.2269
+          330,
+          435
+        ],
+        [
+          315,
+          280
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 259.5805
     },
     "A-D": {
       "from": "A",
       "to": "D",
       "centerline": [
         [
-          103.4023,
-          196.1868
+          140,
+          180
         ],
         [
-          316.8779,
-          238.2269
+          250,
+          180
+        ],
+        [
+          315,
+          280
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 217.57573808531595
     },
     "D-E": {
       "from": "D",
       "to": "E",
       "centerline": [
         [
-          316.8779,
-          238.2269
+          315,
+          280
         ],
         [
-          533.6891,
-          340.3241
+          355,
+          315
+        ],
+        [
+          515,
+          355
+        ],
+        [
+          575,
+          380
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 239.64752177579473
     },
     "E-F": {
       "from": "E",
       "to": "F",
       "centerline": [
         [
-          533.6891,
-          340.3241
+          575,
+          380
         ],
         [
-          720.4803,
-          166.1582
+          680,
+          250
+        ],
+        [
+          765,
+          160
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 255.39129413558717
     },
     "F-G": {
       "from": "F",
       "to": "G",
       "centerline": [
         [
-          720.4803,
-          166.1582
+          765,
+          160
         ],
         [
-          720.4803,
-          527.836
+          830,
+          290
+        ],
+        [
+          875,
+          420
+        ],
+        [
+          825,
+          555
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 361.67780000000005
     },
     "F-H": {
       "from": "F",
       "to": "H",
       "centerline": [
         [
-          720.4803,
-          166.1582
+          765,
+          160
         ],
         [
-          877.2515,
-          345.6625
+          905,
+          225
+        ],
+        [
+          980,
+          360
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 238.32541381046627
     },
     "E-G": {
       "from": "E",
       "to": "G",
       "centerline": [
         [
-          533.6891,
-          340.3241
+          575,
+          380
         ],
         [
-          720.4803,
-          527.836
+          635,
+          455
+        ],
+        [
+          760,
+          535
+        ],
+        [
+          825,
+          555
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 264.67275084347085
     },
     "G-H": {
       "from": "G",
       "to": "H",
       "centerline": [
         [
-          720.4803,
-          527.836
+          825,
+          555
         ],
         [
-          877.2515,
-          345.6625
+          950,
+          480
+        ],
+        [
+          980,
+          360
         ]
       ],
       "width": 16,
       "corridor_width": 34,
-      "closure_fraction": 0.5
+      "closure_fraction": 0.5,
+      "delivery_length": 240.3422419211612
     }
   },
-  "artwork_notes": "Guide-based regenerated terrain. Final anchors refined within the generated open plazas; simulation coordinates and weights remain unchanged."
+  "artwork_notes": "Guide-based regenerated terrain. Final anchors refined within the generated open plazas; simulation coordinates and weights remain unchanged.",
+  "terrain": {
+    "version": 4,
+    "seed": 3191,
+    "stones": true,
+    "features": [
+      {
+        "mode": "path",
+        "kind": "ravine",
+        "points": [
+          [
+            460,
+            -1200
+          ],
+          [
+            450,
+            -70
+          ],
+          [
+            420,
+            95
+          ],
+          [
+            445,
+            240
+          ],
+          [
+            430,
+            365
+          ],
+          [
+            470,
+            540
+          ],
+          [
+            430,
+            720
+          ],
+          [
+            490,
+            1900
+          ]
+        ],
+        "width": 20,
+        "bank": 34
+      },
+      {
+        "mode": "path",
+        "kind": "ravine",
+        "points": [
+          [
+            425,
+            140
+          ],
+          [
+            515,
+            195
+          ],
+          [
+            610,
+            235
+          ],
+          [
+            690,
+            305
+          ],
+          [
+            735,
+            345
+          ]
+        ],
+        "width": 13,
+        "bank": 25,
+        "scales": [
+          1.2,
+          1.1,
+          1,
+          0.65,
+          0.03
+        ]
+      },
+      {
+        "mode": "path",
+        "kind": "ravine",
+        "points": [
+          [
+            460,
+            525
+          ],
+          [
+            530,
+            540
+          ],
+          [
+            620,
+            505
+          ],
+          [
+            720,
+            445
+          ],
+          [
+            770,
+            395
+          ]
+        ],
+        "width": 14,
+        "bank": 26,
+        "scales": [
+          1.3,
+          1.1,
+          1,
+          0.65,
+          0.03
+        ]
+      },
+      {
+        "mode": "path",
+        "kind": "ravine",
+        "points": [
+          [
+            437,
+            650
+          ],
+          [
+            365,
+            705
+          ],
+          [
+            320,
+            780
+          ]
+        ],
+        "width": 9,
+        "bank": 18,
+        "scales": [
+          1,
+          0.6,
+          0.02
+        ]
+      }
+    ],
+    "landforms": [
+      {
+        "points": [
+          [
+            475,
+            275
+          ],
+          [
+            550,
+            265
+          ],
+          [
+            650,
+            300
+          ],
+          [
+            720,
+            365
+          ],
+          [
+            685,
+            415
+          ],
+          [
+            600,
+            465
+          ],
+          [
+            525,
+            480
+          ],
+          [
+            480,
+            415
+          ]
+        ],
+        "color": "21362e"
+      },
+      {
+        "points": [
+          [
+            745,
+            60
+          ],
+          [
+            840,
+            65
+          ],
+          [
+            1010,
+            270
+          ],
+          [
+            1060,
+            440
+          ],
+          [
+            950,
+            620
+          ],
+          [
+            810,
+            660
+          ],
+          [
+            780,
+            520
+          ],
+          [
+            810,
+            405
+          ],
+          [
+            750,
+            285
+          ]
+        ],
+        "color": "233730"
+      }
+    ]
+  },
+  "composition": "The main dry valley descends south through the map. Two tributary gullies erode the north and south sides of E\u2019s plateau; their narrow heads climb east and stop in rocky slopes before the F\u2013G ridge road. D\u2013E spans the main valley, E\u2013F the north gully, and E\u2013G the south gully."
 }

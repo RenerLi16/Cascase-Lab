@@ -8,6 +8,8 @@
 
 # CASCADE LAB: OUTBREAK
 
+> **Landscape recomposition:** Playable maps now use distinct river-island, ravine-plateau and lake-basin compositions while preserving graph rules and original delivery timing. See [review and before/after gallery](docs/LANDSCAPE_REVIEW.md).
+
 > **Current build: four missions + main menu.** Play runs the four-mission normal workflow; Dev Mode below Play offers a survey-free level picker. See [implementation and validation notes](docs/SCENARIO_PACK_IMPLEMENTATION.md) for the current behavior, local web packages, and participant-build configuration. Older single-scenario descriptions below are historical.
 
 
