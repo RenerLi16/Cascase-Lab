@@ -65,7 +65,7 @@ func is_complete() -> bool:
 
 func export_dictionary() -> Dictionary:
 	if current != null: capture_result()
-	return {"schema_version":GameManager.EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"session_id":session_id,"run_purpose":"dev" if purpose == GameManager.RunPurpose.DEV_SANDBOX else "normal", "research_eligible":false,"surveys_skipped":purpose == GameManager.RunPurpose.DEV_SANDBOX,"dev_used":purpose == GameManager.RunPurpose.DEV_SANDBOX,"scenario_order":order.duplicate(),"order_source":order_source,"condition":current.condition_name(),"completed":is_complete(),"missions":records.duplicate(true),"in_progress":current.export_dictionary() if current.phase != GameManager.Phase.RESULTS else {}}
+	return {"schema_version":GameManager.EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"session_id":session_id,"run_purpose":"dev" if purpose == GameManager.RunPurpose.DEV_SANDBOX else "normal", "record_mode":"dev-sandbox" if purpose == GameManager.RunPurpose.DEV_SANDBOX else "public-demo","research_eligible":false,"surveys_skipped":purpose == GameManager.RunPurpose.DEV_SANDBOX,"dev_used":purpose == GameManager.RunPurpose.DEV_SANDBOX,"scenario_order":order.duplicate(),"order_source":order_source,"condition":current.condition_name(),"completed":is_complete(),"missions":records.duplicate(true),"in_progress":current.export_dictionary() if current.phase != GameManager.Phase.RESULTS else {}}
 
 func research_submission() -> Dictionary:
 	return current.research_submission()

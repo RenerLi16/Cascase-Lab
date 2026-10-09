@@ -29,6 +29,15 @@ class Config:
     max_daily_sessions: int = 50
     max_daily_interventions: int = 300
 
+    # Public record/AI processing stays off until an operator supplies an approved policy.
+    public_records: bool = False
+    public_ai: bool = False
+    public_policy_id: str = ''
+    max_minute_sessions: int = 10
+    max_daily_ai_attempts: int = 300
+    public_session_seconds: int = 86400
+    public_round_interval: int = 120
+
     @classmethod
     def from_env(cls):
         return cls(database=os.getenv('CASCADE_DB', cls.database),
@@ -50,7 +59,14 @@ class Config:
                    allowed_hosts=_split(os.getenv('CASCADE_ALLOWED_HOSTS', ','.join(cls.allowed_hosts))),
                    access_code=os.getenv('CASCADE_ACCESS_CODE', '').strip(),
                    max_daily_sessions=int(os.getenv('CASCADE_MAX_DAILY_SESSIONS', cls.max_daily_sessions)),
-                   max_daily_interventions=int(os.getenv('CASCADE_MAX_DAILY_INTERVENTIONS', cls.max_daily_interventions)))
+                   max_daily_interventions=int(os.getenv('CASCADE_MAX_DAILY_INTERVENTIONS', cls.max_daily_interventions)),
+                   public_records=os.getenv('CASCADE_PUBLIC_RECORDS') == '1',
+                   public_ai=os.getenv('CASCADE_PUBLIC_AI') == '1',
+                   public_policy_id=os.getenv('CASCADE_PUBLIC_POLICY_ID', '').strip(),
+                   max_minute_sessions=int(os.getenv('CASCADE_MAX_MINUTE_SESSIONS', '10')),
+                   max_daily_ai_attempts=int(os.getenv('CASCADE_MAX_DAILY_AI_ATTEMPTS', '300')),
+                   public_session_seconds=int(os.getenv('CASCADE_PUBLIC_SESSION_SECONDS', '86400')),
+                   public_round_interval=int(os.getenv('CASCADE_PUBLIC_ROUND_INTERVAL', '120')))
 
     def __post_init__(self):
         if self.provider not in ('mock', 'qwen'):
@@ -61,6 +77,15 @@ class Config:
             raise ValueError('Invalid request/generation limits')
         if not (1 <= self.max_daily_sessions <= 10000 and 1 <= self.max_daily_interventions <= 100000):
             raise ValueError('Invalid daily limits')
+        if not (1 <= self.max_minute_sessions <= 1000 and 0 <= self.max_daily_ai_attempts <= 100000
+                and 300 <= self.public_session_seconds <= 604800 and 0 <= self.public_round_interval <= 3600):
+            raise ValueError('Invalid public session limits')
+        if self.provider != 'mock' and self.public_round_interval < 120:
+            raise ValueError('Live public AI requires a round interval of at least 120 seconds')
+        if (self.public_records or self.public_ai) and not self.public_policy_id:
+            raise ValueError('Public storage/AI requires CASCADE_PUBLIC_POLICY_ID')
+        if self.public_ai and not self.public_records:
+            raise ValueError('Public AI audit storage requires CASCADE_PUBLIC_RECORDS')
         if self.public():
             # Fail fast instead of exposing an unprotected or non-durable server to the internet.
             problems = []

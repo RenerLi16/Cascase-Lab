@@ -25,12 +25,26 @@ func _ready() -> void:
 		check(StudySync.sessions.back().pending.is_empty(),"Refresh pending queue acknowledged")
 		report("recovered")
 		return
-	# Online rehearsal: the synthetic access code arrives in the test page URL (?code=...).
-	StudySync.access_code = str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('code')||''"))
-	check(not StudySync.access_required() or StudySync.access_code.length() >= 12,"Rehearsal access code supplied")
 	app=load("res://scenes/Main.tscn").instantiate()
 	add_child(app)
-	app._start_normal()
+	check(app.find_child("AccessCodeEntry",true,false) == null,"No access-code field in exported game")
+	check(not DevGate.is_open(),"Web Dev Mode locked initially")
+	app._start_dev("riverside_01_v3")
+	check(app.session == null,"Locked Dev Mode cannot create a sandbox")
+	if OS.has_feature("participant"):
+		check(not DevGate.available(),"Participant Dev Mode unavailable")
+	var title = app.title_screen
+	title._on_play()
+	var first = app.practice if app.practice != null else app.mission_session
+	title._on_play()
+	check(first == (app.practice if app.practice != null else app.mission_session),"Repeated Play handled once")
+	if app._practice_enabled():
+		check(app.practice != null and app.session == null,"Play enters existing introduction/practice directly")
+		check(StudySync.sessions.is_empty(),"Practice creates no server session")
+		app.practice.finished.emit("synthetic-browser-test")
+	else:
+		check(app.session != null and app.practice == null,"Participant Play starts normal flow with practice approval unchanged")
+	check(app.session != null and not app.session.is_sandbox(),"Normal gameplay started")
 	app.session.configure_condition(GameManager.InterventionType.DIRECT_RECOMMENDATION)
 	app.session._support_clock=func(): return now
 	check(await wait_until(func(): return StudySync.active.credential!=""),"Browser session credential and CORS")

@@ -10,7 +10,6 @@ signal dev_requested
 signal export_requested
 signal status_label_changed(label: Label)
 
-const AccessCodeEntry = preload("res://scripts/ui/access_code_entry.gd")
 const TITLE_FONT := preload("res://assets/fonts/Silkscreen-Bold.ttf")
 const SUBTITLE_FONT := preload("res://assets/fonts/Silkscreen-Regular.ttf")
 const BG := Color("070c11")
@@ -20,12 +19,11 @@ const TITLE_BASE := 96
 const SIDE_MARGIN := 64.0
 
 # Configured by the owner before the node enters the tree.
-var access_required := false
 var replay_available := false
 var dev_available := false
 var show_recovery := false
 
-var stage := "title" # title | setup
+var starting := false
 var network: MenuNetwork
 var layer: Control
 var column: VBoxContainer
@@ -35,11 +33,8 @@ var title_label: Label
 var subtitle_label: Label
 var play_button: Button
 var dev_button: Button
-var start_button: Button
-var back_button: Button
 var language_button: Button
 var motion_button: Button
-var access_entry: VBoxContainer
 var status_label: Label
 var dialog: Control
 var dialog_panel: PanelContainer
@@ -47,7 +42,6 @@ var password_field: LineEdit
 var password_error: Label
 var unlock_button: Button
 var cancel_button: Button
-var kept_code := ""
 var layout_key := ""
 var title_size := TITLE_BASE
 var title_lines := 1
@@ -111,14 +105,10 @@ func _px(value: float) -> int:
 
 func _build() -> void:
 	layout_key = "%d|%d|%.2f" % [title_size,title_lines,text_scale]
-	if is_instance_valid(access_entry): kept_code = access_entry.field.text
 	network.clear_protected()
 	for child in layer.get_children():
 		layer.remove_child(child)
 		child.queue_free()
-	access_entry = null
-	start_button = null
-	back_button = null
 	play_button = null
 	dev_button = null
 	var center := CenterContainer.new()
@@ -131,12 +121,11 @@ func _build() -> void:
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation",0)
 	center.add_child(column)
-	if stage == "setup": _build_setup()
-	else: _build_title()
+	_build_title()
 	_build_corner()
 	_build_footer()
 	network.protect(column,48.0)
-	for control in [play_button,dev_button,start_button,back_button,access_entry]:
+	for control in [play_button,dev_button]:
 		if is_instance_valid(control): network.protect(control,28.0)
 	network.protect(corner,20.0)
 	network.protect(footer,20.0)
@@ -200,62 +189,16 @@ func _build_title() -> void:
 		dev_button.add_theme_font_size_override("font_size",_px(17))
 		dev_button.add_theme_color_override("font_color",UIkit.SECONDARY)
 		column.add_child(dev_button)
-	_focus_later(play_button)
-
-func _build_setup() -> void:
-	title_label = _title_text(40 if text_scale < 1.2 else 48,1)
-	column.add_child(title_label)
-	_gap(8)
-	subtitle_label = _subtitle(16)
-	column.add_child(subtitle_label)
-	_gap(_px(36))
-	var heading := _centered(t("Enter your study access code","输入研究访问码") if access_required else t("Ready to start","准备开始"),UIkit.HEADING_FONT,_px(30),UIkit.TEXT)
-	column.add_child(heading)
-	_gap(_px(8))
-	var note := t("Type or paste the code from your facilitator, then press Start.","请输入或粘贴主持人提供的访问码，然后点击“开始”。") if access_required else t("Press Start when the whole team is ready.","全队准备好后，点击“开始”。")
-	column.add_child(_centered(note,UIkit.BODY_FONT,_px(19),UIkit.SECONDARY))
-	_gap(_px(24))
-	var form := VBoxContainer.new()
-	form.custom_minimum_size.x = minf(_px(520),get_viewport_rect().size.x-SIDE_MARGIN*2)
-	form.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	form.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	form.add_theme_constant_override("separation",_px(12))
-	column.add_child(form)
-	if access_required:
-		var entry := AccessCodeEntry.new()
-		entry.name = "AccessCodeEntry"
-		access_entry = entry
-		form.add_child(entry)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation",_px(12))
-	form.add_child(row)
-	back_button = _menu_button(t("Back","返回"),show_title,false)
-	back_button.name = "BackButton"
-	back_button.custom_minimum_size = Vector2(_px(150),_px(54))
-	row.add_child(back_button)
-	start_button = _menu_button(t("Start","开始"),_on_start,true)
-	start_button.name = "StartButton"
-	start_button.custom_minimum_size = Vector2(_px(240),_px(54))
-	start_button.add_theme_font_size_override("font_size",_px(22))
-	row.add_child(start_button)
 	if replay_available:
-		var replay := UIkit.quiet(t("Replay practice","重玩练习"),func(): replay_requested.emit())
+		_gap(_px(12))
+		var replay := UIkit.quiet(t("Replay practice","重玩练习"),func():
+			if starting: return
+			starting = true
+			replay_requested.emit())
 		replay.name = "ReplayButton"
 		replay.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		form.add_child(replay)
-		network.protect(replay,24.0)
-	if access_entry != null:
-		access_entry.code_changed.connect(func(_value: String, valid: bool): start_button.disabled = not valid)
-		var initial := kept_code if kept_code != "" else StudySync.access_code
-		access_entry.field.text = initial
-		access_entry.field.text_changed.emit(initial)
-		access_entry.field.text_submitted.connect(func(_text: String):
-			if not start_button.disabled: _on_start())
-		_focus_later(access_entry.field)
-	else:
-		_focus_later(start_button)
+		column.add_child(replay)
+	_focus_later(play_button)
 
 func _menu_button(text: String, callback: Callable, primary: bool) -> Button:
 	var node := UIkit.button(text,callback,primary)
@@ -329,21 +272,10 @@ func _focus_later(control: Control) -> void:
 		if is_instance_valid(control) and control.is_inside_tree() and dialog == null: control.grab_focus()).call_deferred()
 
 func _on_play() -> void:
-	if access_required or replay_available: show_setup()
-	else: start_requested.emit()
-
-func _on_start() -> void:
-	if is_instance_valid(start_button) and start_button.disabled: return
+	if starting: return
+	starting = true
+	play_button.disabled = true
 	start_requested.emit()
-
-func show_setup() -> void:
-	stage = "setup"
-	_build()
-
-func show_title() -> void:
-	if is_instance_valid(access_entry): kept_code = access_entry.field.text
-	stage = "title"
-	_build()
 
 func _toggle_language() -> void:
 	FirstPlayText.chinese = not FirstPlayText.chinese
@@ -484,9 +416,6 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if is_instance_valid(dialog):
 			close_dev_dialog()
-			get_viewport().set_input_as_handled()
-		elif stage == "setup":
-			show_title()
 			get_viewport().set_input_as_handled()
 
 func set_overlay(control: Control) -> void:

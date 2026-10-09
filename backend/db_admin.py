@@ -82,18 +82,30 @@ def _events(db, table):
         yield sid, seq, json.loads(body)
 
 
+def classify_export(sheets, metadata):
+    """Every independent data file carries server-owned classification, never event claims."""
+    for name, (header, rows) in sheets.items():
+        if name == 'sessions': continue
+        header.extend(['record_mode', 'research_eligible'])
+        for row in rows:
+            meta = metadata.get(row[0], {})
+            row.extend([meta.get('record_mode', 'unclassified'), meta.get('research_eligible') is True and meta.get('record_mode') == 'approved-research'])
+
+
 def export(args):
     """Write every saved record to readable CSV files (and an Excel workbook when openpyxl is available)."""
     import csv
     import datetime
     password = getpass.getpass('cascade_app password: ')
     sheets = {}
+    classification = {}
     with connect(args, 'cascade_app', password) as db:
         if not db.execute("SELECT to_regclass('public.sessions')").fetchone()[0]:
             raise SystemExit('No tables yet: start the backend once so it can create them.')
         rows = []
         for sid, metadata, status, updated in db.execute('SELECT id, metadata, status, updated FROM sessions ORDER BY updated'):
             m = json.loads(metadata)  # login hashes are never exported
+            classification[sid] = m
             rows.append([sid, status, m.get('condition'), ' > '.join(m.get('scenario_order', [])), m.get('order_source'),
                          m.get('record_mode'), m.get('research_eligible'), m.get('game_version'), _iso(updated)])
         sheets['sessions'] = (['session_id', 'status', 'condition', 'scenario_order', 'order_source', 'record_mode',
@@ -138,6 +150,7 @@ def export(args):
                                        'completion_tokens', 'requested_utc', 'finished_utc', 'rejected_model_output'], rows)
         rows = [[sid, st, _iso(t)] for sid, st, t in db.execute('SELECT session_id, status, recorded FROM lifecycle ORDER BY recorded')]
         sheets['lifecycle'] = (['session_id', 'status', 'time_utc'], rows)
+    classify_export(sheets, classification)
     folder = Path(args.out) / datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')
     folder.mkdir(parents=True, exist_ok=True)
     for name, (header, rows) in sheets.items():

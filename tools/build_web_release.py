@@ -5,7 +5,7 @@ Example:
       --backend-url https://cascade-lab-backend.onrender.com
 
 Produces build/itch/ and build/cascade-lab-itch.zip (upload the zip to itch.io as an HTML game).
-The build contains no secrets: the access code is typed in at the menu, never baked in.
+The build contains no secrets. Play creates an anonymous public session on the matching backend.
 
 Instructor/demo build (password-gated Dev Mode sandbox below Play):
   python3 tools/build_web_release.py --godot ... --backend-url ... --preset "Web Instructor"
@@ -26,7 +26,6 @@ def main():
     parser.add_argument('--backend-url', required=True)
     parser.add_argument('--preset', default='Web Participant')
     parser.add_argument('--output', default=None, help='default: build/itch, or build/itch-instructor for the instructor preset')
-    parser.add_argument('--no-access-code', action='store_true', help='only for a backend without CASCADE_ACCESS_CODE')
     args = parser.parse_args()
     url = args.backend_url.rstrip('/')
     if not re.fullmatch(r'https://[A-Za-z0-9.-]+(:\d+)?', url):
@@ -53,7 +52,6 @@ def main():
         # Dev Mode comes only from the "instructor" feature tag of that preset (password-gated);
         # the participant preset carries the "participant" tag, which always hides it.
         text = re.sub(r'^development_access=.*$', 'development_access=false', text, flags=re.M)
-        text = text.replace('[cascade]', '[cascade]\nrequire_access_code=' + ('false' if args.no_access_code else 'true'), 1)
         project.write_text(text)
         subprocess.run([args.godot, '--headless', '--log-file', str(copy / 'import.log'), '--path', temp, '--editor', '--import', '--quit'], check=True, stdout=subprocess.DEVNULL)
         subprocess.run([args.godot, '--headless', '--log-file', str(copy / 'export.log'), '--path', temp, '--export-release', args.preset, str(output / 'index.html')], check=True, stdout=subprocess.DEVNULL)

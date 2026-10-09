@@ -1,11 +1,9 @@
 extends Control
 
-const AccessCodeEntry = preload("res://scripts/ui/access_code_entry.gd")
 const SupplySourcePicker = preload("res://scripts/ui/supply_source_picker.gd")
 const TitleScreen = preload("res://scripts/ui/title_screen.gd")
 var title_screen: Control
 var source_picker: PanelContainer
-var access_entry: VBoxContainer
 var practice: PracticeView
 var practice_completed_version := ""
 var mission_session: MissionSession
@@ -941,7 +939,6 @@ func _dev_access_enabled() -> bool:
 
 func _dispose_run() -> void:
 	_close_source_picker()
-	access_entry = null
 	title_screen = null
 	practice = null
 	StudySync.detach()
@@ -993,7 +990,6 @@ func _menu_page() -> VBoxContainer:
 func _show_main_menu() -> void:
 	_dispose_run()
 	var screen := TitleScreen.new()
-	screen.access_required = StudySync.access_required()
 	screen.replay_available = _practice_enabled() and practice_completed_version != ""
 	screen.dev_available = _dev_access_enabled()
 	screen.show_recovery = not StudySync.sessions.is_empty()
@@ -1044,24 +1040,12 @@ func _practice_enabled() -> bool:
 	# until a supervisor explicitly approves and configures this practice version.
 	return _dev_access_enabled() or bool(ProjectSettings.get_setting("cascade/practice_approved",false))
 
-# Editing, including Paste, only validates the field. An explicit Play/Replay
-# commits the code; pending recovery uploads cannot submit a half-entered code.
-func _accept_access_entry() -> bool:
-	if not StudySync.access_required(): return true
-	if is_instance_valid(title_screen) and is_instance_valid(title_screen.access_entry): access_entry = title_screen.access_entry
-	if is_instance_valid(access_entry):
-		if not AccessCodeEntry.valid_code(access_entry.field.text): return false
-		StudySync.set_access_code(access_entry.field.text)
-	return AccessCodeEntry.valid_code(StudySync.access_code)
-
 func _begin_play() -> void:
-	if not _accept_access_entry(): return
 	if _practice_enabled(): _start_practice()
 	else: _start_normal()
 
 func _start_practice() -> void:
 	if not _practice_enabled(): return
-	if not _accept_access_entry(): return
 	_dispose_run()
 	practice = PracticeView.new()
 	add_child(practice)
@@ -1071,7 +1055,6 @@ func _start_practice() -> void:
 		_start_normal())
 
 func _start_normal() -> void:
-	if not _accept_access_entry(): return
 	_dispose_run()
 	var configured: Array = ProjectSettings.get_setting("cascade/scenario_order",[])
 	mission_session = MissionSession.new(GameManager.RunPurpose.NORMAL,GameManager.InterventionType.NONE,configured)

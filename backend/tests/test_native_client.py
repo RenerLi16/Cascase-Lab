@@ -18,7 +18,7 @@ GODOT=os.getenv('GODOT_BIN') or shutil.which('godot') or '/Applications/Godot.ap
 class NativeClientTests(unittest.TestCase):
     def test_real_http_queue_and_async_intervention(self):
         with tempfile.TemporaryDirectory() as temp:
-            service=Service(Config(database=str(Path(temp)/'test.sqlite3')))
+            service=Service(Config(database=str(Path(temp)/'test.sqlite3'), public_records=True, public_ai=True, public_policy_id='synthetic-test-only', public_round_interval=0))
             base_handler=handler(service)
             class LostAckHandler(base_handler):
                 lost_ack=False

@@ -59,8 +59,7 @@ func run() -> void:
 				check(app.session.configure_condition(condition),"Assigned condition is available after common practice")
 				check(app.session.state.total_supply() == 6,"Condition configuration retains fresh mission")
 			app._show_main_menu()
-			# Replay sits in the focused setup step that Play opens after a practice.
-			await click("开始游戏" if chinese else "Play")
+			# Replay remains on the title without delaying Play.
 			check(button_containing("重玩练习" if chinese else "Replay practice") != null,"Replay remains available")
 			app.queue_free()
 			await settle()
@@ -73,15 +72,10 @@ func run() -> void:
 	app._start_practice()
 	check(app.practice == null,"Practice off in participant configuration by default")
 	ProjectSettings.set_setting("cascade/practice_approved",true)
-	ProjectSettings.set_setting("cascade/require_access_code",true)
-	sync.enabled = true
-	sync.access_code = ""
 	app._start_practice()
-	check(app.practice == null,"Practice respects existing access gate")
+	check(app.practice != null,"Approved practice starts without a code")
 	app._start_normal()
-	check(app.session == null,"Measured entry still respects existing access gate")
-	sync.enabled = false
-	ProjectSettings.set_setting("cascade/require_access_code",false)
+	check(app.session != null,"Normal play starts without a code")
 	ProjectSettings.set_setting("cascade/development_access",true)
 	ProjectSettings.set_setting("cascade/practice_approved",false)
 	# Width, hit testing, state styling, alignment, and public-only rendering.

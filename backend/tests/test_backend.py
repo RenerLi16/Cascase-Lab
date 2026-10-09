@@ -200,6 +200,8 @@ class ServiceTests(unittest.TestCase):
     def test_failure_saved_and_restart_never_regenerates_pending(self):
         body=request()
         self.service.store.create_job('synthetic-test',SCENARIO,1,body,{})
+        with self.service.store.connect() as db:
+            db.execute('UPDATE interventions SET requested=requested-181')
         self.service.close(); self.service=Service(self.cfg)
         result=self.post('/interventions/'+SCENARIO+'/1',body)[1]
         self.assertEqual(result['error'],'backend_interrupted')
@@ -244,7 +246,7 @@ class ServiceTests(unittest.TestCase):
 
     def test_export_exclusions_and_placeholder_config(self):
         presets=(ROOT/'export_presets.cfg').read_text()
-        self.assertEqual(presets.count('exclude_filter="backend/*,.env*,tools/*,'),2)
+        self.assertEqual(presets.count('exclude_filter="backend/*,.env*,tools/*,'),3)
         example=(ROOT/'backend/.env.example').read_text()
         self.assertIn('CASCADE_ALLOW_LIVE=0',example)
         self.assertIn('DASHSCOPE_API_KEY=REPLACE_PRIVATELY',example)

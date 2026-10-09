@@ -1,6 +1,6 @@
 extends "res://tests/test_presentation.gd"
 
-# Title screen, decorative network, Play setup step, password-gated Dev Mode and
+# Title screen, decorative network, direct public Play, password-gated Dev Mode and
 # sandbox separation. Run with --offline-tests (windowed for screenshots).
 
 const PASSWORD_ENV := "CASCADE_DEV_PASSWORD"
@@ -153,7 +153,7 @@ func run() -> void:
 	check(clear,"Dragged node stops at the protected boundary")
 	mouse_button(play_center,false)
 	await settle(4)
-	check(app.practice == null and app.session == null and title.stage == "title","Releasing a drag over Play does not activate it")
+	check(app.practice == null and app.session == null and not title.starting,"Releasing a drag over Play does not activate it")
 	check(net.dragging == -1,"Release ends drag")
 	await watch(60,"settle after drag")
 	check(dot.pos.distance_to(dot.home) < 40.0,"Released node settles toward its home (%.1f)" % dot.pos.distance_to(dot.home))
@@ -232,49 +232,22 @@ func run() -> void:
 	await key(KEY_TAB)
 	check(root.gui_get_focus_owner() == title.dev_button,"Tab moves Play → Dev Mode")
 
-	# 5. Access-code setup step.
-	sync.enabled = true
-	sync.set_process(false)
-	sync.outbox_path = "/tmp/cascade-title-outbox-"+Crypto.new().generate_random_bytes(6).hex_encode()+".json"
+	# 5. Public Play is direct in both languages, even with an obsolete build setting.
 	ProjectSettings.set_setting("cascade/require_access_code",true)
-	sync.access_code = ""
 	for chinese in [false,true]:
 		FirstPlayText.chinese = chinese
 		app._show_main_menu()
-		await settle(30)
+		await settle(10)
 		bind()
-		check(app.find_child("AccessCodeEntry",true,false) == null,"No code field on the title")
-		await click("开始游戏" if chinese else "Play")
-		await settle(4)
-		var entry = app.find_child("AccessCodeEntry",true,false)
-		check(entry != null and entry.paste_button != null,"Setup step shows the existing code entry and Paste")
-		check(title.start_button.disabled,"Start disabled until a valid code")
-		check(root.gui_get_focus_owner() == entry.field,"Code field focused")
-		check(entry.field.secret,"Code field stays masked")
-		entry.apply_pasted_text("  Synthetic-Code_Aa-123 ")
-		check(not title.start_button.disabled and app.session == null and app.practice == null and sync.access_code == "","Paste validates without starting or committing")
-		await watch(20,"setup "+("zh" if chinese else "en"))
-		await snapshot("setup-"+("zh" if chinese else "en"))
-		check_layout("setup")
-		await key(KEY_ESCAPE)
-		check(title.stage == "title","Escape returns to the title")
-		await click("开始游戏" if chinese else "Play")
-		entry = app.find_child("AccessCodeEntry",true,false)
-		check(entry.field.text == "Synthetic-Code_Aa-123","Code kept after Back")
-		entry.field.text = "short"
-		entry.field.text_changed.emit("short")
-		check(title.start_button.disabled and entry.hint.text != "","Invalid code: Start disabled with message")
-		entry.field.text = "Synthetic-Code_Aa-123"
-		entry.field.text_changed.emit(entry.field.text)
-		check(sync.sessions.is_empty(),"No session before explicit Start")
-	await click("开始")
-	FirstPlayText.chinese = false
-	check(app.practice != null and sync.access_code == "Synthetic-Code_Aa-123","Start commits the code and enters the normal flow")
-	check(sync.sessions.is_empty(),"Practice still creates no records")
+		check(app.find_child("AccessCodeEntry",true,false) == null,"No regular-play code field")
+		var old_title = title
+		old_title._on_play()
+		var first_practice = app.practice
+		old_title._on_play()
+		check(app.practice != null and app.practice == first_practice,"Repeated Play enters practice once without a code")
+		check(sync.sessions.is_empty(),"Practice creates no records")
 	ProjectSettings.set_setting("cascade/require_access_code",false)
-	sync.access_code = ""
-	sync.enabled = false
-	DirAccess.remove_absolute(sync.outbox_path)
+	FirstPlayText.chinese = false
 
 	# 6. Password-gated Dev Mode.
 	ProjectSettings.set_setting("cascade/dev_password_required",true)

@@ -1,6 +1,6 @@
 extends Node
 
-# Never holds a provider key. These credentials authorize only one synthetic session.
+# Never holds a provider key. Credentials authorize only their own session.
 # Saving and model traffic use distinct HTTPRequest nodes and independent retry loops.
 var enabled := true
 var sessions: Array = []
@@ -16,14 +16,15 @@ var retry_at := 0
 var retry_count := 0
 var heartbeat_at := 0
 var base_url := "http://127.0.0.1:8787"
-# Shared study access code for online builds. Sent only when starting a session, then discarded.
+# Legacy protected-record recovery only; regular Play never uses this value.
 var access_code := ""
 var outbox_path := "user://synthetic_pending_v1.json"
 # Schema 6 / cascade-development-6: sessions use the no-dispatch support context (SupportContext.VERSION).
 # Schema 7 / cascade-development-7: bridge-only closure, scenario pack 1.1.0, context cascade-context-3.
-# Older queued schema-5 records keep their own metadata and still upload as historical records.
-const SESSION_SCHEMA := 7
-const GAME_VERSION := "cascade-development-7"
+# Schema 8 / cascade-public-8: scoped anonymous public demo sessions.
+# Older queued schema-5/6/7 records retain their protected identities and metadata.
+const SESSION_SCHEMA := 8
+const GAME_VERSION := "cascade-public-8"
 var storage_key := "cascade.synthetic.outbox.v1"
 
 func _ready() -> void:
@@ -39,6 +40,7 @@ func _ready() -> void:
 	if storage_error == "": sessions = sessions.filter(func(saved): return not (saved.closed and saved.pending.is_empty()))
 	# Refresh does not resume gameplay; existing identities/outbox/jobs remain immutable.
 	for saved in sessions:
+		saved.erase("retry_after")
 		if saved.closing == "": saved.closing = "interrupted"
 	_persist()
 
@@ -90,8 +92,8 @@ func _bind_after_reset() -> void:
 
 func _ensure_active() -> void:
 	if not active.is_empty() or game == null: return
-	active = {"session_id":mission.session_id,"client_secret":Crypto.new().generate_random_bytes(32).hex_encode(),"credential":"","access_code":access_code,"next_seq":1,"pending":[],"closing":"","closed":false,
-		"metadata":{"schema_version":SESSION_SCHEMA,"game_version":GAME_VERSION,"scenario_order":mission.order.duplicate(),"order_source":mission.order_source,"condition":game.condition_name(),"participant_slots":["P1","P2","P3"],"record_mode":"synthetic-development","research_eligible":false}}
+	active = {"session_id":mission.session_id,"client_secret":Crypto.new().generate_random_bytes(32).hex_encode(),"credential":"","auth_flow":"public","remote_records":false,"ai_available":false,"next_seq":1,"pending":[],"closing":"","closed":false,
+		"metadata":{"schema_version":SESSION_SCHEMA,"game_version":GAME_VERSION,"scenario_order":mission.order.duplicate(),"order_source":mission.order_source,"condition":game.condition_name(),"participant_slots":["P1","P2","P3"],"record_mode":"public-demo","research_eligible":false}}
 	sessions.append(active)
 	# Include setup and all events emitted before the first private form opens.
 	for event in observed_logger.to_array(): _enqueue("game",event)
@@ -137,11 +139,17 @@ func _process(_delta: float) -> void:
 func _flush() -> void:
 	var item: Dictionary = {}
 	for candidate in sessions:
+		if candidate.get("retry_after",0) > Time.get_ticks_msec(): continue
+		if candidate.get("auth_flow","") == "public" and candidate.credential != "" and not candidate.get("remote_records",false) and candidate.closing == "": continue
 		if not candidate.closed and (candidate.credential == "" or not candidate.pending.is_empty() or candidate.closing != ""):
 			item = candidate
 			break
 	if item.is_empty():
-		status = "Saved" if storage_ok else "Save error"
+		# A backoff is not an acknowledgement of pending remote records.
+		for waiting in sessions:
+			if not waiting.closed and waiting.get("retry_after",0) > Time.get_ticks_msec(): return
+		status = "Saved on this device · public demo" if not active.is_empty() and active.get("auth_flow","") == "public" and not active.get("remote_records",false) else "Saved"
+		if not storage_ok: status = "Save error"
 		return
 	busy = true
 	var response: Dictionary
@@ -151,11 +159,17 @@ func _flush() -> void:
 	if item.credential == "":
 		stage = "start"
 		var start := {"session_id":item.session_id,"client_secret":item.client_secret,"metadata":item.metadata}
-		# A code re-entered at the menu replaces a previously rejected one for unstarted sessions.
-		var code := access_code if access_code != "" else str(item.get("access_code",""))
-		if code != "": start.access_code = code
-		response = await _http(HTTPClient.METHOD_POST,"/v1/sessions",start)
-	elif not item.pending.is_empty():
+		if item.get("auth_flow","") == "public":
+			start.metadata = item.metadata.duplicate(true)
+			start.metadata.erase("record_mode")
+			start.metadata.erase("research_eligible")
+			response = await _http(HTTPClient.METHOD_POST,"/v1/public-sessions",start)
+		else:
+			# Older records retain their original protocol and identity, never a public credential.
+			var code := access_code if access_code != "" else str(item.get("access_code",""))
+			if code != "": start.access_code = code
+			response = await _http(HTTPClient.METHOD_POST,"/v1/sessions",start)
+	elif not item.pending.is_empty() and (item.get("auth_flow","") != "public" or item.get("remote_records",false)):
 		stage = "events"
 		# Stay below the backend body limit even for larger audit events.
 		for event in item.pending:
@@ -164,7 +178,7 @@ func _flush() -> void:
 		response = await _http(HTTPClient.METHOD_POST,path+"/events",{"events":sent},item.credential)
 	else:
 		stage = "completion"
-		response = await _http(HTTPClient.METHOD_POST,path+"/completion",{"status":item.closing,"last_seq":item.next_seq-1},item.credential)
+		response = await _http(HTTPClient.METHOD_POST,path+"/completion",{"status":item.closing,"last_seq":0 if item.get("auth_flow","") == "public" and not item.get("remote_records",false) else item.next_seq-1},item.credential)
 	var ok: bool = response.code == 200
 	if ok:
 		match stage:
@@ -173,6 +187,9 @@ func _flush() -> void:
 				if ok:
 					item.credential = response.body.credential
 					item.access_code = ""
+					if item.get("auth_flow","") == "public":
+						item.remote_records = response.body.get("remote_records",false)
+						item.ai_available = response.body.get("ai_available",false)
 			"events":
 				var expected: Array = []
 				for event in sent: expected.append(event.event_id)
@@ -191,8 +208,9 @@ func _flush() -> void:
 		retry_count = mini(retry_count+1,6)
 		retry_at = Time.get_ticks_msec() + int(minf(pow(2,retry_count),30)*1000)
 		status = "Offline / unsent records" if response.code == 0 or response.code >= 500 else "Save error"
+		item.retry_after = retry_at
 		if stage == "start" and response.code == 401:
-			status = "Save error — access code rejected"
+			status = "Older protected records need recovery"
 			# Don't let one rejected session block uploads for the others: move it to the back.
 			if sessions.size() > 1 and sessions.has(item):
 				sessions.erase(item)
@@ -231,7 +249,10 @@ func request_support(context: Dictionary, condition: String, identity: Dictionar
 		if item.credential == "":
 			await get_tree().create_timer(0.25).timeout
 			continue
+		if item.get("auth_flow","") == "public" and not item.get("ai_available",false): return {"error":"public_ai_unavailable"}
 		var response := await _http(HTTPClient.METHOD_GET if posted else HTTPClient.METHOD_POST,path,{} if posted else {"condition":condition,"context_version":SupportContext.VERSION,"context":context},item.credential)
+		var reason := str(response.body.get("error",""))
+		if reason in ["ai_request_cap","daily_intervention_limit","public_ai_unavailable","session_inactive","round_not_eligible"]: return {"error":reason}
 		if response.code == 200:
 			posted = true
 			var result: Dictionary = response.body
@@ -257,14 +278,13 @@ func set_access_code(value: String) -> void:
 	# Retry rejected session starts promptly with the corrected code.
 	retry_count = 0
 	retry_at = 0
-
-func access_required() -> bool:
-	return enabled and bool(ProjectSettings.get_setting("cascade/require_access_code",false))
+	for item in sessions: item.erase("retry_after")
 
 func status_text() -> String:
 	if not enabled: return "Offline test / saving disabled"
 	var count := 0
-	for item in sessions: count += item.pending.size()
+	for item in sessions:
+		if item.get("auth_flow","") != "public" or item.get("remote_records",false): count += item.pending.size()
 	var label := status + (" (%d)" % count if count > 0 else "")
 	if not storage_ok: label = "Save error — local persistence unavailable; export JSON"
 	return label

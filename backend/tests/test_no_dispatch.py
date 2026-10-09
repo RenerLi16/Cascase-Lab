@@ -253,7 +253,7 @@ class EndToEndOutboundTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             transport = RecordingTransport()
             cfg = qwen_config(database=str(Path(temp)/'test.sqlite3'))
-            service = Service(cfg, provider=QwenProvider(cfg, transport))
+            service = Service(Config(database=cfg.database, public_records=True, public_ai=True, public_policy_id='synthetic-test-only', public_round_interval=0), provider=QwenProvider(cfg, transport))
             server = ThreadingHTTPServer(('127.0.0.1', 0), handler(service))
             thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
             report_path = Path(temp)/'report.json'
@@ -304,7 +304,7 @@ class EndToEndOutboundTests(unittest.TestCase):
                 with service.store.connect() as db:
                     sessions = [json.loads(row[0]) for row in db.execute('SELECT metadata FROM sessions')]
                     self.assertEqual(len(sessions), 3)
-                    self.assertTrue(all(m['game_version'] == 'cascade-development-7' and m['schema_version'] == 7 for m in sessions))
+                    self.assertTrue(all(m['game_version'] == 'cascade-public-8' and m['schema_version'] == 8 for m in sessions))
                     self.assertEqual(db.execute("SELECT count(*) FROM sessions WHERE status='interrupted' OR status='completed'").fetchone()[0], 3)
                     stored = ' '.join(row[0] for table in ('game_events', 'audit_events', 'private_events') for row in db.execute(f'SELECT body FROM {table}'))
                     self.assertIn('cascade-context-3', stored)

@@ -1,6 +1,6 @@
 # Online deployment: itch.io + Render + AWS RDS + Qwen
 
-This is a **synthetic-development / pilot** deployment. It does not authorize recruiting participants or collecting real participant data. Records stay `record_mode=synthetic-development`, `research_eligible=false`.
+This is a **synthetic-development / pilot** deployment. It does not authorize recruiting participants or collecting real participant data. Legacy protected records remain `synthetic-development`; new public sessions are `public-demo`. Both remain `research_eligible=false`. See [Public Play](PUBLIC_PLAY.md) for the matching backend release, defaults, data-policy decisions and mock testing.
 
 ```
 Browser (itch.io page) ──HTTPS──▶ Render web service (backend, holds Qwen key)
@@ -11,9 +11,9 @@ Browser (itch.io page) ──HTTPS──▶ Render web service (backend, holds Q
 - **itch.io** hosts only static game files. No secrets are inside them.
 - **Render** runs `python3 -m backend.server` in public mode. Render terminates HTTPS.
 - **RDS** stores sessions, events, private responses and AI audit records. Render's own disk is never used for data (it is wiped on restart).
-- The **study access code** is typed into the game menu by the facilitator. Without it, the backend refuses new sessions, so a stranger who finds the URL cannot spend your Qwen budget.
+- **Regular Play needs no access code.** The backend issues a scoped anonymous credential. Public storage and AI default off; server-side quotas and the policy switches govern public AI. `CASCADE_ACCESS_CODE` still protects only the legacy session-creation route.
 
-The backend refuses to start in public mode unless the access code, the database URL, the public host name and https-only origins are all set.
+The backend refuses to start in public mode unless the legacy access code, the database URL, the public host name and https-only origins are all set.
 
 > **No-dispatch protocol (schema 6, `cascade-context-2`, prompt `cascade-zh-3`).** Deploy the backend and the re-exported itch.io build together, between sessions. Older clients can still upload queued records, but they can no longer request AI messages. See [NO_DISPATCH_CONTEXT.md](NO_DISPATCH_CONTEXT.md#deployment).
 
@@ -110,7 +110,7 @@ This builds the *Web Participant* preset from a temporary copy (your project fil
 
 - points the game at the Render backend
 - hides Dev Mode
-- shows the access-code field on the menu
+- opens Play directly and obtains a server-issued public-session credential
 
 The result is `build/cascade-lab-itch.zip`.
 
@@ -125,15 +125,15 @@ The game runs from `https://html-classic.itch.zone` or `https://html.itch.zone`.
 
 ## 6. Synthetic check
 
-1. Open the itch page and enter the access code. **Play** stays disabled until 12+ characters are entered.
-2. Play one round with synthetic answers in an AI condition (Menu → Session setup). The status should go **Saving → Saved**. The AI message should appear only after the 120-second discussion, followed by the 15-second reading pause.
+1. Open the test page and click **Play** without a code. Use a local mock backend with explicit synthetic settings as described in [Public Play](PUBLIC_PLAY.md); do not test paid AI.
+2. With synthetic storage and mock AI enabled, play one round with synthetic answers in an AI condition (Menu → Session setup). The status should go **Saving → Saved**. Default public settings instead report local saving and AI unavailable. The AI message should appear only after the 120-second discussion, followed by the 15-second reading pause.
 3. From your Mac, confirm records arrived (this prints counts only):
 
 ```sh
 python3 -m backend.db_admin summary --host YOUR-ENDPOINT.rds.amazonaws.com
 ```
 
-A wrong code shows `Save error — access code rejected`, and nothing is stored.
+Regular Play has no code validation. Protected historical records keep their original recovery flow and are never attached to a public session.
 
 ## Turning it off
 
@@ -141,7 +141,7 @@ A wrong code shows `Save error — access code rejected`, and nothing is stored.
 - **RDS:** *Stop temporarily*. AWS restarts a stopped instance automatically after 7 days. Delete it (taking a final snapshot if wanted) when you no longer need it.
 - **Qwen:** set `CASCADE_ALLOW_LIVE=0` in Render to stop all paid calls. The game then shows the neutral "AI support unavailable" notice.
 
-## Verified in rehearsal (October 4, 2026)
+## Historical protected-client rehearsal (October 4, 2026)
 
 This was run without any paid service. Each stand-in replaced a real service:
 
@@ -161,7 +161,7 @@ Results:
 ## Remaining limitations before research use
 
 - **Ethics and data:** approval must cover RDS's region and Qwen inference in China (Beijing).
-- **Access:** the single shared access code is a pilot measure. Research use needs per-study or per-session provisioning, revocation and expiry.
+- **Access:** public demos are not research enrollment. Research use still needs approved consent/enrollment, provisioning, revocation and expiry.
 - **Server:** Python's threaded HTTP server behind Render is adequate for a pilot. Use a production WSGI/ASGI server and a paid instance for real sessions.
-- **Scaling:** run a single Render instance. On restart or redeploy, unfinished AI jobs are marked `backend_interrupted` and never regenerated.
+- **Scaling:** run a single Render instance. Orphaned AI jobs older than 180 seconds are marked `backend_interrupted` and never regenerated. Starting another worker preserves live jobs.
 - **Data handling:** retention, deletion, export roles and monitoring policies are still to be defined. The AI failure policy remains provisional.

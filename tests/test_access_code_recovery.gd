@@ -26,8 +26,13 @@ func run() -> void:
 	client.access_code="wrong-code-123456"
 	var mission := MissionSession.new(GameManager.RunPurpose.NORMAL,GameManager.InterventionType.NONE)
 	client.attach(mission)
+	# A preserved pre-public outbox item, not a newly created public session.
+	client.active.erase("auth_flow")
+	client.active.metadata.schema_version = 7
+	client.active.metadata.game_version = "cascade-development-7"
+	client.active.metadata.record_mode = "synthetic-development"
 	mission.current.start_private()
-	check(await wait_until(func(): return client.status=="Save error — access code rejected"),"Wrong code is visibly rejected")
+	check(await wait_until(func(): return client.status=="Older protected records need recovery"),"Wrong code is visibly rejected")
 	check(client.active.credential=="" and client.active.pending.size()>0,"Records stay queued while the code is wrong")
 	client.set_access_code("  synthetic-code-123  ")
 	check(await wait_until(func(): return client.active.credential!="" and client.active.pending.is_empty()),"Corrected code starts the same session and uploads queued records")

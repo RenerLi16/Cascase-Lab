@@ -8,7 +8,8 @@ import hmac
 import threading
 from .config import Config
 from .providers import Failure, MockProvider, QwenProvider, PROMPT_VERSION
-from .storage import SQLiteStorage, Conflict, Unauthorized
+from .storage import SQLiteStorage, Conflict, Unauthorized, Limited
+from .public_play import PUBLIC_VERSION, SCENARIOS, validate_context, reject_research_claims
 from .validation import CONDITIONS, CONTEXT_VERSION, Invalid, canonical, identifier, integer, keys, require, validate_request
 
 # Session protocol. Schema 7 sessions use the bridge-only, no-dispatch context (CONTEXT_VERSION).
@@ -28,6 +29,25 @@ class Service:
         self.lock = threading.Lock()
 
     def dispatch(self, method, path, body, token):
+        if method == 'POST' and path == '/v1/public-sessions':
+            keys(body, 'session_id client_secret metadata')
+            identifier(body['session_id'])
+            require(isinstance(body['client_secret'], str) and re.fullmatch('[a-f0-9]{64}', body['client_secret']))
+            m = body['metadata']
+            keys(m, 'schema_version game_version scenario_order order_source condition participant_slots')
+            require((m['schema_version'], m['game_version']) == PUBLIC_VERSION)
+            require(m['condition'] in CONDITIONS and m['participant_slots'] == ['P1','P2','P3'])
+            require(isinstance(m['scenario_order'], list) and 1 <= len(m['scenario_order']) <= 4)
+            require(len(set(m['scenario_order'])) == len(m['scenario_order']) and all(s in SCENARIOS for s in m['scenario_order']))
+            require(m['order_source'] in ('configured','development_default_not_randomized'))
+            metadata = m | {'record_mode':'public-demo', 'research_eligible':False,
+                            'remote_records':self.config.public_records, 'public_ai':self.config.public_ai,
+                            'policy_id':self.config.public_policy_id}
+            result = self.store.start(body['session_id'],body['client_secret'],metadata,self.config.max_sessions,
+                                      self.config.max_daily_sessions,public_config=self.config)
+            saved = self.store.authorize(result['session_id'],result['credential'])
+            return 200, result | {'record_mode':'public-demo', 'remote_records':saved['remote_records'] and self.config.public_records,
+                                  'ai_available':saved['public_ai'] and self.config.public_ai}
         if method == 'POST' and path == '/v1/sessions':
             # access_code is required only when the server is configured with one (public mode).
             require(isinstance(body, dict) and set(body) - {'access_code'} == {'session_id','client_secret','metadata'})
@@ -51,7 +71,11 @@ class Service:
         if not match: return 404, {'error':'not_found'}
         sid, resource, scenario, round_text = match.groups()
         meta = self.store.authorize(sid,token)
+        public = meta.get('record_mode') == 'public-demo'
         if method == 'POST' and resource == 'events':
+            if public and not (meta.get('remote_records') and self.config.public_records):
+                return 403, {'error':'public_storage_unavailable'}
+            if public: reject_research_claims(body)
             keys(body, 'events'); require(isinstance(body['events'], list) and 1 <= len(body['events']) <= 100)
             for e in body['events']:
                 keys(e, 'event_id seq channel scenario round phase condition payload')
@@ -69,15 +93,18 @@ class Service:
             require(scenario in meta['scenario_order'])
             round_number = int(round_text)
             if method == 'POST':
-                if (meta['schema_version'], meta['game_version']) != SESSION_VERSION:
+                if (meta['schema_version'], meta['game_version']) not in (SESSION_VERSION, PUBLIC_VERSION):
                     # Legacy sessions keep uploading records; they never reach a provider again.
                     return 400, {'error':'deprecated_session_protocol'}
+                if public and not (meta.get('public_ai') and self.config.public_ai):
+                    return 403, {'error':'public_ai_unavailable'}
                 try: validate_request(body)
                 except Invalid as exc:
                     if exc.reason.startswith('deprecated'): return 400, {'error':exc.reason}
                     raise
                 require(body['condition'] == meta['condition'] and body['condition'] != 'NONE')
                 require(body['context']['round'] == round_number)
+                if public: validate_context(scenario,body['context'])
                 with self.lock:
                     existing = self.store.job(sid,scenario,round_number)
                     if existing:
@@ -90,15 +117,18 @@ class Service:
                         return 429, {'error':'daily_intervention_limit'}
                     if not self.slots.acquire(blocking=False): return 503, {'error':'generation_capacity'}
                     try:
-                        self.store.create_job(sid,scenario,round_number,body,{
+                        created = self.store.create_job(sid,scenario,round_number,body,{
                             'prompt_version':PROMPT_VERSION,'context_version':CONTEXT_VERSION,'provider':self.config.provider,
-                            'settings':self.config.settings(), 'region':self.config.region() or 'unconfigured', 'record_mode':'synthetic-development'})
+                            'settings':self.config.settings(), 'region':self.config.region() or 'unconfigured', 'record_mode':meta['record_mode'], 'research_eligible':False}, limits=self.config, public=public)
+                        if not created:
+                            self.slots.release()
+                            return 200, self.store.job(sid,scenario,round_number)
                         self.pool.submit(self._generate,sid,scenario,round_number,body)
                     except Exception:
                         self.slots.release(); raise
             elif method != 'GET': return 405, {'error':'method_not_allowed'}
             result = self.store.job(sid,scenario,round_number)
-            if result and (meta['schema_version'], meta['game_version']) == SESSION_VERSION and self._stale(sid,scenario,round_number,result):
+            if result and (meta['schema_version'], meta['game_version']) in (SESSION_VERSION, PUBLIC_VERSION) and self._stale(sid,scenario,round_number,result):
                 raise Conflict()
             return (200,result) if result else (404,{'error':'not_found'})
         return 405, {'error':'method_not_allowed'}
@@ -171,6 +201,7 @@ def handler(service):
                     auth = self.headers.get('Authorization','')
                     token = auth[7:] if auth.startswith('Bearer ') else ''
                     status,response = service.dispatch(self.command,self.path,body,token)
+            except Limited as exc: status,response = 429,{'error':exc.code}
             except Unauthorized: status,response = 401,{'error':'unauthorized'}
             except Conflict: status,response = 409,{'error':'conflicting_reuse'}
             except (Invalid, ValueError, KeyError, TypeError, OverflowError): status,response = 400,{'error':'invalid_request'}

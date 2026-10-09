@@ -39,6 +39,24 @@ def checked_context(context, condition):
         raise Failure('invalid_context:'+exc.reason) from None
 
 
+def read_bounded(response, deadline):
+    """Bound the whole body read, including a peer trickling bytes between reads."""
+    chunks = []
+    size = 0
+    read = getattr(response, 'read1', response.read)
+    while size <= 65536:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0: raise TimeoutError()
+        sock = getattr(getattr(getattr(response, 'fp', None), 'raw', None), '_sock', None)
+        if sock is not None: sock.settimeout(remaining)
+        chunk = read(min(4096, 65537-size))
+        if time.monotonic() > deadline: raise TimeoutError()
+        if not chunk: break
+        chunks.append(chunk)
+        size += len(chunk)
+    return b''.join(chunks)
+
+
 class QwenProvider:
     def __init__(self, config, opener=None, sleep=time.sleep):
         self.config = config
@@ -56,8 +74,9 @@ class QwenProvider:
                     headers={'Authorization':'Bearer '+cfg.api_key, 'Content-Type':'application/json'})
         for attempt in range(cfg.attempts):
             try:
+                deadline = time.monotonic() + cfg.timeout
                 with self.opener.open(request, timeout=cfg.timeout) as response:
-                    raw = response.read(65537)
+                    raw = read_bounded(response, deadline)
                 if len(raw) > 65536: raise Failure('invalid_response')
                 data = json.loads(raw)
                 choice = data['choices'][0]

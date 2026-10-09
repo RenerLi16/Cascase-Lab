@@ -191,6 +191,10 @@ func _receive_support(result: Dictionary, token: int, round_number: int) -> void
 	if result.has("error") or not result.has("text"):
 		var reason := str(result.get("error","invalid_response"))
 		support_message = {"text":"提示: AI support unavailable / AI 支持暂不可用。\n说明: 本轮未提供 AI 建议，请依据现有公开信息判断。\n暂停: 阅读暂停仍然保留。此开发故障处理政策须经批准后方可用于研究。", "template_id":"failure.unavailable","version":"development-failure-1","provider":"unavailable","error":reason}
+		if reason in ["ai_request_cap","daily_intervention_limit"]:
+			support_message.text = "提示: AI usage limit reached / AI 用量已达上限。\n说明: 本轮未提供 AI 建议，请依据现有公开信息判断。\n暂停: 阅读暂停仍然保留。"
+		elif reason == "public_ai_unavailable":
+			support_message.text = "提示: AI is unavailable for public play / 公开试玩暂不提供 AI。\n说明: 请依据现有公开信息判断。\n暂停: 阅读暂停仍然保留。"
 		_confidential("audit", {"type":"AI_FAILURE","identity":intervention_identity.duplicate(),"error":reason})
 	else:
 		support_message = result.duplicate(true)

@@ -7,7 +7,7 @@ from contextlib import contextmanager
 import time
 from urllib.parse import parse_qs, urlsplit
 
-from .storage import SQLStorage
+from .storage import SQLStorage, PUBLIC_SCHEMA
 
 LOCAL_HOSTS = {'localhost', '127.0.0.1', '::1', ''}
 INSECURE_SSLMODES = {'disable', 'allow', 'prefer'}
@@ -91,10 +91,10 @@ class PostgresStorage(SQLStorage):
                                    kwargs=options | {'row_factory': row_factory, 'connect_timeout': 10},
                                    check=ConnectionPool.check_connection)
         with self.connect() as db:
-            for statement in filter(str.strip, SCHEMA.split(';')):
+            for statement in filter(str.strip, (SCHEMA + PUBLIC_SCHEMA).split(';')):
                 db.execute(statement)
             # A crash or redeploy may have happened after the provider accepted a request. Never regenerate.
-            db.execute("UPDATE interventions SET status='failed', error='backend_interrupted', finished=? WHERE status='pending'", (time.time(),))
+            db.execute("UPDATE interventions SET status='failed', error='backend_interrupted', finished=? WHERE status='pending' AND requested<?", (time.time(),time.time()-180))
 
     @contextmanager
     def connect(self):
