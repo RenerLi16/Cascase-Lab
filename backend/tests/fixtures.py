@@ -4,18 +4,18 @@ from pathlib import Path
 from backend.validation import CONTEXT_VERSION, RULES, legal_actions
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENARIO = 'riverside_01_v2'
+SCENARIO = 'riverside_01_v3'
 
 
 def context():
     s = json.loads((ROOT/'scenarios/scenario_01.json').read_text())
     c = dict(round=1, remaining_budget=6,
              shelters={sid:dict(overrun=False,known_pressure=-1,verified_history=[],monitored=False,shielded=False) for sid in s['shelter_names']},
-             roads={'-'.join(edge):dict(endpoints=edge,closed=False) for edge in s['edges']},
+             roads={'-'.join(edge):dict(endpoints=edge,closed=False,bridge='-'.join(edge) in s['bridges']) for edge in s['edges']},
              depots=s['supply_amounts'],previous_actions=[],
              responses=[dict(danger_location='E',preferred_action='VERIFY',action_target='E',confidence=4,reason='gather more information') for _ in range(3)],
              public_rules=deepcopy(RULES)|{'exposure_progresses':True},
-             display_names=s['shelter_names']|{'-'.join(e):'Road '+'-'.join(e) for e in s['edges']})
+             display_names=s['shelter_names']|{'-'.join(e):('Bridge ' if '-'.join(e) in s['bridges'] else 'Road ')+'-'.join(e) for e in s['edges']})
     c['legal_actions'] = legal_actions(c)
     return c
 
@@ -24,7 +24,7 @@ def request(condition='DIRECT_RECOMMENDATION', c=None):
     return {'condition':condition,'context_version':CONTEXT_VERSION,'context':c if c is not None else context()}
 
 
-def start(sid='synthetic-test', condition='DIRECT_RECOMMENDATION', schema=6):
+def start(sid='synthetic-test', condition='DIRECT_RECOMMENDATION', schema=7):
     return {'session_id':sid,'client_secret':'1'*64,'metadata':{
         'schema_version':schema,'game_version':f'cascade-development-{schema}','scenario_order':[SCENARIO],
         'order_source':'configured','condition':condition,'participant_slots':['P1','P2','P3'],

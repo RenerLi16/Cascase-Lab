@@ -1,5 +1,5 @@
 {
-  "scenario_id": "practice_demo_v1",
+  "scenario_id": "practice_demo_v2",
   "scenario_title": "Practice district",
   "rounds": 3,
   "world_size": [
@@ -40,6 +40,7 @@
       420
     ]
   },
+  "bridges": ["C-E", "D-F"],
   "road_bends": {
     "A-B": [
       [

@@ -65,7 +65,7 @@ func test_projection() -> void:
 	for condition in SupportLibrary.CONDITIONS:
 		check(SupportLibrary.generate(context(game),condition)==SupportLibrary.generate(clean,condition),"Hidden state cannot alter output: "+condition)
 	check(not clean.has("public_reports") and not clean.has("public_intel") and not SupportContext.CATEGORIES.has("published_reports"),"Support context carries no narrative reports")
-	check(SupportContext.VERSION == "cascade-context-2","Current no-dispatch context contract")
+	check(SupportContext.VERSION == "cascade-context-3","Current no-dispatch, bridge-flag context contract")
 	game.state.shelters.E.verified_history.append({"round":1,"pressure":1})
 	game.state.shelters.E.verified_history.append({"round":3,"pressure":2})
 	game.state.round=2

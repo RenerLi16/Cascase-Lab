@@ -23,6 +23,7 @@ func check_layout(label: String) -> void:
 		check(rect.position.y >= -1 and rect.end.y <= bounds.end.y+1,label+" fits vertically: "+str(node.name))
 
 func public_pixels() -> PackedByteArray:
+	UIkit.reduced_motion = true # Freeze decorative frames for exact privacy comparison.
 	app.board.queue_redraw()
 	await settle()
 	RenderingServer.force_draw()
@@ -88,9 +89,10 @@ func run() -> void:
 					await dispatch("MONITOR","E",["A"])
 					await dispatch("SHIELD","F",["H"])
 					await map_click("E-F",true)
-					await click("ISOLATE")
+					await click("CLOSE BRIDGE")
 					await snapshot(tag+"-isolation")
 					check_layout(tag+"-isolation")
+					await select_delivery_sources()
 					await click("Confirm delivery")
 					await wait_delivery()
 				await click("End round")

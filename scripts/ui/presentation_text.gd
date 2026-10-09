@@ -5,10 +5,21 @@ const ACTION_DETAILS := {
 	"VERIFY":"Record / dated pressure snapshot",
 	"MONITOR":"Observe / reports later changes",
 	"SHIELD":"Protect / incoming infection this round",
-	"ISOLATE":"Close / one delivery to each endpoint"
+	"ISOLATE":"Close bridge / blocks outbreak spread and supply deliveries across this connection"
 }
 
-const MAP_KEY := "\n\n[b]Reading the board[/b]\n? means unobserved pressure; it does not mean safe. Named frames identify playable buildings. Depot frames show their remaining supply. A MONITOR tag marks an installed monitor; M:0 or M:1 is a public monitor reading. OBS R1 · P1 is a dated Verify record, not a current reading.\n\nA SHIELD outline lasts for this resolution. Brackets mark selection; NO SUPPLY marks no stocked supply access. Solid roads can carry supplies; short dotted roads cannot currently carry supplies. Closed roads have long dashes and barricades. Crossed shelters are confirmed Overrun."
+# Player-facing action names. Internal identifiers (logs, exports, AI contract) stay unchanged.
+const ACTION_NAMES := {"VERIFY":"VERIFY","MONITOR":"MONITOR","SHIELD":"SHIELD","ISOLATE":"CLOSE BRIDGE","WAIT":"WAIT / SAVE SUPPLY"}
+const BRIDGE_ONLY := "Only bridges can be closed."
+const CLOSURE_EFFECT := "Blocks outbreak spread and supply deliveries across this connection."
+
+static func action_name(kind: String) -> String:
+	return ACTION_NAMES.get(kind,kind)
+
+static func connection_name(edge: EdgeState) -> String:
+	return ("Bridge " if edge.bridge else "Road ") + edge.id.replace("-"," — ")
+
+const MAP_KEY := "\n\n[b]Reading the board[/b]\n? means unobserved pressure; it does not mean safe. Named towers identify playable buildings. Depot labels show their remaining supply. A lit beacon means functioning, not infection-free; light is decorative, not protection, detection or supply range. A functioning shelter stays lit even without supply access. A MONITOR tag marks an installed monitor; M:0 or M:1 is a public monitor reading. OBS R1 · P1 is a dated Verify record, not a current reading.\n\nA SHIELD emblem lasts for this resolution. Brackets mark selection; NO SUPPLY marks no stocked supply access. Solid roads can carry supplies; short dotted roads cannot currently carry supplies. Timber decks mark bridges over water or ravines; only bridges can be closed. A closed bridge has a barricade, long dashes and a CLOSED stamp. Crossed shelters are confirmed Overrun."
 
 static func phase_title(phase: GameManager.Phase) -> String:
 	return {
@@ -23,13 +34,14 @@ static func phase_title(phase: GameManager.Phase) -> String:
 		GameManager.Phase.RESULTS:"Incident summary"
 	}.get(phase,"Private judgment")
 
-const RULES := "[b]Survive three rounds[/b]\nKeep shelters functioning. Quiet shelters may have hidden exposure.\n\n[b]Roads and outbreak[/b]\nAll roads carry zombies and supply in both directions. Overrun is permanent. Each Overrun shelter infects its neighbors at resolution; new Overrun shelters spread starting next round. Multiple incoming infections stack.\n\nAn Exposed shelter becomes Overrun at the next resolution. Newly exposed shelters wait until the following resolution to progress. Shields block incoming infection, not exposure already inside.\n\n[b]Six supplies for the whole mission[/b]\nSupply never regenerates or heals infection. Deliveries use the shortest active route. Overrun shelters cannot receive or relay supply.\n\nVERIFY · 1 — a precise, dated pressure snapshot.\nMONITOR · 1 — reports later pressure changes. Installation does not reveal a baseline.\nSHIELD · 1 — blocks incoming road infection this resolution, then expires.\nISOLATE · 2 — deliver one unit to each endpoint, then close the road permanently. Different depots may pay. Both endpoints must be reachable.\n\n[b]Map controls[/b]\nClick a building frame to animate into a close-up and open its information. Overview, empty map space, or Escape returns to the district. Roads open a nearby action bubble without zooming. Hide survey retracts your form; Expand survey restores your answers. Cased lines mark playable roads; other streets are scenery."
+const RULES := "[b]Survive three rounds[/b]\nKeep shelters functioning. Quiet shelters may have hidden exposure.\n\n[b]Roads, bridges and outbreak[/b]\nAll roads and bridges carry zombies and supply in both directions. Overrun is permanent. Each Overrun shelter infects its neighbors at resolution; new Overrun shelters spread starting next round. Multiple incoming infections stack.\n\nAn Exposed shelter becomes Overrun at the next resolution. Newly exposed shelters wait until the following resolution to progress. Shields block incoming infection, not exposure already inside.\n\n[b]Six supplies for the whole mission[/b]\nSupply never regenerates or heals infection. Deliveries use the shortest active route. Overrun shelters cannot receive or relay supply.\n\nVERIFY · 1 — a precise, dated pressure snapshot.\nMONITOR · 1 — reports later pressure changes. Installation does not reveal a baseline.\nSHIELD · 1 — blocks incoming road infection this resolution, then expires.\nCLOSE BRIDGE · 2 — only bridges can be closed; ordinary roads stay open. Deliver one unit to each end, then the bridge closes permanently. It blocks outbreak spread and supply deliveries across this connection. Choose a highlighted source depot for each end, then confirm both deliveries. Different depots may pay. Both ends must be reachable.\n\n[b]Map controls[/b]\nChoose an action, then click a highlighted depot on the map to preview its route. Confirm delivery to spend supplies; Back or Cancel spends nothing.\n\nClick a named tower to animate into a close-up and open its information. Overview, empty map space, or Escape returns to the district. Roads and bridges open a nearby information bubble without zooming. Hide survey retracts your form; Expand survey restores your answers. Drag to pan; use the wheel, pinch or + / − for bounded zoom. Reduce motion freezes ambient effects without changing game timing."
 
 # Readable explanations for unavailable actions. Codes stay unchanged in the domain layer.
 const UNAVAILABLE := {
 	"DELIVERY IN PROGRESS":"A delivery is in progress.",
-	"ROAD CLOSED":"This road is already closed.",
-	"ENDPOINT OVERRUN":"An endpoint of this road is Overrun.",
+	"ROAD CLOSED":"This bridge is already closed.",
+	"NOT A BRIDGE":BRIDGE_ONLY,
+	"ENDPOINT OVERRUN":"An end of this bridge is Overrun.",
 	"OVERRUN":"This shelter is Overrun.",
 	"MONITOR ACTIVE":"A monitor is already installed here.",
 	"SHIELD ACTIVE":"A shield is already active here this round.",
@@ -37,7 +49,7 @@ const UNAVAILABLE := {
 	"NO SUPPLY ROUTE":"No stocked depot has a supply route here.",
 	"NOT ACTION PHASE":"Actions are available only in the action phase.",
 	"WRONG ROUND":"This action belongs to a different round.",
-	"SELECT A ROAD":"Select a road.",
+	"SELECT A ROAD":"Select a bridge.",
 	"SELECT A SHELTER":"Select a shelter."
 }
 

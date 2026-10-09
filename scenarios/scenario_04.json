@@ -1,5 +1,5 @@
 {
-  "scenario_id": "crossfire_04_v1",
+  "scenario_id": "crossfire_04_v2",
   "scenario_title": "Crossfire: Converging Threats",
   "rounds": 3,
   "world_size": [1000, 700],
@@ -15,6 +15,7 @@
   },
   "initial_pressures": {"A": 0, "B": 1, "C": 0, "D": 0, "E": 0, "F": 1, "G": 0, "H": 0},
   "edges": [["A", "B"], ["A", "C"], ["B", "D"], ["B", "E"], ["C", "E"], ["D", "E"], ["D", "F"], ["E", "F"], ["E", "G"], ["F", "H"], ["G", "H"]],
+  "bridges": ["B-D", "B-E", "D-F", "E-F"],
   "road_bends": {},
   "supply_depots": ["A", "H"],
   "supply_amounts": {"A": 3, "H": 3},

@@ -21,6 +21,7 @@ func delivery_options(kind: String, target: String) -> Array:
 	if kind == "ISOLATE":
 		if not state.edges.has(target): return options
 		var edge: EdgeState = state.edges[target]
+		if not edge.bridge: return options # Only bridges can be closed.
 		for first in eligible_depots(edge.from):
 			for second in eligible_depots(edge.to):
 				if first == second and state.depots[first].supply_remaining < 2: continue

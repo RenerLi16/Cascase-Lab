@@ -78,10 +78,10 @@ func run() -> void:
 		await map_click("E-F",true)
 		await snapshot("%d-road" % viewport_size.x)
 		check_layout("road")
-		await click("ISOLATE")
+		await click("CLOSE BRIDGE")
 		await snapshot("%d-confirm" % viewport_size.x)
 		check_layout("confirm")
-		app._close_modal()
+		app._close_source_picker()
 		app.session.phase = GameManager.Phase.INTERVENTION
 		for id in SupportLibrary.TEMPLATES:
 			app.session.support_message = {"text":"\n".join(SupportLibrary.TEMPLATES[id]).replace("%s","E-F"),"template_id":id,"version":SupportLibrary.VERSION}

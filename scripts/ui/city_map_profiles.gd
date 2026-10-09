@@ -1,18 +1,20 @@
 class_name CityMapProfiles
 extends RefCounted
 
+# Medieval towers use only anchor() and road(); historical building, selection,
+# entrance and label records remain recoverable but do not position live artwork.
 # Visual coordinates only. ScenarioData still owns simulation geometry/route costs.
 const FILES := {
-	"riverside_01_v2": "res://assets/maps/layouts/riverside.json",
-	"twin_districts_02_v1": "res://assets/maps/layouts/twin_districts.json",
-	"lifeline_03_v1": "res://assets/maps/layouts/lifeline.json",
-	"crossfire_04_v1": "res://assets/maps/layouts/crossfire.json",
+	"riverside_01_v3": "res://assets/maps/layouts/riverside.json",
+	"twin_districts_02_v2": "res://assets/maps/layouts/twin_districts.json",
+	"lifeline_03_v2": "res://assets/maps/layouts/lifeline.json",
+	"crossfire_04_v2": "res://assets/maps/layouts/crossfire.json",
 }
 const TEXTURES := {
-	"riverside_01_v2": preload("res://assets/maps/riverside.png"),
-	"twin_districts_02_v1": preload("res://assets/maps/twin_districts.png"),
-	"lifeline_03_v1": preload("res://assets/maps/lifeline.png"),
-	"crossfire_04_v1": preload("res://assets/maps/crossfire.png"),
+	"riverside_01_v3": preload("res://assets/maps/riverside.png"),
+	"twin_districts_02_v2": preload("res://assets/maps/twin_districts.png"),
+	"lifeline_03_v2": preload("res://assets/maps/lifeline.png"),
+	"crossfire_04_v2": preload("res://assets/maps/crossfire.png"),
 }
 static var cache: Dictionary = {}
 

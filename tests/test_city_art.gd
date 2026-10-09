@@ -2,14 +2,18 @@ extends "res://tests/test_presentation.gd"
 
 func geometry_checks() -> void:
 	var board: NetworkView = app.board
+	board._refresh_geometry()
 	var scenario: ScenarioData = app.session.scenario
 	var data := CityMapProfiles.layout(scenario)
 	check(data.nodes.size() == 8,"Eight separate landmark records")
 	check(data.edges.size() == app.session.state.edges.size(),"Exact visual edge coverage")
 	check(CityMapProfiles.vector(data.image_size) == CityMapProfiles.TEXTURES[scenario.scenario_id].get_size(),"Actual raster dimensions registered")
 	for id in data.nodes:
-		var n: Dictionary = data.nodes[id]
-		check(not board.world_building(id).grow(8).has_point(board.network_anchor(id)),"Junction outside roof "+id)
+		var ground: Vector2 = board.tower_world_rect(id).position+board.sprite_metadata(id).ground
+		check(ground.is_equal_approx(board.network_anchor(id)),"Ground pivot exactly on network anchor "+id)
+		check(board.positions[id].is_equal_approx(board.to_screen(ground)),"Public position and arrival use ground pivot "+id)
+		check(board.hit_test(board.tower_screen_rect(id).get_center()) == id,"Sprite selects correct shelter "+id)
+		check(board.to_screen(board.lamp_world_position(id)).distance_to(board.tower_screen_rect(id).position+board.sprite_metadata(id).lamp*board.map_scale()) < 0.001,"Lamp shares camera transform "+id)
 		check(board.hit_test(board.positions[id]) == id,"Landmark selects correct shelter "+id)
 		check(board.to_world(board.to_screen(board.network_anchor(id))).is_equal_approx(board.network_anchor(id)),"Camera transform round trip")
 	for id in data.edges:
@@ -24,12 +28,12 @@ func geometry_checks() -> void:
 			check(points[i].distance_to(points[i+1]) > 0.01,"No zero-length segments")
 		for fraction in [0.15,0.5,0.85]:
 			var world: Vector2 = board._point_on_path(points,fraction)
-			check(board.hit_test(board.to_screen(world)) == id,"Select correct branch "+id+" at "+str(fraction))
-		check(board.hit_test(board.to_screen(board._point_on_path(points,board.closure_fraction(id)))) == id,"Closure lies on own selectable segment")
-		for step in range(101):
-			var point: Vector2 = board._point_on_path(points,step/100.0)
+			var covered := false
 			for nid in data.nodes:
-				check(not board.world_building(nid).grow(8).has_point(point),"Road corridor avoids roof "+id+"/"+nid)
+				if board.tower_world_rect(nid).has_point(world): covered = true
+			if not covered: check(board.hit_test(board.to_screen(world)) == id,"Select correct exposed branch "+id+" at "+str(fraction))
+		check(board.hit_test(board.to_screen(board._point_on_path(points,board.closure_fraction(id)))) == id,"Closure lies on own selectable segment")
+		check(board.world_path_for_nodes([edge.from,edge.to])[-1].is_equal_approx(board.tower_world_rect(edge.to).position+board.sprite_metadata(edge.to).ground),"Delivery ends at tower forecourt")
 		for other in data.edges:
 			var e: EdgeState = app.session.state.edges[other]
 			if edge.from in [e.from,e.to] or edge.to in [e.from,e.to]: continue
@@ -48,7 +52,6 @@ func geometry_checks() -> void:
 				if a == b: continue
 				var path := board.world_path_for_nodes([a,middle,b])
 				check(path.count(board.network_anchor(middle)) == 1,"Through-route visits junction once")
-				check(not path.has(board.world_building(middle).get_center()),"No intermediate driveway detour")
 				for i in path.size()-1: check(path[i] != path[i+1],"No duplicated route join")
 
 func run() -> void:
@@ -86,7 +89,7 @@ func run() -> void:
 			app.session.begin_sandbox_actions()
 			await settle()
 			app.board.dev_mode = false
-			var target := "H" if entry.id == "riverside_01_v2" else "G"
+			var target := "H" if entry.id == "riverside_01_v3" else "G"
 			var depots: Array[String] = ["A"]
 			var result: Dictionary = app.session.dispatch_action("VERIFY",target,depots)
 			check(result.ok,"Real delivery accepted")
@@ -101,12 +104,13 @@ func run() -> void:
 			await wait_delivery()
 			check(app.session.phase == GameManager.Phase.ACTIONS,"Delivery completes")
 			app.board.center_map(false)
-			var edge := "E-F" if entry.id == "riverside_01_v2" else "D-E"
+			var edge := "E-F" if entry.id == "riverside_01_v3" else ("D-F" if entry.id == "crossfire_04_v2" else "D-E")
 			await map_click(edge,true)
 			await snapshot(tag+"-selected")
-			await click("ISOLATE")
+			await click("CLOSE BRIDGE")
 			check(app.board.preview_edge == edge,"Preview references authoritative edge")
 			await snapshot(tag+"-preview")
+			await select_delivery_sources()
 			await click("Confirm delivery")
 			await wait_delivery()
 			check(app.session.state.edges[edge].isolated,"Real closure completes after deliveries")

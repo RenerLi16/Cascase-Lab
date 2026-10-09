@@ -24,7 +24,7 @@ func run() -> void:
 			practice.select_shelter("E")
 			await create_timer(0.65).timeout
 			await snapshot(tag+"-practice-selected")
-			practice.deliver("VERIFY","E")
+			await practice_delivery("VERIFY","E",false)
 			check(practice.state.total_supply() == 5,"Reservation visibly deducts supply")
 			await create_timer(0.4).timeout
 			await snapshot(tag+"-practice-delivery")
@@ -33,7 +33,7 @@ func run() -> void:
 			practice.select_road("C-E")
 			await snapshot(tag+"-practice-road")
 			check_layout(tag+"-practice-road")
-			await practice.deliver("ISOLATE","C-E")
+			await practice_delivery("ISOLATE","C-E")
 			check(practice.state.total_supply() == 3 and practice.state.edges["C-E"].isolated,"Two deliveries close road through shared mechanics")
 			check(not practice.actions.supply.stocked_reachability().has("E"),"Closure changes available supply routes")
 			check(practice.step == 2 and sync.sessions == saved_before,"Practice stays outside saved research records")
@@ -43,12 +43,12 @@ func run() -> void:
 			check(practice.state.total_supply() == 6 and practice.state.actions.is_empty() and practice.state.observations.is_empty(),"Reset discards stock, actions and observations")
 			check(not practice.state.edges["C-E"].isolated and practice.step == 0,"Replay reopens roads and resets instructions")
 			# Reset while a delivery is pending cannot write into the new attempt.
-			practice.deliver("VERIFY","C")
+			await practice_delivery("VERIFY","C",false)
 			practice.reset()
 			await create_timer(2.2).timeout
 			check(practice.state.total_supply() == 6 and practice.step == 0,"Stale practice animation cannot mutate reset")
-			await practice.deliver("VERIFY","C")
-			await practice.deliver("ISOLATE","C-E")
+			await practice_delivery("VERIFY","C")
+			await practice_delivery("ISOLATE","C-E")
 			await click("开始正式任务" if chinese else "Start measured session")
 			check(app.practice == null and app.practice_completed_version == PracticeView.VERSION,"Completion version is separate from mission")
 			check(app.session.state.total_supply() == 6 and app.session.state.round == 1,"Measured session starts with fresh stock and round")
@@ -89,7 +89,7 @@ func run() -> void:
 		for zoom_value in [1.0,2.6]:
 			app.board.zoom = zoom_value
 			app.board._refresh_geometry()
-			check(app.board.road_core_width() >= 4 and app.board.road_core_width() <= 6,"Bounded thick road core")
+			check(app.board.road_core_width() >= 7 and app.board.road_core_width() <= 13,"Bounded thick road core")
 			for id in app.session.state.edges:
 				check(app.board.visual_road(id) == CityMapProfiles.road(app.session.scenario,id),"Road alignment unchanged: "+id)
 				var path: PackedVector2Array = app.board.road_geometry[id]
@@ -97,8 +97,8 @@ func run() -> void:
 				var tangent: Vector2 = (app.board._point_on_path(path,0.51)-mid).normalized()
 				check(app.board.hit_test(mid+tangent.orthogonal()*4) == id,"Road visible width is selectable: "+id)
 		for id in app.session.state.shelters:
-			check(app.board.shelter_ink(id) == UIkit.ACCENT,"Original green shelter color restored")
-			check(app.board.shelter_status_ink(id) == UIkit.SECONDARY,"Unobserved status stays neutral on black")
+			check(app.board.shelter_ink(id) == UIkit.ACCENT,"Consistent public functioning color")
+			check(app.board.shelter_status_ink(id) == UIkit.SECONDARY,"Unobserved status stays neutral")
 		app.board.zoom = 1.0
 		if DisplayServer.get_name() != "headless":
 			var before := await public_pixels()

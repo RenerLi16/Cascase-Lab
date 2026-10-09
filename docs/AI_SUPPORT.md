@@ -1,6 +1,8 @@
 > **Current implementation:** The asynchronous backend integration supersedes the deterministic-only runtime described below. See [BACKEND_SETUP.md](BACKEND_SETUP.md). `SupportLibrary` remains as a public-rule/mock fixture; the default game uses the backend. No live Qwen call has been verified.
 
-# Controlled support — support-1.1.0
+# Controlled support — support-1.2.0
+
+> **Bridge-only closure (support-1.2.0, context `cascade-context-3`):** each road in the projection carries a public `bridge` flag, and isolation is legal or recommended only for bridges. See [Bridge-only closure](BRIDGE_CLOSURE.md).
 
 This is a reproducible experimental manipulation implemented with local templates, not a conversational model. No credentials, API calls, participant names, microphones, chat boxes, or external knowledge are used.
 
@@ -31,7 +33,7 @@ It never copies current hidden P0/P1, the source, planned resolution, ground tru
 
 Every message is 35–60 whitespace-separated words including section labels. Road IDs such as E-F count as one word. Tests validate every template, including zero-supply and wait cases.
 
-Direct support independently computes legal supply actions from public road connectivity and depot balances. Isolation requires two reachable endpoints and sufficient combined stock, matching live action rules. A fixed ranking considers anonymous proposal matches, danger-target matches, visible connections, and visibly Overrun neighbors. Shield messages only apply to a functioning neighbor of visible Overrun and are excluded for publicly known exposure. Monitor and isolation suggestions require a corresponding structured proposal. Verify is the baseline legal information action. Stable map-ID/action ordering breaks ties; confidence never identifies a favored respondent. Unanimous waiting and no-funded-route states have distinct explicit wait templates. This policy is a bounded suggestion heuristic, not an optimizer or hidden outbreak solver.
+Direct support independently computes legal supply actions from public road connectivity and depot balances. Isolation requires a designated bridge, two reachable endpoints and sufficient combined stock, matching live action rules. A fixed ranking considers anonymous proposal matches, danger-target matches, visible connections, and visibly Overrun neighbors. Shield messages only apply to a functioning neighbor of visible Overrun and are excluded for publicly known exposure. Monitor and isolation suggestions require a corresponding structured proposal. Verify is the baseline legal information action. Stable map-ID/action ordering breaks ties; confidence never identifies a favored respondent. Unanimous waiting and no-funded-route states have distinct explicit wait templates. This policy is a bounded suggestion heuristic, not an optimizer or hidden outbreak solver.
 
 Dissent selects one branch: no executable funded action; differing danger/action/target patterns; differing reasoning categories; low or divergent confidence; otherwise shared agreement. It asks one focused question, suggests an evidence comparison, and never produces an action/target prescription. It reports neither vote counts nor respondent labels.
 

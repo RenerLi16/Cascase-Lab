@@ -17,6 +17,8 @@ func unavailable_reason(kind: String, target: String) -> String:
 	if kind == "ISOLATE":
 		if not state.edges.has(target): return "SELECT A ROAD"
 		var edge: EdgeState = state.edges[target]
+		# Authoritative bridge-only rule; checked before stock so no request can reserve supply.
+		if not edge.bridge: return "NOT A BRIDGE"
 		if edge.isolated: return "ROAD CLOSED"
 		if state.shelters[edge.from].is_overrun or state.shelters[edge.to].is_overrun: return "ENDPOINT OVERRUN"
 	else:

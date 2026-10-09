@@ -7,7 +7,7 @@
     "WAIT": 0
   },
   "observations": "known_pressure=-1 means unknown. Verification is dated evidence, not current pressure. Monitoring reveals no installation baseline, only later changes.",
-  "effects": "VERIFY reveals a snapshot. MONITOR reports later changes. SHIELD blocks incoming infection for this round only and does not cure exposure. ISOLATE closes a road permanently for both infection and supplies; pay one unit to each endpoint. WAIT spends nothing.",
-  "access": "Deliver from stocked depots along open roads through functioning shelters. Overrun shelters cannot receive or relay supplies. Already monitored/shielded targets cannot repeat that action. Closed roads cannot be isolated again.",
+  "effects": "VERIFY reveals a snapshot. MONITOR reports later changes. SHIELD blocks incoming infection for this round only and does not cure exposure. ISOLATE (shown to players as Close bridge) closes a bridge permanently for both infection and supplies; pay one unit to each endpoint. WAIT spends nothing.",
+  "access": "Deliver from stocked depots along open roads through functioning shelters. Overrun shelters cannot receive or relay supplies. Already monitored/shielded targets cannot repeat that action. Only roads with bridge=true can be isolated; ordinary roads always stay open. Closed bridges cannot be isolated again.",
   "resolution": "Overrun shelters transmit along open roads at resolution. Existing exposure progresses when exposure_progresses is true. Incoming infection is simultaneous; newly overrun shelters transmit next round."
 }

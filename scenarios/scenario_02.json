@@ -1,6 +1,6 @@
 {
-  "scenario_id": "twin_districts_02_v1",
-  "scenario_title": "Twin Districts: The Bridge",
+  "scenario_id": "twin_districts_02_v2",
+  "scenario_title": "Twin Districts: The Island Outpost",
   "rounds": 3,
   "world_size": [1000, 700],
   "node_positions": {
@@ -15,6 +15,7 @@
   },
   "initial_pressures": {"A": 0, "B": 0, "C": 0, "D": 1, "E": 0, "F": 0, "G": 0, "H": 0},
   "edges": [["A", "B"], ["A", "C"], ["B", "C"], ["C", "D"], ["D", "E"], ["E", "F"], ["E", "G"], ["F", "G"], ["F", "H"], ["G", "H"]],
+  "bridges": ["C-D", "D-E"],
   "road_bends": {},
   "supply_depots": ["A", "H"],
   "supply_amounts": {"A": 3, "H": 3},

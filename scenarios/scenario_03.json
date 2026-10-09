@@ -1,5 +1,5 @@
 {
-  "scenario_id": "lifeline_03_v1",
+  "scenario_id": "lifeline_03_v2",
   "scenario_title": "Lifeline: The Cost of Containment",
   "rounds": 3,
   "world_size": [1000, 700],
@@ -15,6 +15,7 @@
   },
   "initial_pressures": {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 1, "G": 0, "H": 0},
   "edges": [["A", "B"], ["B", "C"], ["C", "D"], ["A", "D"], ["D", "E"], ["E", "F"], ["F", "G"], ["F", "H"], ["E", "G"], ["G", "H"]],
+  "bridges": ["D-E", "E-F", "E-G"],
   "road_bends": {},
   "supply_depots": ["A", "C"],
   "supply_amounts": {"A": 3, "C": 3},

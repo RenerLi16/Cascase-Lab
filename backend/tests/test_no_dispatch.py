@@ -111,7 +111,7 @@ class ContractTests(unittest.TestCase):
             validate_request(request() | {'context_version': 'cascade-context-1'})
         legacy = {'condition': 'DIRECT_RECOMMENDATION', 'context': context() | {'public_reports': legacy_dispatches()[:1]}}
         with self.assertRaisesRegex(Invalid, 'deprecated_report_field'): validate_request(legacy)
-        self.assertEqual(CONTEXT_VERSION, 'cascade-context-2')
+        self.assertEqual(CONTEXT_VERSION, 'cascade-context-3')
 
     def test_prompts_examples_mocks_and_templates_contain_no_narrative_clues(self):
         sources = {'system prompt': COMMON, **{f'role {k}': v for k, v in ROLES.items()},
@@ -181,7 +181,7 @@ class VersionAndServiceTests(unittest.TestCase):
 
     def tearDown(self): self.service.close(); self.temp.cleanup()
 
-    def session(self, sid, schema=6, condition='DIRECT_RECOMMENDATION'):
+    def session(self, sid, schema=7, condition='DIRECT_RECOMMENDATION'):
         return self.service.dispatch('POST', '/v1/sessions', start(sid, condition, schema), '')[1]['credential']
 
     def post(self, sid, token, body, rnd=1):
@@ -204,13 +204,16 @@ class VersionAndServiceTests(unittest.TestCase):
         self.assertEqual((self.calls, self.jobs()), ([], 0))
 
     def test_legacy_sessions_upload_records_but_never_reach_a_provider(self):
-        token = self.session('legacy', schema=5)
-        prefix = '/v1/sessions/legacy'
-        self.assertEqual(self.service.dispatch('POST', prefix+'/events', {'events': [event()]}, token)[0], 200)
-        for body in (request(), {'condition': 'DIRECT_RECOMMENDATION', 'context': context() | {'public_reports': legacy_dispatches()}}):
-            self.assertEqual(self.post('legacy', token, body), (400, {'error': 'deprecated_session_protocol'}))
-        self.assertEqual(self.service.dispatch('POST', prefix+'/completion', {'status': 'completed', 'last_seq': 1}, token)[0], 200)
-        for schema in (4, 7):
+        # Schema 5 (narrative dispatches) and schema 6 (any road closable, no bridge flag).
+        for schema in (5, 6):
+            sid = f'legacy-{schema}'
+            token = self.session(sid, schema=schema)
+            prefix = '/v1/sessions/' + sid
+            self.assertEqual(self.service.dispatch('POST', prefix+'/events', {'events': [event()]}, token)[0], 200)
+            for body in (request(), {'condition': 'DIRECT_RECOMMENDATION', 'context': context() | {'public_reports': legacy_dispatches()}}):
+                self.assertEqual(self.post(sid, token, body), (400, {'error': 'deprecated_session_protocol'}))
+            self.assertEqual(self.service.dispatch('POST', prefix+'/completion', {'status': 'completed', 'last_seq': 1}, token)[0], 200)
+        for schema in (4, 8):
             with self.assertRaises(Invalid): self.session(f'unknown-{schema}', schema=schema)
         self.service.pool.shutdown(wait=True)
         self.assertEqual((self.calls, self.jobs()), ([], 0))
@@ -301,10 +304,10 @@ class EndToEndOutboundTests(unittest.TestCase):
                 with service.store.connect() as db:
                     sessions = [json.loads(row[0]) for row in db.execute('SELECT metadata FROM sessions')]
                     self.assertEqual(len(sessions), 3)
-                    self.assertTrue(all(m['game_version'] == 'cascade-development-6' and m['schema_version'] == 6 for m in sessions))
+                    self.assertTrue(all(m['game_version'] == 'cascade-development-7' and m['schema_version'] == 7 for m in sessions))
                     self.assertEqual(db.execute("SELECT count(*) FROM sessions WHERE status='interrupted' OR status='completed'").fetchone()[0], 3)
                     stored = ' '.join(row[0] for table in ('game_events', 'audit_events', 'private_events') for row in db.execute(f'SELECT body FROM {table}'))
-                    self.assertIn('cascade-context-2', stored)
+                    self.assertIn('cascade-context-3', stored)
                     for term in sentinels + tuple(legacy_texts()) + ('PUBLIC_INTEL_SHOWN', 'public_intel', 'public_reports'):
                         self.assertNotIn(term, stored)
                     audits = [json.loads(row[0]) for row in db.execute('SELECT audit FROM interventions')]

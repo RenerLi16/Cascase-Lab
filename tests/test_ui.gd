@@ -44,6 +44,13 @@ func click(fragment: String) -> void:
 	button.pressed.emit()
 	await settle()
 
+# Repeated clicks on one depot must clear the picker's 160 ms real-time debounce. A scene
+# timer can fire early in real time after a slow frame (software rendering), so wait on
+# the wall clock instead.
+func real_delay(msec: int) -> void:
+	var start := Time.get_ticks_msec()
+	while Time.get_ticks_msec()-start < msec: await process_frame
+
 func settle(frames: int = 3) -> void:
 	for _frame in frames: await process_frame
 
@@ -105,6 +112,28 @@ func submit_private(round_number: int, index: int) -> void:
 	check(app.session.private_surveys[round_number].size()==index+1,"Private response stored internally only")
 
 # Await the public phase instead of assuming a fixed vehicle/arrival duration.
+# Exercise actual map selection; fixtures explicitly click each chosen source.
+func select_delivery_sources(assignments: Array = []) -> void:
+	var picker = app.source_picker
+	check(picker != null,"Non-blocking map source picker exists")
+	if picker == null: return
+	var chosen: Array = assignments if not assignments.is_empty() else picker.feasible_options()[0]
+	for index in chosen.size():
+		if index > 0 and chosen[index] == chosen[index-1]: await real_delay(230)
+		app._select_shelter(chosen[index])
+	await settle()
+
+func practice_delivery(kind: String, target: String, wait: bool = true) -> void:
+	var practice: PracticeView = app.practice
+	practice.deliver(kind,target)
+	var chosen: Array = practice.source_picker.feasible_options()[0]
+	for index in chosen.size():
+		if index > 0 and chosen[index] == chosen[index-1]: await real_delay(230)
+		practice.select_shelter(chosen[index])
+	practice.source_picker.confirm_selection()
+	if wait:
+		while practice.busy: await create_timer(0.05).timeout
+
 func wait_delivery() -> void:
 	var deadline := Time.get_ticks_msec()+4000
 	while app.session.phase == GameManager.Phase.DELIVERY and Time.get_ticks_msec() < deadline:
@@ -140,12 +169,12 @@ func run() -> void:
 	wheel.pressed = true
 	wheel.position = app.board.size/2
 	app.board._gui_input(wheel)
-	check(app.board.zoom==1.0,"Wheel no longer zooms")
+	check(is_equal_approx(app.board.zoom,1.1),"Wheel provides bounded overview zoom")
 	await map_click("E")
 	await create_timer(0.65).timeout
-	check(is_equal_approx(app.board.zoom,2.6),"Building selection animates into a close-up")
+	check(is_equal_approx(app.board.zoom,2.0),"Building selection animates into a close-up")
 	check(app.inspector.visible,"Building opens right information panel")
-	check(app.board.camera_center.is_equal_approx(app.board.world_building("E").get_center()),"Camera centers selected building")
+	check(app.board.to_screen(app.board.world_building("E").get_center()).x < app.inspector.position.x+app.workspace.position.x,"Camera leaves selected tower clear of floating inspector")
 	var old_zoom: float = app.board.zoom
 	await map_click("E-F",true)
 	check(app.board.zoom==old_zoom,"Road selection does not zoom")
@@ -181,8 +210,9 @@ func run() -> void:
 	await dispatch("MONITOR","E",["A"])
 	await dispatch("SHIELD","E",["A"])
 	await map_click("E-F",true)
-	await click("ISOLATE")
-	check(app.modal != null,"Isolation opens concise confirmation modal")
+	await click("CLOSE BRIDGE")
+	check(app.modal == null and app.source_picker != null,"Isolation keeps map available for source selection")
+	await select_delivery_sources()
 	check(button_containing("Confirm delivery")!=null,"Isolation has explicit confirmation")
 	check(app.board.preview_edge=="E-F" and not app.board.preview_lost.is_empty(),"Isolation previews supply losses on map")
 	await click("Confirm delivery")

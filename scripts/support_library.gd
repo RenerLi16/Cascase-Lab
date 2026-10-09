@@ -4,7 +4,8 @@ extends RefCounted
 # Pure deterministic function of the SAME public projection for every condition.
 # No GameManager/ScenarioData reference, I/O, network, clock, RNG or hidden solver.
 # 1.1.0: wording no longer refers to the retired narrative reports.
-const VERSION := "support-1.1.0"
+# 1.2.0: bridge-only closure; ISOLATE is legal and recommended only for bridge roads.
+const VERSION := "support-1.2.0"
 const PAUSE_SECONDS := 15
 const CONDITIONS := ["NONE", "DIRECT_RECOMMENDATION", "CONSTRUCTIVE_DISSENT"]
 const LABELS := ["No AI", "Direct-Recommendation AI", "Constructive-Dissent AI"]
@@ -18,8 +19,8 @@ const TEMPLATES := {
 	"direct.monitor":["Recommendation: Monitor Shelter %s next.",
 		"Why: Structured proposals include monitoring this reachable location. Continuing observations could test assumptions about changing danger while the team manages its remaining supplies.",
 		"Check: Installation reveals no baseline and prevents no infection; consider whether later information will arrive in time to matter."],
-	"direct.isolate":["Recommendation: Isolate Road %s next.",
-		"Why: Structured proposals include closing this currently usable road. Both endpoints have funded delivery routes, and closure would block infection along this connection.",
+	"direct.isolate":["Recommendation: Close Bridge %s next.",
+		"Why: Structured proposals include closing this currently usable bridge. Both ends have funded delivery routes, and closure would block infection and supplies across this connection.",
 		"Check: Inspect the supply access lost on each side before committing both units; alternative roads may still carry infection."],
 	"direct.wait_agreement":["Recommendation: Wait; save supply across the district this round.",
 		"Why: The structured proposals agree on waiting. Retaining resources leaves them available later, although the public map and dated observations cannot establish every shelter's current condition.",
@@ -103,7 +104,7 @@ static func legal_actions(context: Dictionary) -> Array:
 	ids.sort()
 	for id in ids:
 		var road: Dictionary = context.roads[id]
-		if road.closed: continue
+		if road.closed or not road.get("bridge",false): continue
 		var possible := false
 		for first in funded_depots(context,road.endpoints[0]):
 			for second in funded_depots(context,road.endpoints[1]):

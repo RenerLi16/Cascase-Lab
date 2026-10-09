@@ -1,5 +1,7 @@
 # Cascade Lab: Outbreak — gameplay and AI intervention reference
 
+> **Rule change pending in this reference (8 October 2026):** the game now uses bridge-only closure. Isolate is shown to players as **Close bridge** and is available only on designated bridge edges; ordinary roads cannot be closed. Scenario IDs, the survey's closure targets, the AI context and the `direct.isolate` wording changed. This document's body still describes the earlier any-road rule and needs revision before reuse in study materials. See [Bridge-only closure](BRIDGE_CLOSURE.md).
+
 Prepared 20 September 2026 from the current project. This is a factual reference for revising study materials, not a completed participant consent form. Researcher-only scenario spoilers are clearly marked below.
 
 ## 1. Status and recorded design decision
