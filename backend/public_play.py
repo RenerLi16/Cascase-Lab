@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = json.loads((ROOT / 'scenarios/registry.json').read_text())
 SCENARIOS = {entry['id']: json.loads((ROOT / entry['path'].removeprefix('res://')).read_text())
              for entry in REGISTRY['scenarios']}
-PUBLIC_VERSION = (8, 'cascade-public-8')
+PUBLIC_VERSION = (9, 'cascade-public-9')
+LEGACY_PUBLIC_VERSIONS = {(8, 'cascade-public-8')}
 
 
 def validate_context(scenario, context):

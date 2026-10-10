@@ -146,14 +146,14 @@ func test_resolution() -> void:
 	check(game.state.overrun_ids()==["E"],"Initial exposure matures during first resolution")
 	check(not game.state.shelters.E.shielded_this_round,"Shield expires and cannot cure existing exposure")
 	check(game.state.shelters.B.zombie_pressure==0,"Newly Overrun shelter does not spread same phase")
-	game.next_round()
+	preload("res://tests/post_form_fixture.gd").advance(game)
 	survey_round(game)
 	check(act(game,"SHIELD","B",["A"]),"Shield unexposed neighbor before spread")
 	resolve(game)
 	check(game.state.shelters.B.zombie_pressure==0,"Shield blocks incoming infection")
 	check(game.state.shelters.C.zombie_pressure==1 and game.state.shelters.D.zombie_pressure==1 and game.state.shelters.F.zombie_pressure==1,"Overrun hub spreads across both endpoint orientations")
 	check(game.state.overrun_ids()==["E"],"New exposure remains hidden until later resolution")
-	game.next_round()
+	preload("res://tests/post_form_fixture.gd").advance(game)
 	survey_round(game)
 	resolve(game)
 	check(game.state.shelters.B.zombie_pressure==1,"Expired shield permits later exposure")
@@ -181,7 +181,7 @@ func test_resolution() -> void:
 	check(act(game,"ISOLATE","E-F",["A","H"]),"Isolate before origin becomes inaccessible")
 	for round_number in 3:
 		resolve(game)
-		if round_number<2: game.next_round(); survey_round(game)
+		if round_number<2: preload("res://tests/post_form_fixture.gd").advance(game); survey_round(game)
 	check(game.state.shelters.F.zombie_pressure==0,"Isolation blocks all later zombie movement on road")
 
 func canonical(payload: Dictionary) -> Dictionary:
@@ -192,6 +192,15 @@ func canonical(payload: Dictionary) -> Dictionary:
 	for record in copy.get("development_private_audit",[]):
 		for field in ["requested_utc","received_utc","displayed_utc","elapsed_ms"]: record.payload.erase(field)
 		if record.payload.has("identity"): record.payload.identity.erase("session")
+	var forms: Array = copy.round_evaluations + copy.scenario_reasoning
+	for record in copy.get("development_private_audit",[]):
+		if record.channel in ["round_evaluation","scenario_reasoning"]: forms.append(record.payload)
+	for form in forms:
+		form.erase("session_id")
+		form.erase("submitted_utc")
+		if form.has("ai_display"):
+			form.ai_display.erase("displayed_utc")
+			form.ai_display.erase("message_id")
 	return copy
 
 func test_private_flow_and_logging() -> void:
@@ -211,7 +220,7 @@ func test_private_flow_and_logging() -> void:
 		survey_round(game)
 		check(game.private_surveys[round_number+1].size()==3,"Exactly three private measurements each round")
 		resolve(game)
-		game.next_round()
+		preload("res://tests/post_form_fixture.gd").advance(game)
 		check(game.state.total_supply()==6,"No supply regeneration or involuntary spending")
 	check(game.phase==GameManager.Phase.RESULTS and game.state.round==3,"Ends exactly after Round 3")
 	check(not game.begin_resolution(),"No fourth resolution")
@@ -243,7 +252,7 @@ func test_private_flow_and_logging() -> void:
 		for run: GameManager in [first,second]:
 			survey_round(run)
 			resolve(run)
-			run.next_round()
+			preload("res://tests/post_form_fixture.gd").advance(run)
 	check(canonical(first.export_dictionary())==canonical(second.export_dictionary()),"Identical decisions reproduce all state and events except real timing")
 
 func test_strategy() -> void:
@@ -251,12 +260,12 @@ func test_strategy() -> void:
 	survey_round(good)
 	check(act(good,"VERIFY","E",["H"]),"Use eastern depot for initial investigation")
 	resolve(good)
-	good.next_round()
+	preload("res://tests/post_form_fixture.gd").advance(good)
 	survey_round(good)
 	for id in ["B","C","D"]: check(act(good,"SHIELD",id,["A"]),"Western stock protects local neighbor "+id)
 	check(act(good,"SHIELD","F",["H"]),"Eastern stock protects local neighbor F")
 	resolve(good)
-	good.next_round()
+	preload("res://tests/post_form_fixture.gd").advance(good)
 	survey_round(good)
 	resolve(good)
 	check(8-good.state.overrun_ids().size()==7 and good.state.total_supply()==1,"Strong informed strategy saves seven with one supply remaining")
@@ -283,7 +292,7 @@ func test_strategy() -> void:
 			random_game.begin_resolution()
 			random_game.apply_resolution(random_game.run_token)
 			random_game.finish_resolution(random_game.run_token)
-			random_game.next_round()
+			preload("res://tests/post_form_fixture.gd").advance(random_game)
 		saved += 8-random_game.state.overrun_ids().size()
 	var average := float(saved)/200.0
 	print("STRATEGY: informed 7/8; no containment 3/8; seeded random %.2f/8 (200 trials)" % average)

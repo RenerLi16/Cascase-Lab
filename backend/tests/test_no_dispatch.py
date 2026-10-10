@@ -304,7 +304,7 @@ class EndToEndOutboundTests(unittest.TestCase):
                 with service.store.connect() as db:
                     sessions = [json.loads(row[0]) for row in db.execute('SELECT metadata FROM sessions')]
                     self.assertEqual(len(sessions), 3)
-                    self.assertTrue(all(m['game_version'] == 'cascade-public-8' and m['schema_version'] == 8 for m in sessions))
+                    self.assertTrue(all(m['game_version'] == 'cascade-public-9' and m['schema_version'] == 9 for m in sessions))
                     self.assertEqual(db.execute("SELECT count(*) FROM sessions WHERE status='interrupted' OR status='completed'").fetchone()[0], 3)
                     stored = ' '.join(row[0] for table in ('game_events', 'audit_events', 'private_events') for row in db.execute(f'SELECT body FROM {table}'))
                     self.assertIn('cascade-context-3', stored)

@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 from .storage_pg import DEFAULT_ROOT_CERT
+from .evaluations import CHANNELS, INSTRUMENTS
 
 
 def connect(args, user, password):
@@ -92,6 +93,32 @@ def classify_export(sheets, metadata):
             row.extend([meta.get('record_mode', 'unclassified'), meta.get('research_eligible') is True and meta.get('record_mode') == 'approved-research'])
 
 
+def form_export_sheets(db, available_tables=None):
+    sheets = {}
+    for kind, table in CHANNELS.items():
+        questions = [q['id'] for q in INSTRUMENTS[kind]['questions']]
+        header = ['session_id','seq','scenario','scenario_index','round','condition','player_slot',
+                  'instrument_version','submitted_utc','timing','ai_display_status','ai_not_applicable_reason',
+                  'ai_provider','message_id','message_version','template_id','displayed_utc'] + questions
+        rows = []
+        for sid, seq, e in (_events(db, table) if available_tables is None or table in available_tables else []):
+            p = e['payload']; d = p.get('ai_display', {})
+            rows.append([sid, seq, e['scenario'], p['scenario_index'], p.get('round', ''), e['condition'], p['slot'],
+                         p['instrument_version'], p['submitted_utc'], p['timing'], d.get('status',''),
+                         d.get('not_applicable_reason',''), d.get('provider',''), d.get('message_id',''),
+                         d.get('message_version',''), d.get('template_id',''), d.get('displayed_utc','')] +
+                        [p['answers'].get(q, '') for q in questions])
+        sheets[table] = (header, rows)
+    return sheets
+
+
+def csv_cell(value):
+    # Free-written answers must open as text, never spreadsheet formulas.
+    if isinstance(value, str) and value.lstrip().startswith(('=', '+', '-', '@')):
+        return "'" + value
+    return value
+
+
 def export(args):
     """Write every saved record to readable CSV files (and an Excel workbook when openpyxl is available)."""
     import csv
@@ -123,6 +150,8 @@ def export(args):
             p = e['payload']; r = p.get('response', {})
             rows.append([sid, seq, e['scenario'], e['round'], e['condition'], p.get('slot'), r.get('danger_location'),
                          r.get('preferred_action'), r.get('action_target'), r.get('confidence'), r.get('reason')])
+        available_tables = {row[0] for row in db.execute('SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()')}
+        sheets.update(form_export_sheets(db, available_tables))
         sheets['private_responses'] = (['session_id', 'seq', 'scenario', 'round', 'condition', 'player_slot', 'danger_location',
                                         'preferred_action', 'action_target', 'confidence', 'reason'], rows)
         rows = []
@@ -155,13 +184,17 @@ def export(args):
     folder.mkdir(parents=True, exist_ok=True)
     for name, (header, rows) in sheets.items():
         with open(folder / f'{name}.csv', 'w', newline='', encoding='utf-8-sig') as f:  # BOM so Excel shows Chinese text
-            w = csv.writer(f); w.writerow(header); w.writerows(rows)
+            w = csv.writer(f); w.writerow(header)
+            w.writerows([csv_cell(value) for value in row] for row in rows)
     try:
         from openpyxl import Workbook
         wb = Workbook(); wb.remove(wb.active)
         for name, (header, rows) in sheets.items():
             ws = wb.create_sheet(name[:31]); ws.append(header)
-            for row in rows: ws.append([str(v)[:32000] if isinstance(v, str) else v for v in row])
+            for row in rows:
+                ws.append([str(v)[:32000] if isinstance(v, str) else v for v in row])
+                for cell in ws[ws.max_row]:
+                    if isinstance(cell.value, str): cell.data_type = 's'
             ws.freeze_panes = 'A2'
         wb.save(folder / 'cascade_export.xlsx')
         workbook = ' and cascade_export.xlsx'

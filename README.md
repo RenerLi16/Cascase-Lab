@@ -1,4 +1,4 @@
-> **Public Play:** Anonymous scoped sessions require the matching schema-8 backend. Public records and AI default off pending policy; personal testing uses synthetic data and mocks. See [public flow, safeguards and setup](docs/PUBLIC_PLAY.md).
+> **Public Play:** Anonymous scoped sessions require the matching schema-9 backend. Public records and AI default off pending policy; personal testing uses synthetic data and mocks. See [public flow, safeguards and setup](docs/PUBLIC_PLAY.md).
 
 > **Main menu + Dev Mode password:** New pixel-title menu with a decorative node network that never covers the interface; Play enters the existing practice/normal flow without a code; Dev Mode is password-gated in web/instructor builds (a convenience gate, not authentication) and sandbox runs are never uploaded. See [Main menu and Dev Mode](docs/MAIN_MENU.md). The title font is Silkscreen (SIL OFL, `assets/fonts/Silkscreen-OFL.txt`).
 
@@ -36,7 +36,9 @@ Every round is intentionally distinct:
 
 ```text
 OBSERVE → PRIVATE JUDGMENT → INITIAL DISCUSSION → DECISION PAUSE → ACTIONS
-        → SUPPLY DELIVERY → OUTBREAK RESOLUTION → NEXT ROUND
+        → SUPPLY DELIVERY → OUTBREAK RESOLUTION → ROUND SUMMARY
+        → INDIVIDUAL ROUND EVALUATIONS → NEXT ROUND
+Final round: evaluations → INDIVIDUAL SCENARIO REASONING → RESULTS
 ```
 
 The map and current decision lead the screen. The top header shows the phase and round, the right panel shows the selected building, and a compact bar under the map holds the map hint and the phase action. Supply balances appear on the two depots. **Menu → Field guide** opens the rules and map key. Private handoffs replace the board with an opaque screen; the blank private form restores only the public map as a reference.
@@ -60,6 +62,8 @@ There are no scripted narrative reports. Public evidence is the map itself: road
 
 Private surveys measure the current decision model: immediate danger (shelter or road), next action (`VERIFY`, `MONITOR`, `SHIELD`, `ISOLATE`, or `WAIT / SAVE SUPPLY`), action target, confidence 1–5, and a structured reason. Forms start blank and the handoff clears the previous form. Responses are kept out of normal gameplay. Dev Inspector and the research export contain anonymous records sorted within each round, with no participant identifiers or submission-order linkage. Survey event entries record submission receipts without answers.
 
+Every round now requires three private post-outcome evaluations. Each scenario also requires three private reasoning forms before results; the final scenario has the same barriers. A four-scenario session collects 36 evaluations and 12 reasoning forms. See [proposed questions, privacy, storage, and verification](docs/POST_OUTCOME_FORMS.md). Practice and Dev Sandbox remain free of these forms.
+
 ## Controlled support conditions
 
 The condition locks when the first private judgment begins. Restart retains the assigned condition; Session setup is available again before the new run starts. The condition is not randomized or inferred from team performance. No condition selector is shown during an active run.
@@ -74,7 +78,7 @@ A two-minute discussion timer starts after the third private response. Expiry, o
 
 `SupportLibrary` version **support-1.1.0** is a pure local template/ranking function. It has no file, network, random, clock, scenario, or simulator access. Both modes receive the same projection, including prior actions and dated observations. Templates and deterministic selection rules must receive a new version if wording or ranking changes.
 
-The `SUPPORT_SHOWN` event stores condition, scenario ID, round, permitted input categories, exact displayed text, template ID/version, and display time (UTC plus elapsed milliseconds). It intentionally does not store the input payload or any individual response. Replay of the displayed message uses the stored text; regenerating from inputs requires the same permitted snapshot and library version. Existing anonymous survey records and detailed simulation logs remain separate research data and are never fed wholesale into support. The export schema is now **3**.
+The `SUPPORT_SHOWN` event stores condition, scenario ID, round, permitted input categories, exact displayed text, template ID/version, and display time (UTC plus elapsed milliseconds). It intentionally does not store the input payload or any individual response. Replay of the displayed message uses the stored text; regenerating from inputs requires the same permitted snapshot and library version. Existing anonymous survey records and detailed simulation logs remain separate research data and are never fed wholesale into support. The current local export schema is **7**, and the public session protocol is **9**. The new post-outcome responses are stored separately from these initial judgments; their stable player slots appear only in private exports.
 
 See [the support implementation notes](docs/AI_SUPPORT.md) for selection, privacy, timing, and validation details.
 

@@ -16,7 +16,7 @@ func resolve(game: GameManager) -> void:
 	check(game.apply_resolution(game.run_token),"Apply once")
 	check(not game.apply_resolution(game.run_token),"No double application")
 	check(game.finish_resolution(game.run_token),"Finish once")
-	game.next_round()
+	preload("res://tests/post_form_fixture.gd").advance(game)
 
 func normal_actions(game: GameManager) -> void:
 	game._support_clock = func(): return now

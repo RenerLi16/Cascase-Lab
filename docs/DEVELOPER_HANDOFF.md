@@ -1,5 +1,7 @@
 # Cascade Lab: Outbreak — developer handoff
 
+Current normal-play flow includes mandatory individual round evaluations after outcomes and individual scenario reasoning before results. See [form instruments, schema versions, privacy boundaries, and verification](POST_OUTCOME_FORMS.md). Practice and Dev Sandbox skip these forms.
+
 > Updated implementation: [four-mission menu and development sandbox](SCENARIO_PACK_IMPLEMENTATION.md). That document supersedes this handoff’s single-scenario loader, optional-reason, early discussion-finish, reveal-toggle, and schema-3 descriptions.
 
 

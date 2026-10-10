@@ -22,6 +22,8 @@ static func connection_name(edge: EdgeState) -> String:
 const MAP_KEY := "\n\n[b]Reading the board[/b]\n? means unobserved pressure; it does not mean safe. Named towers identify playable buildings. Depot labels show their remaining supply. A lit beacon means functioning, not infection-free; light is decorative, not protection, detection or supply range. A functioning shelter stays lit even without supply access. A MONITOR tag marks an installed monitor; M:0 or M:1 is a public monitor reading. OBS R1 · P1 is a dated Verify record, not a current reading.\n\nA SHIELD emblem lasts for this resolution. Brackets mark selection; NO SUPPLY marks no stocked supply access. Solid roads can carry supplies; short dotted roads cannot currently carry supplies. Timber decks mark bridges over water or ravines; only bridges can be closed. A closed bridge has a barricade, long dashes and a CLOSED stamp. Crossed shelters are confirmed Overrun."
 
 static func phase_title(phase: GameManager.Phase) -> String:
+	if phase in [GameManager.Phase.ROUND_EVALUATION_GATE,GameManager.Phase.ROUND_EVALUATION_FORM]: return "Round evaluation"
+	if phase in [GameManager.Phase.SCENARIO_REASONING_GATE,GameManager.Phase.SCENARIO_REASONING_FORM]: return "Scenario reasoning"
 	return {
 		GameManager.Phase.OBSERVE:"Observe",
 		GameManager.Phase.PRIVATE_FORM:"Private judgment",

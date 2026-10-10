@@ -22,9 +22,10 @@ var outbox_path := "user://synthetic_pending_v1.json"
 # Schema 6 / cascade-development-6: sessions use the no-dispatch support context (SupportContext.VERSION).
 # Schema 7 / cascade-development-7: bridge-only closure, scenario pack 1.1.0, context cascade-context-3.
 # Schema 8 / cascade-public-8: scoped anonymous public demo sessions.
+# Schema 9 / cascade-public-9: post-outcome forms and completion barriers.
 # Older queued schema-5/6/7 records retain their protected identities and metadata.
-const SESSION_SCHEMA := 8
-const GAME_VERSION := "cascade-public-8"
+const SESSION_SCHEMA := 9
+const GAME_VERSION := "cascade-public-9"
 var storage_key := "cascade.synthetic.outbox.v1"
 
 func _ready() -> void:
@@ -89,8 +90,7 @@ func _on_change() -> void:
 		_bind_after_reset()
 	if game.phase != GameManager.Phase.OBSERVE: _ensure_active()
 	if game.phase == GameManager.Phase.RESULTS and mission.index + 1 == mission.order.size():
-		mission.capture_result()
-		finish("completed")
+		if mission.capture_result() and mission.is_complete(): finish("completed")
 
 func _bind_after_reset() -> void:
 	_unbind()
@@ -121,6 +121,7 @@ func _enqueue(channel: String, payload: Dictionary) -> void:
 
 func finish(outcome: String) -> void:
 	if not enabled or active.is_empty() or active.closing != "": return
+	if outcome == "completed" and (mission == null or not mission.is_complete()): return
 	_enqueue("audit",{"type":"SESSION_COMPLETED" if outcome == "completed" else "SESSION_INTERRUPTED"})
 	active.closing = outcome
 	_persist()
@@ -177,9 +178,9 @@ func _flush() -> void:
 			response = await _http(HTTPClient.METHOD_POST,"/v1/sessions",start)
 	elif not item.pending.is_empty() and (item.get("auth_flow","") != "public" or item.get("remote_records",false)):
 		stage = "events"
-		# Stay below the backend body limit even for larger audit events.
+		# Count UTF-8 bytes: long multilingual answers can occupy several bytes per character.
 		for event in item.pending:
-			if sent.size() >= 50 or (not sent.is_empty() and JSON.stringify(sent).length()+JSON.stringify(event).length()>70000): break
+			if sent.size() >= 50 or (not sent.is_empty() and JSON.stringify(sent).to_utf8_buffer().size()+JSON.stringify(event).to_utf8_buffer().size()>70000): break
 			sent.append(event)
 		response = await _http(HTTPClient.METHOD_POST,path+"/events",{"events":sent},item.credential)
 	else:
@@ -267,6 +268,7 @@ func request_support(context: Dictionary, condition: String, identity: Dictionar
 				if not message is Dictionary: return {"error":"invalid_backend_response"}
 				# Never display a cached or older-protocol result in a no-dispatch session.
 				if message.get("context_version","") != SupportContext.VERSION: return {"error":"context_version_mismatch"}
+				message["intervention_id"] = result.get("intervention_id","")
 				return message
 			if result.get("status","") == "failed": return {"error":str(result.get("error","provider_failed"))}
 		elif response.code != 0 and response.code != 429 and response.code < 500:

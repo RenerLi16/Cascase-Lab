@@ -9,7 +9,8 @@ import threading
 from .config import Config
 from .providers import Failure, MockProvider, QwenProvider, PROMPT_VERSION
 from .storage import SQLiteStorage, Conflict, Unauthorized, Limited
-from .public_play import PUBLIC_VERSION, SCENARIOS, validate_context, reject_research_claims
+from .public_play import PUBLIC_VERSION, LEGACY_PUBLIC_VERSIONS, SCENARIOS, validate_context, reject_research_claims
+from .evaluations import CHANNELS, validate_form
 from .validation import CONDITIONS, CONTEXT_VERSION, Invalid, canonical, identifier, integer, keys, require, validate_request
 
 # Session protocol. Schema 7 sessions use the bridge-only, no-dispatch context (CONTEXT_VERSION).
@@ -35,10 +36,11 @@ class Service:
             require(isinstance(body['client_secret'], str) and re.fullmatch('[a-f0-9]{64}', body['client_secret']))
             m = body['metadata']
             keys(m, 'schema_version game_version scenario_order order_source condition participant_slots')
-            require((m['schema_version'], m['game_version']) == PUBLIC_VERSION)
+            require((m['schema_version'], m['game_version']) in ({PUBLIC_VERSION} | LEGACY_PUBLIC_VERSIONS))
             require(m['condition'] in CONDITIONS and m['participant_slots'] == ['P1','P2','P3'])
             require(isinstance(m['scenario_order'], list) and 1 <= len(m['scenario_order']) <= 4)
             require(len(set(m['scenario_order'])) == len(m['scenario_order']) and all(s in SCENARIOS for s in m['scenario_order']))
+            if m['schema_version'] >= 9: require(set(m['scenario_order']) == set(SCENARIOS))
             require(m['order_source'] in ('configured','development_default_not_randomized'))
             metadata = m | {'record_mode':'public-demo', 'research_eligible':False,
                             'remote_records':self.config.public_records, 'public_ai':self.config.public_ai,
@@ -80,10 +82,11 @@ class Service:
             for e in body['events']:
                 keys(e, 'event_id seq channel scenario round phase condition payload')
                 identifier(e['event_id']); integer(e['seq'],1,100000)
-                require(e['channel'] in ('game','private','audit') and e['scenario'] in meta['scenario_order'])
+                require(e['channel'] in ('game','private','audit', *CHANNELS) and e['scenario'] in meta['scenario_order'])
                 integer(e['round'],0,3)
                 require(e['condition'] == meta['condition'] and isinstance(e['phase'],str) and len(e['phase']) <= 40)
                 require(isinstance(e['payload'],dict) and len(canonical(e['payload'])) <= 64000)
+                validate_form(sid, e, meta)
             return 200, self.store.ingest(sid,body['events'])
         if method == 'POST' and resource == 'completion':
             keys(body, 'status last_seq'); integer(body['last_seq'],0,100000)
@@ -93,8 +96,8 @@ class Service:
             require(scenario in meta['scenario_order'])
             round_number = int(round_text)
             if method == 'POST':
-                if (meta['schema_version'], meta['game_version']) not in (SESSION_VERSION, PUBLIC_VERSION):
-                    # Legacy sessions keep uploading records; they never reach a provider again.
+                if (meta['schema_version'], meta['game_version']) not in ({SESSION_VERSION, PUBLIC_VERSION} | LEGACY_PUBLIC_VERSIONS):
+                    # Protected schema-5/6 sessions keep uploading historical records only.
                     return 400, {'error':'deprecated_session_protocol'}
                 if public and not (meta.get('public_ai') and self.config.public_ai):
                     return 403, {'error':'public_ai_unavailable'}
@@ -128,7 +131,7 @@ class Service:
                         self.slots.release(); raise
             elif method != 'GET': return 405, {'error':'method_not_allowed'}
             result = self.store.job(sid,scenario,round_number)
-            if result and (meta['schema_version'], meta['game_version']) in (SESSION_VERSION, PUBLIC_VERSION) and self._stale(sid,scenario,round_number,result):
+            if result and (meta['schema_version'], meta['game_version']) in ({SESSION_VERSION, PUBLIC_VERSION} | LEGACY_PUBLIC_VERSIONS) and self._stale(sid,scenario,round_number,result):
                 raise Conflict()
             return (200,result) if result else (404,{'error':'not_found'})
         return 405, {'error':'method_not_allowed'}

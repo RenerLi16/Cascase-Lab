@@ -83,7 +83,7 @@ Before dispatch, the game checks action eligibility, stock, and routes. Supplies
 
 The facilitator selects **No AI**, **Direct-Recommendation AI**, or **Constructive-Dissent AI** in Session setup before the first private judgment. The current build defaults to No AI. The chosen condition stays fixed across all three rounds. Assignment is currently manual; random assignment is not implemented.
 
-The facilitator explains the controls, hidden information, actions, shared objective, and private handoff procedure. Any practice session, consent procedure, or researcher questionnaire is separate from the implemented game and needs its own protocol. Dev Mode should remain off during ordinary participant play because it reveals hidden game information. Its use flags the session record.
+The facilitator explains the controls, hidden information, actions, shared objective, and private handoff procedure. Consent, any additional questionnaires, and debrief need their own protocol. The game now includes proposed post-outcome evaluation and reasoning forms, described in [Individual post-outcome forms](POST_OUTCOME_FORMS.md). Dev Mode should remain off during ordinary participant play because it reveals hidden game information. Its use flags the session record.
 
 ### Step 1: observe the public situation
 
@@ -141,17 +141,17 @@ The team selects End round and confirms resolution. Already-Overrun shelters tra
 
 State changes are simultaneous. A shelter that becomes Overrun in this resolution begins spreading only at a later resolution, not immediately through the rest of the network in the same step.
 
-### Step 7: next round or results
+### Step 7: individual evaluations, reasoning, and continuation
 
-After rounds 1 and 2, the team advances to the next public report and repeats the private forms, discussion, intervention, actions, and resolution. Supplies, installed monitors, closures, observations, and losses carry forward.
+After the outcome summary in rounds 1 and 2, all three players privately submit a round evaluation. The team then advances to the next round and repeats the initial judgments, discussion, intervention, actions, and resolution. Supplies, installed monitors, closures, observations, and losses carry forward.
 
-After round 3, the results summarize surviving/functioning shelters and resource use. A functioning shelter means one not yet Overrun: a pressure-1 shelter still counts as functioning at the endpoint. This score does not establish that every surviving shelter is unexposed or would remain safe indefinitely.
+After round 3, all three players submit their round evaluations and then their individual scenario reasoning forms. Only then do results summarize surviving/functioning shelters and resource use. A functioning shelter means one not yet Overrun: a pressure-1 shelter still counts as functioning at the endpoint. This score does not establish that every surviving shelter is unexposed or would remain safe indefinitely.
 
-The research session can be exported as JSON. Any final questionnaire, interview, or debrief is separate; no post-AI private judgment or trust questionnaire is currently built in. Restart creates a fresh run and clears the current in-memory session; export first if its record must be retained.
+The research session can be exported as JSON. After each round summary, all three players submit individual round evaluations. After the final round, all three also submit individual scenario reasoning forms before results or session completion. The proposed wording, options, character limits, and privacy/storage rules are documented in [Individual post-outcome forms](POST_OUTCOME_FORMS.md). These answers are collected after the outcome is visible: they are not pre-outcome confidence or a clean measure of AI influence alone. Additional interviews or debrief remain separate. Restart creates a fresh run and clears the current in-memory session; export first if its record must be retained.
 
 ### Timing and counts
 
-For a complete three-round session, the agreed timers account for **6 minutes of initial discussion plus at least 45 seconds of decision pauses**. **6 minutes 45 seconds is not the total session duration.** Observation, nine private forms, final deliberation, deliveries, resolution, instructions, API waiting, and any study measures add time. Total duration needs to be established by pilot sessions.
+For a complete three-round session, the agreed timers account for **6 minutes of initial discussion plus at least 45 seconds of decision pauses**. **6 minutes 45 seconds is not the total session duration.** For each scenario, observation, nine initial judgment forms, nine round evaluations, three reasoning forms, final deliberation, deliveries, resolution, instructions, and API waiting add time. Total duration needs to be established by pilot sessions.
 
 ## 7. What the AI receives and what it cannot access
 
@@ -395,7 +395,7 @@ There is no randomized new source or new hidden outbreak scenario on each restar
 
 ### Information entered by participants
 
-The game collects the nine structured judgments described above. The game form does not collect names, email addresses, demographic information, free-written explanations, voice, or discussion transcripts. These statements describe the game itself, not a researcher's separate consent forms, questionnaires, video calls, or recording equipment.
+Each scenario collects the nine initial structured judgments described above, nine individual post-outcome round evaluations (including written explanations), and three individual scenario reasoning forms. A complete four-scenario session therefore has 36 initial judgments, 36 evaluations, and 12 reasoning forms. The game does not ask for names, email addresses, demographic information, voice, or discussion transcripts. Free text remains private and is excluded from AI requests. These statements describe the game itself, not a researcher's separate consent forms, questionnaires, video calls, or recording equipment.
 
 The private interface is procedural privacy on a shared device: it asks others to look away and does not display earlier answers. It cannot prevent shoulder-surfing or disclosure during conversation. Responses omit participant identifiers, but a three-person group's distinctive statements may still be recognizable to someone with outside knowledge. Avoid promising absolute anonymity.
 
@@ -454,7 +454,7 @@ The gameplay and approved intervention design can be described from this documen
 5. **Additional recording:** whether researchers record audio, video, screens, observations, or interviews outside the game. The game does not itself record a conversation.
 6. **Participation terms:** study contacts, eligibility, compensation if any, voluntary participation and withdrawal arrangements, and whether a withdrawn person's data can still be located after identifiers are removed.
 7. **Model failures:** the permitted loading interval, retries, outage behavior, fallback rules, and how equivalent timing is maintained across conditions.
-8. **Study measures:** whether post-intervention judgments, trust ratings, or individual decision-change measures will be added. They are not present in the current game.
+8. **Study measures:** review and validate the proposed post-outcome round evaluations and scenario reasoning instruments. They are now implemented, but are not validated scales and do not isolate AI influence from discussion or observed outcomes.
 9. **Participant experience:** explain that the task includes timed group discussion, incomplete or misleading fictional reports, resource limits, disagreement, and possibly unsuccessful containment. AI advice may be unhelpful or wrong, and the team retains control.
 
 Do not describe approved-but-unimplemented features as already available in a participant-facing document for the current build. Do not include the researcher-only source and outcome paths in a pre-play disclaimer unless revealing them is an intentional part of the study.

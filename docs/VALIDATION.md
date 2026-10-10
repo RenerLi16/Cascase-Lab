@@ -1,5 +1,9 @@
 # Dark interface validation — September 2026
 
+## Individual post-outcome forms (2026-10-09)
+
+See [implementation, proposed instruments, and verification results](POST_OUTCOME_FORMS.md). The four-scenario flow, final completion barriers, private handoffs, conditional AI fields, retry-safe storage, and exports were verified. Local window checks passed at both supported sizes. That report also records the pre-existing sandbox UI failures and skipped PostgreSQL checks.
+
 - Rule suite: **485 checks, 0 failures**.
 - Support suite: **1,994 checks, 0 failures**.
 - Updated gameplay UI suite: **184 checks, 0 failures**.

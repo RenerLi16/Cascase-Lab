@@ -37,11 +37,13 @@ func _init(mode: GameManager.RunPurpose = GameManager.RunPurpose.NORMAL, assigne
 
 func _load_current() -> void:
 	current = GameManager.new(ScenarioData.load_by_id(order[index]),condition,Callable(),purpose)
+	current.support_session_id = session_id
+	current.scenario_index = index
 	# Facilitator configuration is only allowed before the first mission starts.
 	current.condition_locked = index > 0
 
 func capture_result() -> bool:
-	if current == null or current.phase != GameManager.Phase.RESULTS: return false
+	if current == null or current.phase != GameManager.Phase.RESULTS or not current.required_forms_complete(): return false
 	if records.size() == index:
 		condition = current.intervention_type
 		var record := current.export_dictionary()
@@ -61,11 +63,11 @@ func advance() -> bool:
 	return true
 
 func is_complete() -> bool:
-	return records.size() == order.size()
+	return records.size() == order.size() and current != null and current.required_forms_complete()
 
 func export_dictionary() -> Dictionary:
 	if current != null: capture_result()
-	return {"schema_version":GameManager.EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"session_id":session_id,"run_purpose":"dev" if purpose == GameManager.RunPurpose.DEV_SANDBOX else "normal", "record_mode":"dev-sandbox" if purpose == GameManager.RunPurpose.DEV_SANDBOX else "public-demo","research_eligible":false,"surveys_skipped":purpose == GameManager.RunPurpose.DEV_SANDBOX,"dev_used":purpose == GameManager.RunPurpose.DEV_SANDBOX,"scenario_order":order.duplicate(),"order_source":order_source,"condition":current.condition_name(),"completed":is_complete(),"missions":records.duplicate(true),"in_progress":current.export_dictionary() if current.phase != GameManager.Phase.RESULTS else {}}
+	return {"schema_version":GameManager.EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"session_id":session_id,"run_purpose":"dev" if purpose == GameManager.RunPurpose.DEV_SANDBOX else "normal", "record_mode":"dev-sandbox" if purpose == GameManager.RunPurpose.DEV_SANDBOX else "public-demo","research_eligible":false,"surveys_skipped":purpose == GameManager.RunPurpose.DEV_SANDBOX,"dev_used":purpose == GameManager.RunPurpose.DEV_SANDBOX,"scenario_order":order.duplicate(),"order_source":order_source,"condition":current.condition_name(),"completed":is_complete(),"missions":records.duplicate(true),"in_progress":current.export_dictionary() if current.phase != GameManager.Phase.RESULTS or not current.required_forms_complete() else {}}
 
 func research_submission() -> Dictionary:
 	return current.research_submission()

@@ -199,7 +199,7 @@ func test_lifecycle() -> void:
 			game.begin_resolution()
 			game.apply_resolution(game.run_token)
 			game.finish_resolution(game.run_token)
-			game.next_round()
+			preload("res://tests/post_form_fixture.gd").advance(game)
 		check(game.phase==GameManager.Phase.RESULTS,"All three conditions finish all three rounds")
 		var exported := game.export_dictionary()
 		check(exported.intervention==game.condition_name() and exported.schema_version==GameManager.EXPORT_SCHEMA and exported.context_version==SupportContext.VERSION,"Export uses actual condition and schema")

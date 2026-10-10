@@ -75,7 +75,7 @@ func play(condition: GameManager.InterventionType) -> Dictionary:
 				check(game.dispatch_action(kind,"E",funding).ok,kind+" dispatched")
 				check(game.complete_delivery(game.run_token),kind+" delivered")
 		check(game.begin_resolution() and game.apply_resolution(game.run_token) and game.finish_resolution(game.run_token),"Round resolves")
-		game.next_round()
+		preload("res://tests/post_form_fixture.gd").advance(game)
 	check(await wait_until(func(): return client.active.pending.is_empty(),20),"Automatic saving acknowledged every record")
 	var exported := mission.export_dictionary()
 	check(exported.schema_version == GameManager.EXPORT_SCHEMA and exported.context_version == SupportContext.VERSION,"Manual export identifies the no-dispatch version")
@@ -93,6 +93,8 @@ func run() -> void:
 	for condition in [GameManager.InterventionType.DIRECT_RECOMMENDATION,GameManager.InterventionType.CONSTRUCTIVE_DISSENT,GameManager.InterventionType.NONE]:
 		sessions.append(await play(condition))
 	client.finish("completed")
+	check(client.active.closing == "","Partial two-round session cannot claim completion")
+	client.finish("interrupted")
 	check(await wait_until(func(): return client.sessions.all(func(s): return s.closed),20),"Every session closed and uploaded")
 	var file := FileAccess.open(OS.get_environment("CASCADE_TEST_REPORT"),FileAccess.WRITE)
 	file.store_string(JSON.stringify({"sessions":sessions,"sentinel":SENTINEL,"sentinel_time":SENTINEL_TIME,"context_version":SupportContext.VERSION}))

@@ -51,7 +51,7 @@ func _ready() -> void:
 	_show_main_menu()
 
 func _private_phase() -> bool:
-	return session.phase in [GameManager.Phase.PRIVATE_GATE,GameManager.Phase.PRIVATE_FORM]
+	return session.is_private_gate() or session.is_private_form()
 
 func _busy() -> bool:
 	return session.phase in [GameManager.Phase.DELIVERY,GameManager.Phase.RESOLUTION]
@@ -99,7 +99,7 @@ func _render() -> void:
 	elif is_instance_valid(board):
 		map_zoom = board.zoom
 		map_center = board.camera_center
-	if session.phase == GameManager.Phase.PRIVATE_GATE:
+	if session.is_private_gate():
 		selected_shelter = ""
 		selected_edge = ""
 		map_zoom = 1.0
@@ -130,7 +130,7 @@ func _render() -> void:
 	page.add_theme_constant_override("separation",UIkit.LG)
 	margin.add_child(page)
 	_build_header(page)
-	if session.phase == GameManager.Phase.PRIVATE_GATE:
+	if session.is_private_gate():
 		_build_handoff(page)
 		return
 	workspace = Control.new()
@@ -177,7 +177,7 @@ func _render() -> void:
 	footer.add_theme_constant_override("separation",UIkit.SM)
 	bar.add_child(footer)
 	_build_phase_button()
-	if session.phase == GameManager.Phase.PRIVATE_FORM: _build_survey_drawer()
+	if session.is_private_form(): _build_survey_drawer()
 	if selected_edge != "": _build_road_bubble()
 	if _busy(): _animate_phase.call_deferred(session.run_token)
 	_float_layout_input(margin)
@@ -367,7 +367,8 @@ func _build_survey_drawer() -> void:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation",UIkit.LG)
 	column.add_child(top)
-	var private_label := UIkit.strong("Private input · Player %d only" % (session.private_player+1),UIkit.BODY,UIkit.AMBER)
+	var private_label := UIkit.strong("%s · Player %d only" % ["Private input" if session.post_form_kind() == "" else EvaluationInstruments.definitions[session.post_form_kind()].title,session.private_player+1],UIkit.BODY,UIkit.AMBER)
+	private_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	private_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	private_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(private_label)
@@ -378,7 +379,10 @@ func _build_survey_drawer() -> void:
 	survey_content = VBoxContainer.new()
 	survey_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(survey_content)
-	_build_private(UIkit.scroll_column(survey_content))
+	var fields := UIkit.scroll_column(survey_content)
+	fields.get_parent().follow_focus = true
+	if session.post_form_kind() == "": _build_private(fields)
+	else: _build_post_form(fields)
 	# Container geometry settles after the first frame.
 	_size_survey.call_deferred()
 
@@ -563,7 +567,7 @@ func _build_phase_button() -> void:
 		GameManager.Phase.ROUND_COMPLETE:
 			var newly: Array = session.last_summary.newly_overrun
 			footer.add_child(UIkit.paragraph("Shelters lost: " + (", ".join(newly) if not newly.is_empty() else "None"),UIkit.BODY,UIkit.RED if not newly.is_empty() else UIkit.SECONDARY))
-			footer.add_child(UIkit.progression("Results" if session.state.round==3 else "Next round",session.next_round,true))
+			footer.add_child(UIkit.progression(("Results" if session.state.round==session.scenario.rounds else "Next round") if session.is_sandbox() else "Individual round evaluations",session.next_round,true))
 
 func _show_session_setup() -> void:
 	if not session.can_configure_condition(): return
@@ -715,6 +719,54 @@ func _survey_picker(parent: Node, title: String, values: Array) -> OptionButton:
 	parent.add_child(field)
 	return _picker(field,title,values)
 
+func _build_post_form(parent: Node) -> void:
+	var kind := session.post_form_kind()
+	var key := session.post_form_key()
+	parent.add_child(UIkit.strong("Scenario %d · %s%s" % [mission_session.index+1,session.scenario.scenario_title," · Round %d" % session.state.round if kind == "round_evaluation" else ""]))
+	parent.add_child(UIkit.paragraph("Answer privately after seeing the round outcome. Every question is required." if kind == "round_evaluation" else "Answer privately after the scenario. Every question is required; ‘Nothing’ or ‘Not sure’ is acceptable where appropriate.",UIkit.BODY,UIkit.SECONDARY))
+	var submit := UIkit.button("Submit & pass screen",func():
+		session.submit_post_form(key,session.post_form_draft.duplicate(true)),true)
+	submit.name = "PostFormSubmit"
+	var validate := func(): submit.disabled = not EvaluationInstruments.valid(kind,session.post_form_draft,session.ai_evaluation_applicable())
+	var number := 0
+	for question in session.post_form_questions():
+		number += 1
+		var id: String = question.id
+		var title := "%d. %s" % [number,question.text]
+		if question.has("options"):
+			var picker := _survey_picker(parent,title,question.options)
+			picker.name = id
+			if session.post_form_draft.has(id): picker.select(question.options.find(session.post_form_draft[id])+1)
+			picker.item_selected.connect(func(_index: int):
+				if key != session.post_form_key(): return
+				session.post_form_draft[id] = str(picker.get_selected_metadata())
+				validate.call())
+		else:
+			parent.add_child(UIkit.paragraph(title))
+			var edit := TextEdit.new()
+			edit.name = id
+			edit.custom_minimum_size.y = 130
+			edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+			edit.placeholder_text = "Required · maximum %d characters" % int(question.max_length)
+			edit.text = session.post_form_draft.get(id,"")
+			parent.add_child(edit)
+			var count := UIkit.meta("%d / %d characters" % [edit.text.length(),question.max_length])
+			parent.add_child(count)
+			edit.text_changed.connect(func():
+				if key != session.post_form_key(): return
+				if edit.text.length() > int(question.max_length):
+					var line := edit.get_caret_line()
+					var column := edit.get_caret_column()
+					edit.text = edit.text.substr(0,int(question.max_length))
+					edit.set_caret_line(line)
+					edit.set_caret_column(column)
+				session.post_form_draft[id] = edit.text
+				count.text = "%d / %d characters" % [edit.text.length(),question.max_length]
+				validate.call())
+	parent.add_child(UIkit.meta("Submitted answers stay private. Complete all fields to continue."))
+	parent.add_child(submit)
+	validate.call()
+
 func _picker(parent: Node, title: String, values: Array) -> OptionButton:
 	var question := UIkit.text_label(title,UIkit.MEDIUM_FONT,UIkit.BODY)
 	question.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -763,7 +815,7 @@ func _build_results(parent: Node) -> void:
 	_build_result_controls(parent)
 
 func _build_result_controls(parent: Node) -> void:
-	mission_session.capture_result()
+	if not mission_session.capture_result(): return
 	if session.is_sandbox():
 		parent.add_child(UIkit.button("Replay",_request_restart,true))
 		parent.add_child(UIkit.button("Choose another scenario",_show_level_picker))
@@ -913,7 +965,10 @@ func _build_handoff(parent: Node) -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation",UIkit.LG)
 	sheet.add_child(column)
-	column.add_child(UIkit.meta("Round %d · private input" % session.state.round))
+	var kind := session.post_form_kind()
+	column.add_child(UIkit.paragraph("Initial individual judgment" if kind == "" else EvaluationInstruments.definitions[kind].title))
+	column.add_child(UIkit.meta("Scenario %d · %s" % [mission_session.index+1,session.scenario.scenario_title]))
+	if kind != "scenario_reasoning": column.add_child(UIkit.meta("Round %d · private input" % session.state.round))
 	column.add_child(UIkit.heading("Player %d only" % (session.private_player+1),UIkit.DISPLAY+2))
 	column.add_child(UIkit.paragraph("Pass the screen. Other players: look away."))
 	UIkit.spacer(column,UIkit.SM)
@@ -1082,12 +1137,12 @@ func _connect_mission() -> void:
 	_render()
 
 func _next_mission() -> void:
-	if session.phase != GameManager.Phase.RESULTS: return
+	if session.phase != GameManager.Phase.RESULTS or not session.required_forms_complete(): return
 	if session.changed.is_connected(_render): session.changed.disconnect(_render)
 	if mission_session.advance(): _connect_mission()
 
 func _request_leave(destination: Callable) -> void:
-	if session == null or session.phase == GameManager.Phase.RESULTS:
+	if session == null or (session.phase == GameManager.Phase.RESULTS and session.required_forms_complete()):
 		destination.call()
 		return
 	_show_modal("Leave this mission?","This unfinished mission will be discarded. Export any records you need before leaving.","Leave mission",destination)

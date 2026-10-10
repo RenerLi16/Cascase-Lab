@@ -10,6 +10,7 @@ import sqlite3
 import time
 from typing import Protocol
 from .validation import Invalid, canonical
+from .evaluations import CHANNELS, FORM_SCHEMA, require_complete_forms
 
 SCHEMA_VERSION = 1
 
@@ -90,8 +91,16 @@ class SQLStorage:
                     if len(old) != 1 or old[0]['digest'] != digest: raise Conflict()
                     continue
                 db.execute('INSERT INTO receipts VALUES (?,?,?,?,?)', (sid,e['event_id'],e['seq'],digest,e['channel']))
-                table = {'game':'game_events', 'private':'private_events', 'audit':'audit_events'}[e['channel']]
-                db.execute(f'INSERT INTO {table} VALUES (?,?,?)', (sid,e['event_id'],body))
+                table = {'game':'game_events', 'private':'private_events', 'audit':'audit_events', **CHANNELS}[e['channel']]
+                if e['channel'] in CHANNELS:
+                    slot = e['payload']['slot']
+                    existing = db.execute(f'SELECT event_id FROM {table} WHERE session_id=? AND scenario=? AND round=? AND slot=?',
+                                          (sid,e['scenario'],e['round'],slot)).fetchone()
+                    # Retry the original event ID/sequence; a new event for the same slot is a conflict.
+                    if existing: raise Conflict()
+                    db.execute(f'INSERT INTO {table} VALUES (?,?,?,?,?,?)', (sid,e['event_id'],e['scenario'],e['round'],slot,body))
+                else:
+                    db.execute(f'INSERT INTO {table} VALUES (?,?,?)', (sid,e['event_id'],body))
             db.execute('UPDATE sessions SET updated=? WHERE id=?', (time.time(),sid))
         return {'acknowledged':[e['event_id'] for e in events]}
 
@@ -156,6 +165,8 @@ class SQLStorage:
             self.begin_write(db, sid)
             count, maximum = db.execute('SELECT count(*),coalesce(max(seq),0) FROM receipts WHERE session_id=?', (sid,)).fetchone()
             if count != last_seq or maximum != last_seq: raise Conflict()
+            metadata = json.loads(db.execute('SELECT metadata FROM sessions WHERE id=?', (sid,)).fetchone()[0])
+            if status == 'completed': require_complete_forms(db,sid,metadata)
             old = db.execute('SELECT status FROM sessions WHERE id=?', (sid,)).fetchone()[0]
             if old == 'completed' and status != old: raise Conflict()
             if old != status: db.execute('INSERT INTO lifecycle VALUES (?,?,?)', (sid,status,time.time()))
@@ -206,6 +217,7 @@ class SQLiteStorage(SQLStorage):
             CREATE TABLE IF NOT EXISTS lifecycle (session_id TEXT, status TEXT, recorded REAL);
             ''')
             db.executescript(PUBLIC_SCHEMA)
+            db.executescript(FORM_SCHEMA)
             # A crash may have happened after the provider accepted a request. Never regenerate.
             db.execute("UPDATE interventions SET status='failed', error='backend_interrupted', finished=? WHERE status='pending' AND requested<?", (time.time(),time.time()-180))
         os.chmod(path, 0o600)

@@ -228,7 +228,7 @@ func run() -> void:
 	check(app.session.state.overrun_ids()==["E"],"Hidden initial exposure becomes Overrun during play")
 	check(app.session.state.monitor_alerts.size()==1,"Monitor alert appears after pressure change")
 	check(not dispatch_ui_visible(),"Round summary shows no dispatch")
-	await click("Next round")
+	await advance_round_ui()
 	check(app.session.phase==GameManager.Phase.OBSERVE and app.session.state.round==2,"Next round returns to Observe")
 	check(app.session.state.round==2 and not dispatch_ui_visible() and button_containing("Earlier")==null,"Round 2 begins without a narrative report or dispatch history")
 	app._show_help()
@@ -275,3 +275,11 @@ func run() -> void:
 	app.queue_free()
 	await process_frame
 	quit(0 if failures==0 else 1)
+
+func advance_round_ui() -> void:
+	if app.session.is_sandbox():
+		await click("Results" if app.session.state.round == 3 else "Next round")
+	else:
+		await click("Individual round evaluations")
+		preload("res://tests/post_form_fixture.gd").finish(app.session)
+		await settle()

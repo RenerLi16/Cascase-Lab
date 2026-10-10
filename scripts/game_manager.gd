@@ -9,7 +9,7 @@ var support_session_id := "local-" + Crypto.new().generate_random_bytes(16).hex_
 var frozen_support_context: Dictionary = {}
 var intervention_identity: Dictionary = {}
 
-enum Phase { OBSERVE, PRIVATE_GATE, PRIVATE_FORM, DISCUSSION, INTERVENTION, ACTIONS, DELIVERY, RESOLUTION, ROUND_COMPLETE, RESULTS }
+enum Phase { OBSERVE, PRIVATE_GATE, PRIVATE_FORM, DISCUSSION, INTERVENTION, ACTIONS, DELIVERY, RESOLUTION, ROUND_COMPLETE, RESULTS, ROUND_EVALUATION_GATE, ROUND_EVALUATION_FORM, SCENARIO_REASONING_GATE, SCENARIO_REASONING_FORM }
 enum InterventionType { NONE, DIRECT_RECOMMENDATION, CONSTRUCTIVE_DISSENT }
 
 var scenario: ScenarioData
@@ -26,7 +26,14 @@ var support_deadline_ms := 0
 const DISCUSSION_SECONDS := 120
 # Export schema 5: narrative dispatches retired (no public_intel, no PUBLIC_INTEL_SHOWN events).
 # Export schema 6: bridge-only closure; exported edges carry a bridge flag.
-const EXPORT_SCHEMA := 6
+# Export schema 7: separate versioned post-outcome evaluations and reasoning.
+const EXPORT_SCHEMA := 7
+var scenario_index := 0
+var round_evaluations: Array = []
+var scenario_reasoning: Array = []
+# Current player's draft only; retained across map inspection and UI rebuilds.
+var post_form_draft: Dictionary = {}
+var round_ai_display: Dictionary = {}
 var discussion_deadline_ms := 0
 var _support_clock: Callable
 var private_player := 0
@@ -74,6 +81,10 @@ func reset(emit_change: bool = true) -> void:
 	phase = Phase.OBSERVE
 	private_player = 0
 	private_surveys.clear()
+	round_evaluations.clear()
+	scenario_reasoning.clear()
+	post_form_draft.clear()
+	round_ai_display.clear()
 	dev_mode = false
 	dev_used = is_sandbox()
 	support_message = {}
@@ -123,6 +134,64 @@ func start_private() -> void:
 
 func open_private_form() -> void:
 	if phase == Phase.PRIVATE_GATE: _set_phase(Phase.PRIVATE_FORM)
+	elif phase == Phase.ROUND_EVALUATION_GATE: _set_phase(Phase.ROUND_EVALUATION_FORM)
+	elif phase == Phase.SCENARIO_REASONING_GATE: _set_phase(Phase.SCENARIO_REASONING_FORM)
+
+func is_private_gate() -> bool:
+	return phase in [Phase.PRIVATE_GATE,Phase.ROUND_EVALUATION_GATE,Phase.SCENARIO_REASONING_GATE]
+
+func is_private_form() -> bool:
+	return phase in [Phase.PRIVATE_FORM,Phase.ROUND_EVALUATION_FORM,Phase.SCENARIO_REASONING_FORM]
+
+func post_form_kind() -> String:
+	if phase in [Phase.ROUND_EVALUATION_GATE,Phase.ROUND_EVALUATION_FORM]: return "round_evaluation"
+	if phase in [Phase.SCENARIO_REASONING_GATE,Phase.SCENARIO_REASONING_FORM]: return "scenario_reasoning"
+	return ""
+
+func post_form_key() -> String:
+	return "%s:%s:%d:%s:P%d:%d" % [support_session_id,scenario.scenario_id,state.round,post_form_kind(),private_player+1,run_token]
+
+func ai_evaluation_applicable() -> bool:
+	return round_ai_display.get(state.round,{}).get("status","") == "provider_displayed"
+
+func post_form_questions() -> Array:
+	return EvaluationInstruments.questions(post_form_kind(),ai_evaluation_applicable())
+
+func submit_post_form(key: String, answers: Dictionary) -> bool:
+	var kind := post_form_kind()
+	if is_sandbox() or not is_private_form() or kind == "" or key != post_form_key(): return false
+	if not EvaluationInstruments.valid(kind,answers,ai_evaluation_applicable()): return false
+	var instrument: Dictionary = EvaluationInstruments.definitions[kind]
+	var record := {"type":kind.to_upper(),"session_id":support_session_id,"scenario_id":scenario.scenario_id,
+		"scenario_index":scenario_index,"slot":"P%d" % (private_player+1),"condition":condition_name(),
+		"instrument_version":instrument.version,"timing":instrument.timing,
+		"submitted_utc":Time.get_datetime_string_from_system(true)+"Z","answers":answers.duplicate(true)}
+	if kind == "round_evaluation":
+		record.round = state.round
+		record.ai_display = round_ai_display[state.round].duplicate(true)
+		round_evaluations.append(record)
+	else: scenario_reasoning.append(record)
+	_confidential(kind,record)
+	logger.record(state.round,kind.to_upper()+"_SUBMITTED")
+	post_form_draft.clear()
+	private_player += 1
+	if private_player < 3:
+		_set_phase(Phase.ROUND_EVALUATION_GATE if kind == "round_evaluation" else Phase.SCENARIO_REASONING_GATE)
+	elif kind == "round_evaluation" and state.round >= scenario.rounds:
+		private_player = 0
+		_set_phase(Phase.SCENARIO_REASONING_GATE)
+	else: _advance_after_forms()
+	return true
+
+func required_forms_complete() -> bool:
+	if is_sandbox(): return true
+	if round_evaluations.size() != scenario.rounds*3 or scenario_reasoning.size() != 3: return false
+	for round_number in range(1,scenario.rounds+1):
+		for slot in ["P1","P2","P3"]:
+			if round_evaluations.filter(func(r): return r.round == round_number and r.slot == slot).size() != 1: return false
+	for slot in ["P1","P2","P3"]:
+		if scenario_reasoning.filter(func(r): return r.slot == slot).size() != 1: return false
+	return true
 
 func survey_targets(kind: String) -> Array:
 	if kind == "WAIT": return ["NONE"]
@@ -188,7 +257,7 @@ func _prepare_support() -> void:
 
 func _receive_support(result: Dictionary, token: int, round_number: int) -> void:
 	if token != run_token or round_number != state.round or support_shown: return
-	if result.has("error") or not result.has("text"):
+	if result.has("error") or not result.get("text") is String or str(result.get("text","")).strip_edges().is_empty():
 		var reason := str(result.get("error","invalid_response"))
 		support_message = {"text":"提示: AI support unavailable / AI 支持暂不可用。\n说明: 本轮未提供 AI 建议，请依据现有公开信息判断。\n暂停: 阅读暂停仍然保留。此开发故障处理政策须经批准后方可用于研究。", "template_id":"failure.unavailable","version":"development-failure-1","provider":"unavailable","error":reason}
 		if reason in ["ai_request_cap","daily_intervention_limit"]:
@@ -204,6 +273,16 @@ func _receive_support(result: Dictionary, token: int, round_number: int) -> void
 func mark_support_shown() -> bool:
 	if phase != Phase.INTERVENTION or support_shown or support_message.is_empty(): return false
 	support_shown = true
+	var provider := str(support_message.get("provider","none"))
+	var status := "provider_displayed" if provider == "qwen" and not support_message.has("error") and not str(support_message.get("text","")).strip_edges().is_empty() else "not_displayed"
+	if intervention_type == InterventionType.NONE: status = "no_ai_condition"
+	elif provider == "mock": status = "development_mock"
+	elif provider == "unavailable" or support_message.has("error"): status = "ai_unavailable"
+	round_ai_display[state.round] = {"status":status,"provider":provider,
+		"not_applicable_reason":"" if status == "provider_displayed" else status,
+		"message_id":support_message.get("intervention_id","%s:%s:%d" % [support_session_id,scenario.scenario_id,state.round]),
+		"message_version":support_message.get("version",""),"template_id":support_message.get("template_id",""),
+		"displayed_utc":Time.get_datetime_string_from_system(true)+"Z"}
 	support_deadline_ms = int(_support_clock.call()) + SupportLibrary.PAUSE_SECONDS * 1000
 	_confidential("audit", {"type":"AI_DISPLAYED" if intervention_type != InterventionType.NONE else "NEUTRAL_PAUSE_DISPLAYED","identity":intervention_identity.duplicate(),"displayed_text":support_message.text,"displayed_utc":Time.get_datetime_string_from_system(true)+"Z","elapsed_ms":Time.get_ticks_msec()-logger.started_ticks,"provider":support_message.get("provider","none")})
 	# Categories only: never persist the support input payload or individual views here.
@@ -318,7 +397,20 @@ func finish_resolution(token: int) -> bool:
 
 func next_round() -> void:
 	if phase != Phase.ROUND_COMPLETE: return
+	if not is_sandbox():
+		private_player = 0
+		post_form_draft.clear()
+		if not round_ai_display.has(state.round):
+			round_ai_display[state.round] = {"status":"not_displayed","provider":"none","not_applicable_reason":"not_displayed","message_id":"","message_version":"","template_id":"","displayed_utc":""}
+		_set_phase(Phase.ROUND_EVALUATION_GATE)
+	else: _advance_after_forms()
+
+func _advance_after_forms() -> void:
+	if not is_sandbox():
+		if phase not in [Phase.ROUND_EVALUATION_FORM,Phase.SCENARIO_REASONING_FORM]: return
+		if round_evaluations.filter(func(r): return r.round == state.round).size() != 3: return
 	if state.round >= scenario.rounds:
+		if not required_forms_complete(): return
 		logger.record(state.round,"MISSION_COMPLETED","",null,null,{"survivors":state.shelters.size()-state.overrun_ids().size(),"supply_used":6-state.total_supply(),"dev_used":dev_used})
 		_set_phase(Phase.RESULTS)
 	else:
@@ -349,6 +441,7 @@ func anonymous_surveys() -> Array:
 func export_dictionary() -> Dictionary:
 	return {"schema_version":EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"closure_rule":"bridge-only-1","bridges":scenario.bridges.duplicate(),"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
 		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"development_private_audit":confidential_records.duplicate(true),
+		"round_evaluations":round_evaluations.duplicate(true),"scenario_reasoning":scenario_reasoning.duplicate(true),"required_forms_complete":required_forms_complete(),
 		"observations":state.observations.duplicate(true),"final_state":state.to_dictionary(),
 		"ground_truth":{"initial_exposure_ids":scenario.initial_exposure_ids(),"original_source":scenario.original_source,"initial_pressures":scenario.initial_pressures,"timeline":scenario.ground_truth_timeline}}
 

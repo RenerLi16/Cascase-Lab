@@ -4,7 +4,7 @@ Regular **Play** enters the existing introduction/practice/normal flow immediate
 
 ## Release dependency
 
-**The new web build requires this matching backend release.** Release the backend first, then re-export the game with `tools/build_web_release.py`. Public bootstrap uses schema 8 / `cascade-public-8`; a prior backend cannot create it. No deployment, commit, push, cloud configuration change or paid model call was made for this change.
+**The new web build requires this matching backend release.** Release the backend first, then re-export the game with `tools/build_web_release.py`. Public bootstrap uses schema 9 / `cascade-public-9` (with historical schema-8 record recovery retained); a prior backend cannot create it. No deployment, commit, push, cloud configuration change or paid model call was made for this change.
 
 Startup creates three additive tables (`service_keys`, `public_sessions`, `ai_reservations`) on SQLite or PostgreSQL. Keep the database and its server signing key across restarts. No existing records are deleted or migrated into public sessions. Back up the database using the existing operator process before a release. PostgreSQL uses the same transactional implementation with a global admission advisory lock; the current local verification used SQLite, not a live PostgreSQL/RDS instance.
 
@@ -75,3 +75,5 @@ Results and remaining verification limitations are recorded in the change report
 - First-play regression: **855 checks, zero failures**. The initial invocation hit a Godot log-file sandbox crash; rerunning with a writable temporary log completed successfully.
 - Menu regression: **940 checks, one unresolved decorative-node settling assertion**, reproduced on rerun. Direct Play, repeated clicks, bilingual UI, wrong/correct existing Dev Mode password, all four sandbox scenarios and participant restrictions passed. No menu animation implementation was changed. An optional comparison against the committed menu could not run because automatic approval review hit its usage limit; this was not a safety rejection. Do not interpret this report as a fully green visual suite.
 - No live provider, cloud deployment, external account, paid AI call or production database was used. PostgreSQL integration, production hosting, and other browsers remain unverified in this run.
+
+Individual post-outcome forms use the existing public-record permission and local-only defaults. See [form contracts and completion barriers](POST_OUTCOME_FORMS.md). No remote permission or research eligibility is enabled by collecting these forms.

@@ -1,0 +1,111 @@
+{
+  "round_evaluation": {
+    "version": "round-evaluation-proposed-1",
+    "title": "Individual round evaluation",
+    "timing": "post_outcome_after_round_summary",
+    "questions": [
+      {
+        "id": "agreement",
+        "text": "How much did you agree with the team’s final decisions this round?",
+        "options": [
+          "Not at all",
+          "A little",
+          "Moderately",
+          "Very much",
+          "Completely"
+        ]
+      },
+      {
+        "id": "confidence",
+        "text": "How confident are you in the team’s final decisions this round?",
+        "options": [
+          "Not at all confident",
+          "Slightly confident",
+          "Moderately confident",
+          "Very confident",
+          "Extremely confident"
+        ]
+      },
+      {
+        "id": "plan_change",
+        "text": "Compared with your initial judgment, how much did your preferred plan change?",
+        "options": [
+          "Not at all",
+          "A little",
+          "Moderately",
+          "A lot",
+          "Completely"
+        ]
+      },
+      {
+        "id": "influence",
+        "text": "What most influenced your final judgment?",
+        "options": [
+          "My initial judgment",
+          "Team discussion",
+          "Public map and observations",
+          "Supply and route constraints",
+          "AI message",
+          "Other"
+        ]
+      },
+      {
+        "id": "explanation",
+        "text": "Briefly explain what changed your mind, or why your view stayed the same.",
+        "max_length": 600
+      },
+      {
+        "id": "ai_usefulness",
+        "text": "How useful was the AI message for your decision-making?",
+        "options": [
+          "Not at all useful",
+          "Slightly useful",
+          "Moderately useful",
+          "Very useful",
+          "Extremely useful",
+          "Unable to judge"
+        ],
+        "ai_only": true
+      },
+      {
+        "id": "ai_reliance",
+        "text": "How much did you rely on the AI message when forming your final judgment?",
+        "options": [
+          "Not at all",
+          "A little",
+          "Moderately",
+          "Very much",
+          "Completely"
+        ],
+        "ai_only": true
+      }
+    ]
+  },
+  "scenario_reasoning": {
+    "version": "scenario-reasoning-proposed-1",
+    "title": "Individual scenario reasoning",
+    "timing": "post_outcome_after_final_round_evaluations",
+    "questions": [
+      {
+        "id": "strategy",
+        "text": "What was your overall strategy in this scenario?",
+        "max_length": 1000
+      },
+      {
+        "id": "key_decision",
+        "text": "Which decision mattered most, and why?",
+        "max_length": 1000
+      },
+      {
+        "id": "constraints",
+        "text": "How did the road and bridge connections, supply access, or uncertainty affect your decisions?",
+        "max_length": 1000
+      },
+      {
+        "id": "next_time",
+        "text": "What would you do differently if you played this scenario again, and why?",
+        "max_length": 1000
+      }
+    ]
+  }
+}

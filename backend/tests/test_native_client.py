@@ -48,6 +48,43 @@ class NativeClientTests(unittest.TestCase):
             finally:
                 server.shutdown();server.server_close();thread.join();service.close()
 
+    def test_full_session_forms_and_lost_acknowledgment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service=Service(Config(database=str(Path(temp)/'forms.sqlite3'), public_records=True,
+                                   public_policy_id='synthetic-forms-only', max_body=71000))
+            base_handler=handler(service)
+            class LostFormAckHandler(base_handler):
+                lost_ack=False
+                def send_response(self, code, message=None):
+                    if self.path.endswith('/events') and code == 200 and not self.lost_ack:
+                        with service.store.connect() as db:
+                            has_form = db.execute('SELECT count(*) FROM round_evaluations').fetchone()[0] > 0
+                        if has_form:
+                            LostFormAckHandler.lost_ack=True
+                            raise ConnectionResetError('synthetic lost form acknowledgment')
+                    return super().send_response(code,message)
+            server=ThreadingHTTPServer(('127.0.0.1',0),LostFormAckHandler)
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            try:
+                env=os.environ | {'CASCADE_TEST_URL':f'http://127.0.0.1:{server.server_port}',
+                                  'CASCADE_TEST_OUTBOX':str(Path(temp)/'outbox.json')}
+                result=subprocess.run([GODOT,'--headless','--log-file',str(Path(temp)/'godot.log'),'--path',str(ROOT),
+                                       '--script','tests/test_form_backend_client.gd','--','--offline-tests'],
+                                      env=env,capture_output=True,text=True,timeout=45)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertTrue(LostFormAckHandler.lost_ack)
+                print(result.stdout.strip())
+                with service.store.connect() as db:
+                    self.assertEqual(db.execute('SELECT status FROM sessions').fetchone()[0],'completed')
+                    for table,count in [('round_evaluations',36),('scenario_reasoning',12),('private_events',36),('interventions',0)]:
+                        self.assertEqual(db.execute(f'SELECT count(*) FROM {table}').fetchone()[0],count)
+                    self.assertNotIn('HTTP_FORM_CANARY',' '.join(row[0] for row in db.execute('SELECT body FROM game_events')))
+                    self.assertIn('HTTP_FORM_CANARY',db.execute('SELECT body FROM scenario_reasoning LIMIT 1').fetchone()[0])
+                    count,unique=db.execute('SELECT count(*),count(DISTINCT event_id) FROM receipts').fetchone()
+                    self.assertEqual(count,unique)
+            finally:
+                server.shutdown();server.server_close();thread.join();service.close()
+
     def test_rejected_access_code_recovers_queued_records(self):
         with tempfile.TemporaryDirectory() as temp:
             service=Service(Config(database=str(Path(temp)/'test.sqlite3'),access_code='synthetic-code-123'))

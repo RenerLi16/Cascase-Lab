@@ -102,7 +102,7 @@ func run() -> void:
 				if round_number==0:
 					check(app.session.last_summary.newly_overrun==["E"],"Reveal cannot clear domain's newly lost list")
 				await snapshot(tag+"-r%d-resolved" % round_number)
-				await click("Results" if round_number==2 else "Next round")
+				await advance_round_ui()
 			await snapshot(tag+"-results")
 			check_layout(tag+"-results")
 			app.queue_free()

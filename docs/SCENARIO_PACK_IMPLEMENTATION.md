@@ -6,7 +6,7 @@ Implemented 2 October 2026 from the supplied `cascade_lab_scenario_pack_v1` refe
 
 Run `project.godot` in Godot 4.7.1. The app opens on the main menu. **Play** starts a normal session of four independent three-round missions. Before the first private judgment, a facilitator can use **Menu → Session setup** to assign the condition. It remains fixed through all four missions. Each mission resets stock and game state; results offer **Continue to next mission**. The final mission shows session completion.
 
-The existing structured judgment fields remain, with a required main-reason selection. All three private responses precede a full 120-second discussion and the existing 15-second support reading gate. Normal play cannot use the sandbox skip or hidden-state reveal. No new post-decision questionnaires, model provider, or external calls were added.
+The existing structured judgment fields remain, with a required main-reason selection. All three private responses precede a full 120-second discussion and the existing 15-second support reading gate. Normal play cannot use the sandbox skip or hidden-state reveal. The current normal flow also requires individual post-outcome round evaluations and end-of-scenario reasoning before results; see [proposed instruments and storage](POST_OUTCOME_FORMS.md). These forms do not call a model.
 
 `cascade/scenario_order` in Project Settings accepts each registered ID exactly once. An empty value explicitly records `development_default_not_randomized` and uses Riverside, Twin Districts, Lifeline, Crossfire. This fallback is a demo order, not a randomized or approved study assignment.
 
@@ -16,7 +16,7 @@ The existing structured judgment fields remain, with a required main-reason sele
 
 **Menu → Reveal hidden state** is optional and starts off. The sandbox always shows **DEV MODE — NOT RESEARCH DATA**, even when reveal is off. Results provide Replay, Choose another scenario, Main menu, and a DEV-labelled local JSON export. The results inspector and picker scroll when necessary, including when navigating by keyboard.
 
-Leaving an unfinished mission requires confirmation. Completed mission records remain in the current normal session until it is discarded; export before leaving if they are needed. Exports and session state are local/in-memory. This task adds no persistence backend or transmission.
+Leaving an unfinished mission requires confirmation. Completed mission records remain in the current normal session until it is discarded; export before leaving if they are needed. Submitted records use the existing durable outbox and configured public storage policy. Drafts are in-memory; see [current storage behavior](POST_OUTCOME_FORMS.md).
 
 ## Files and implementation
 
