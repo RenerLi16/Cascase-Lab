@@ -6,7 +6,8 @@ extends RefCounted
 # anonymous structured responses only. Narrative dispatches (v1 "public_reports") are retired;
 # the backend rejects any request that still carries them.
 # cascade-context-3: each road carries its public bridge flag; only bridges can be isolated.
-const VERSION := "cascade-context-3"
+# cascade-context-4: public Monitor baseline on delivery (monitor-current-1).
+const VERSION := "cascade-context-4"
 const CATEGORIES := ["public_shelter_status_and_dated_observations", "public_roads",
 	"depot_supplies", "previous_team_actions", "current_round",
 	"remaining_budget", "anonymous_structured_responses", "public_rules_costs_and_display_names"]

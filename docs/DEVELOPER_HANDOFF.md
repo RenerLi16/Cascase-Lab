@@ -18,7 +18,7 @@ The four funded actions are:
 | Action | Cost | Effect |
 | --- | ---: | --- |
 | Verify | 1 | Reveals an exact, dated pressure observation when delivery arrives. |
-| Monitor | 1 | Permanently reports subsequent pressure changes; installation does not reveal the starting pressure. |
+| Monitor | 1 | Reveals current pressure on arrival, then permanently reports changes. No protection or cure. |
 | Shield | 1 | Blocks incoming infection during the next resolution. Does not cure existing exposure or prevent outgoing spread. |
 | Isolate | 2 | Delivers one unit to each road endpoint, then permanently closes the road to both infection and supplies. |
 

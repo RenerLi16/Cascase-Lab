@@ -65,7 +65,7 @@ func test_projection() -> void:
 	for condition in SupportLibrary.CONDITIONS:
 		check(SupportLibrary.generate(context(game),condition)==SupportLibrary.generate(clean,condition),"Hidden state cannot alter output: "+condition)
 	check(not clean.has("public_reports") and not clean.has("public_intel") and not SupportContext.CATEGORIES.has("published_reports"),"Support context carries no narrative reports")
-	check(SupportContext.VERSION == "cascade-context-3","Current no-dispatch, bridge-flag context contract")
+	check(SupportContext.VERSION == "cascade-context-4","Current no-dispatch, bridge-flag context contract")
 	game.state.shelters.E.verified_history.append({"round":1,"pressure":1})
 	game.state.shelters.E.verified_history.append({"round":3,"pressure":2})
 	game.state.round=2
@@ -73,7 +73,7 @@ func test_projection() -> void:
 	check(historical.shelters.E.known_pressure==-1 and historical.shelters.E.verified_history[0].pressure==1,"Old Verify remains dated, not current hidden pressure")
 	check(historical.shelters.E.verified_history.size()==1,"Future dated evidence cannot enter support")
 	game.state.shelters.B.is_monitored=true
-	check(context(game).shelters.B.known_pressure==-1,"Monitor without an alert has no baseline")
+	check(context(game).shelters.B.known_pressure==-1,"Public adapter never infers a reading from an installed flag alone")
 	game.state.shelters.B.monitor_known_pressure=1
 	game.state.shelters.C.zombie_pressure=2
 	check(context(game).shelters.B.known_pressure==1 and context(game).shelters.C.known_pressure==2,"Public monitor and Overrun information permitted")

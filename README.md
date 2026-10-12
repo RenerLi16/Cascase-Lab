@@ -54,7 +54,7 @@ The action meanings are:
 | Action | Cost | Result |
 | --- | ---: | --- |
 | `VERIFY` | 1 | Delivers a precise, dated pressure snapshot immediately on arrival. |
-| `MONITOR` | 1 | Delivers permanent monitoring; later pressure changes create a concise alert. Installation does not reveal a baseline. |
+| `MONITOR` | 1 | Reveals current pressure when delivery arrives; permanent monitoring retains the reading and reports later changes. No cure or protection. |
 | `SHIELD` | 1 | Blocks incoming infection for the upcoming resolution, then expires. It does not cure an existing exposure or stop outgoing spread. |
 | `ISOLATE` (shown as **Close bridge**) | 2 | Bridges only. Delivers to both endpoints, warns about supply-route losses, then permanently closes the bridge in both directions. Ordinary roads cannot be closed. |
 
@@ -74,7 +74,7 @@ A two-minute discussion timer starts after the third private response. Expiry, o
 - **Constructive-Dissent AI:** Decision check / Discuss / Evidence to seek. It distinguishes different decisions, different reasoning categories, and uncertainty in confidence. Agreement triggers a shared-assumption question. It never identifies respondents, reports vote counts, assigns majority/minority labels, or prescribes a final action.
 - **No AI:** Pause / Time / Continue. It describes the scheduled interval without suggesting a tactic or introducing a decision check.
 
-`SupportContext` is the only simulation-to-support adapter. Its whitelist contains public Overrun/monitor status, dated Verify observations, road topology/closures, depot supplies, previous team actions, current round, remaining budget, and anonymous structured responses (contract `cascade-context-2`). Unrevealed P0/P1 remain unknown; a historical Verify result is never silently upgraded to current pressure. No names, raw explanations, live discussion, source, hidden pressure, narrative reports, or ground-truth timeline enter the generator, even in Dev Mode.
+`SupportContext` is the only simulation-to-support adapter. Its whitelist contains public Overrun/monitor status, dated Verify observations, road topology/closures, depot supplies, previous team actions, current round, remaining budget, and anonymous structured responses (contract `cascade-context-4`). Unrevealed P0/P1 remain unknown; a historical Verify result is never silently upgraded to current pressure. No names, raw explanations, live discussion, source, hidden pressure, narrative reports, or ground-truth timeline enter the generator, even in Dev Mode.
 
 `SupportLibrary` version **support-1.1.0** is a pure local template/ranking function. It has no file, network, random, clock, scenario, or simulator access. Both modes receive the same projection, including prior actions and dated observations. Templates and deterministic selection rules must receive a new version if wording or ranking changes.
 
@@ -178,3 +178,7 @@ The current dark-theme release is `build/dark-web/`. Upload **`build/cascade-lab
 For current browser limitations, see the [Godot Web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html).
 
 Online pilot deployment (itch.io + Render + AWS RDS + Qwen): see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Local backend setup: [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md).
+
+### Monitor rule update (monitor-current-1)
+
+Monitor now reveals current pressure on delivery and tracks it persistently. Costs remain unchanged: at 1 supply Monitor provides Verify’s information plus future updates. This dominance is an unresolved balance issue, intentionally not rebalanced here. See [mechanical tower controls and validation](docs/TOWER_CONTROLS.md). New records use export schema 8 / observations-2, context cascade-context-4, and public session schema 10; existing records keep their original versions.

@@ -99,7 +99,7 @@ func test_delivery_and_actions() -> void:
 	check(not game.action_manager.complete_delivery(old_action).ok,"Duplicate arrival cannot reapply action")
 	check(game.state.shelters.E.zombie_pressure==1,"Supply never heals")
 	check(act(game,"MONITOR","E",["H"]),"Permanent monitor installation")
-	check(game.state.shelters.E.monitor_known_pressure==-1,"Monitor installation keeps baseline hidden")
+	check(game.state.shelters.E.monitor_known_pressure==1,"Monitor installation reveals current baseline on arrival")
 	check(not act(game,"MONITOR","E",["A"]),"Duplicate monitor rejected")
 	check(game.dispatch_action("ISOLATE","E-F",["A","H"]).ok,"Isolation can split funding between depots")
 	check(game.pending_action.deliveries.size()==2,"Isolation dispatches two endpoint deliveries")

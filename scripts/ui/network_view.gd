@@ -268,7 +268,7 @@ func _place_annotations() -> void:
 		var title: String = _node_title(id)
 		var width := UIkit.HEADING_FONT.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,UIkit.MAP_NAME).x+14
 		var status := " · ".join(_public_tags(id))
-		width = maxf(width,UIkit.HEADING_FONT.get_string_size(status,HORIZONTAL_ALIGNMENT_LEFT,-1,_stamp_size(status,UIkit.MAP_TAG)).x+8)
+		width = maxf(width,UIkit.HEADING_FONT.get_string_size(status,HORIZONTAL_ALIGNMENT_LEFT,-1,_stamp_size(status,UIkit.MAP_TAG)).x+8+(26 if _pressure_icon(id) else 0))
 		var preferred := Rect2(Vector2(rect.get_center().x-width/2,rect.end.y+8),Vector2(width,NAME_BLOCK))
 		var label := _free_annotation(preferred,occupied,rect)
 		title_rects[id] = Rect2(label.position,Vector2(width,NAME_PLATE))
@@ -498,9 +498,8 @@ func _draw_shelter(id: String) -> void:
 		draw_colored_polygon(shield,UIkit.PANEL)
 		draw_polyline(shield,UIkit.TEAL,2)
 	if shelter.is_monitored:
-		var c := rect.position+Vector2(2,64)*map_scale()
-		draw_line(c,c-Vector2(0,26),UIkit.SECONDARY,2)
-		draw_arc(c-Vector2(0,28),8,PI,TAU,8,UIkit.TEAL,2)
+		var c := rect.position+Vector2(0,38)*map_scale()
+		draw_texture_rect(ActionIcon.texture("MONITOR",true),Rect2(c,Vector2.ONE*24*map_scale()),false)
 	if not title_rects.has(id): return
 	var title := _node_title(id)
 	var font := UIkit.HEADING_FONT
@@ -515,7 +514,7 @@ func _draw_shelter(id: String) -> void:
 	draw_line(at+Vector2(0,NAME_PLATE),at+Vector2(label_width,NAME_PLATE),ink,1)
 	_draw_caption(font,at+Vector2(7,20),title,UIkit.MAP_NAME,ink)
 	var status_at: Vector2 = status_positions.get(id,Vector2(rect.get_center().x,rect.end.y+47))
-	_stamp(status_at," · ".join(_public_tags(id)),shelter_status_ink(id),UIkit.MAP_TAG)
+	_stamp(status_at," · ".join(_public_tags(id)),shelter_status_ink(id),UIkit.MAP_TAG,_pressure_icon(id))
 	if preview_lost.has(id): draw_rect(rect.grow(8),UIkit.AMBER,false,3)
 	if dev_mode: _stamp(rect.get_center(),"DEV P%d" % shelter.zombie_pressure,UIkit.RED)
 
@@ -524,16 +523,18 @@ func _node_title(id: String) -> String:
 		return FirstPlayText.choose("Depot ","仓库 ")+id
 	return id+" / "+state.shelters[id].display_name
 
+func _pressure_icon(id: String) -> bool:
+	return state.shelters[id].monitor_known_pressure >= 0 and not state.shelters[id].is_overrun and not (source_mode and (id in eligible_sources or id in chosen_sources))
+
 func _public_tags(id: String) -> Array[String]:
 	var shelter: ShelterState = state.shelters[id]
 	if source_mode and (id in eligible_sources or id in chosen_sources):
 		return [FirstPlayText.choose("%d SUPPLY","%d 份物资") % state.depots[id].supply_remaining]
 	var tags: Array[String] = []
-	if shelter.is_overrun: tags.append("OVERRUN")
-	elif shelter.monitor_known_pressure >= 0: tags.append("M:%d" % shelter.monitor_known_pressure)
-	else: tags.append("? UNOBSERVED")
+	if shelter.is_overrun: tags.append(FirstPlayText.choose("OVERRUN","已失守"))
+	elif shelter.monitor_known_pressure >= 0: tags.append(FirstPlayText.choose("PRESSURE %d","压力 %d") % shelter.monitor_known_pressure)
+	else: tags.append(FirstPlayText.choose("? UNOBSERVED","? 未观测"))
 	if state.depots.has(id): tags.append("%d SUPPLY" % state.depots[id].supply_remaining)
-	if shelter.is_monitored: tags.append("MONITOR")
 	if shelter.shielded_this_round: tags.append("SHIELD")
 	if not reachable.has(id) and not shelter.is_overrun: tags.append("NO SUPPLY")
 	return tags
@@ -749,11 +750,13 @@ func _text(at: Vector2, value: String, font_size: int, color: Color) -> void:
 func _stamp_size(value: String, font_size: int) -> int:
 	return UIkit.MAP_NAME if value in ["OVERRUN","CLOSED","SHIELD","BLOCKED"] else font_size
 
-func _stamp(at: Vector2, value: String, color: Color, font_size: int = UIkit.MAP_TAG) -> void:
+func _stamp(at: Vector2, value: String, color: Color, font_size: int = UIkit.MAP_TAG, eye: bool = false) -> void:
 	font_size = _stamp_size(value,font_size)
 	var width := UIkit.HEADING_FONT.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
-	draw_rect(Rect2(_pixel_aligned(at-Vector2(width/2+5,font_size+1)),Vector2(ceilf(width)+10,font_size+6)),UIkit.MAP)
-	_text(at,value,font_size,color)
+	var extra := 24 if eye else 0
+	draw_rect(Rect2(_pixel_aligned(at-Vector2((width+extra)/2+5,font_size+1)),Vector2(ceilf(width)+extra+10,font_size+6)),UIkit.MAP)
+	if eye: draw_texture_rect(ActionIcon.texture("MONITOR",true),Rect2(_pixel_aligned(at-Vector2((width+extra)/2+1,font_size+3)),Vector2(24,24)),false)
+	_text(at+Vector2(extra/2.0,0),value,font_size,color)
 
 func _brackets(at: Vector2, extent: float, color: Color, weight: float) -> void:
 	for x in [-1,1]:

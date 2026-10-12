@@ -1,6 +1,8 @@
 # Cascade Lab: Outbreak — Fixed Message Library
 
-Version: `support-1.2.0` (1.1.0 removed references to the retired narrative reports from two templates; 1.2.0 applies the bridge-only closure rule and rewords `direct.isolate` — see [Bridge-only closure](BRIDGE_CLOSURE.md))
+Version: `support-1.3.0` (1.3.0 updates Monitor delivery readings and the comparison with Verify)
+
+History: `support-1.2.0` (1.1.0 removed references to the retired narrative reports from two templates; 1.2.0 applies the bridge-only closure rule and rewords `direct.isolate` — see [Bridge-only closure](BRIDGE_CLOSURE.md))
 
 This is the complete currently implemented template library. Wording is fixed and generated locally without a language model. `%s` is replaced only by a shelter ID or road ID. One message is selected after initial discussion in each round, before final action selection. All conditions use the same 15-second minimum pause.
 
@@ -10,11 +12,11 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 ### direct.verify
 
-49 words, including section labels.
+51 words, including section labels.
 
 **Recommendation:** Verify Shelter %s next.
 
-**Why:** A precise observation can test concerns about this location before more supplies are committed. The public map and earlier observations do not establish its current pressure.
+**Why:** A dated snapshot can document this location before more supplies are committed. Compare any current Monitor reading with earlier verification records when deciding whether another reading would help.
 
 **Check:** Confirm which stocked depot can reach it, and remember that the result is only a snapshot.
 
@@ -30,13 +32,13 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 ### direct.monitor
 
-47 words, including section labels.
+44 words, including section labels.
 
 **Recommendation:** Monitor Shelter %s next.
 
 **Why:** Structured proposals include monitoring this reachable location. Continuing observations could test assumptions about changing danger while the team manages its remaining supplies.
 
-**Check:** Installation reveals no baseline and prevents no infection; consider whether later information will arrive in time to matter.
+**Check:** Delivery reveals current pressure and tracks later changes, but neither cures exposure nor blocks infection.
 
 ### direct.isolate
 
@@ -50,7 +52,7 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 ### direct.wait_agreement
 
-47 words, including section labels.
+48 words, including section labels.
 
 **Recommendation:** Wait; save supply across the district this round.
 
@@ -92,13 +94,13 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 ### dissent.confidence
 
-49 words, including section labels.
+48 words, including section labels.
 
 **Decision check:** The structured responses show uncertainty in confidence even where proposals align; confidence alone does not establish the condition of a shelter.
 
 **Discuss:** What evidence would make the shared assumption more credible?
 
-**Evidence to seek:** The age and precision of existing observations compared with the remaining supply options.
+**Evidence to seek:** Current Monitor readings versus dated Verify snapshots, compared with remaining supply options.
 
 ### dissent.agreement
 

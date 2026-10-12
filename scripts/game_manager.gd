@@ -27,7 +27,10 @@ const DISCUSSION_SECONDS := 120
 # Export schema 5: narrative dispatches retired (no public_intel, no PUBLIC_INTEL_SHOWN events).
 # Export schema 6: bridge-only closure; exported edges carry a bridge flag.
 # Export schema 7: separate versioned post-outcome evaluations and reasoning.
-const EXPORT_SCHEMA := 7
+# Export schema 8: delivery-time Monitor readings and observations-2.
+const EXPORT_SCHEMA := 8
+const MONITOR_RULE := "monitor-current-1"
+const OBSERVATION_FORMAT := "observations-2"
 var scenario_index := 0
 var round_evaluations: Array = []
 var scenario_reasoning: Array = []
@@ -99,7 +102,7 @@ func reset(emit_change: bool = true) -> void:
 	resolution_applied = false
 	last_summary = {}
 	latest_observation = {}
-	logger.record(0,"MISSION_STARTED",scenario.scenario_id,null,null,{"schema_version":EXPORT_SCHEMA,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"surveys_skipped":is_sandbox(),"dev_used":dev_used,"condition":condition_name(),"support_version":SupportLibrary.VERSION,"context_version":SupportContext.VERSION})
+	logger.record(0,"MISSION_STARTED",scenario.scenario_id,null,null,{"schema_version":EXPORT_SCHEMA,"monitor_rule":MONITOR_RULE,"observation_format":OBSERVATION_FORMAT,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"surveys_skipped":is_sandbox(),"dev_used":dev_used,"condition":condition_name(),"support_version":SupportLibrary.VERSION,"context_version":SupportContext.VERSION})
 	logger.record(state.round,"PHASE_STARTED","OBSERVE")
 	if emit_change: changed.emit()
 
@@ -372,7 +375,7 @@ func apply_resolution(token: int) -> bool:
 				logger.record(state.round,"SHELTER_OVERRUN",shelter.id,false,true)
 			if shelter.is_monitored:
 				shelter.monitor_known_pressure = calculation.new
-				var alert := {"type":"MONITOR","round":state.round,"target":shelter.id,"old":calculation.old,"new":calculation.new}
+				var alert := {"type":"MONITOR","kind":"change","round":state.round,"target":shelter.id,"old":calculation.old,"new":calculation.new}
 				alerts.append(alert)
 				state.observations.append(alert)
 				state.monitor_alerts.append("R%d · %s: %d → %d" % [state.round,shelter.id,calculation.old,calculation.new])
@@ -382,6 +385,7 @@ func apply_resolution(token: int) -> bool:
 			shelter.shielded_this_round = false
 			logger.record(state.round,"SHIELD_EXPIRED",shelter.id,true,false)
 	last_summary = {"round":state.round,"newly_overrun":newly,"shields":shields,"monitor_alerts":alerts,
+		"monitor_observations":state.observations.filter(func(note: Dictionary): return note.type == "MONITOR" and note.round == state.round),
 		"survivors":state.shelters.size()-state.overrun_ids().size(),"supply_remaining":state.total_supply(),"damage":damage}
 	state.round_summaries.append(last_summary.duplicate(true))
 	logger.record(state.round,"DAMAGE_RESOLVED","",null,damage,{"newly_overrun":newly})
@@ -439,7 +443,7 @@ func anonymous_surveys() -> Array:
 	return surveys
 
 func export_dictionary() -> Dictionary:
-	return {"schema_version":EXPORT_SCHEMA,"context_version":SupportContext.VERSION,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"closure_rule":"bridge-only-1","bridges":scenario.bridges.duplicate(),"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
+	return {"schema_version":EXPORT_SCHEMA,"monitor_rule":MONITOR_RULE,"observation_format":OBSERVATION_FORMAT,"context_version":SupportContext.VERSION,"run_purpose":"dev" if is_sandbox() else "normal","research_eligible":false,"eligibility_note":"Local development build; no approved research submission configured.","surveys_skipped":is_sandbox(),"scenario_version":scenario.scenario_id.get_slice("_v",1),"mode_settings":{"hidden_state_reveal":dev_mode,"support_enabled":not is_sandbox()},"scenario_id":scenario.scenario_id,"closure_rule":"bridge-only-1","bridges":scenario.bridges.duplicate(),"intervention":condition_name(),"support_version":SupportLibrary.VERSION,"dev_used":dev_used,
 		"events":logger.to_array(),"private_surveys":anonymous_surveys(),"development_private_audit":confidential_records.duplicate(true),
 		"round_evaluations":round_evaluations.duplicate(true),"scenario_reasoning":scenario_reasoning.duplicate(true),"required_forms_complete":required_forms_complete(),
 		"observations":state.observations.duplicate(true),"final_state":state.to_dictionary(),

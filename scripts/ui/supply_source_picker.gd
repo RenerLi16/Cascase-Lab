@@ -36,7 +36,20 @@ func setup(manager: ActionManager, map: NetworkView, action_kind: String, action
 	offset_bottom = -104
 	column = VBoxContainer.new()
 	column.add_theme_constant_override("separation",6)
-	add_child(column)
+	var layout := HBoxContainer.new()
+	layout.add_theme_constant_override("separation",16)
+	add_child(layout)
+	if kind != "ISOLATE":
+		var selected_control := TowerActionButton.new()
+		selected_control.setup(kind,"",true)
+		selected_control.custom_minimum_size.x = 350
+		selected_control.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		selected_control.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		selected_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		selected_control.focus_mode = Control.FOCUS_NONE
+		layout.add_child(selected_control)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layout.add_child(column)
 	board.source_mode = true
 	board.inspection_inset = 0
 	board.focus_sources()

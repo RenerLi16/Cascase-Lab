@@ -1,6 +1,8 @@
 > **Current implementation:** The asynchronous backend integration supersedes the deterministic-only runtime described below. See [BACKEND_SETUP.md](BACKEND_SETUP.md). `SupportLibrary` remains as a public-rule/mock fixture; the default game uses the backend. No live Qwen call has been verified.
 
-# Controlled support — support-1.2.0
+# Controlled support — support-1.3.0
+
+> **Monitor update (support-1.3.0, context `cascade-context-4`):** a delivered Monitor immediately makes current pressure public, then tracks later changes. Costs and AI role boundaries are unchanged.
 
 > **Bridge-only closure (support-1.2.0, context `cascade-context-3`):** each road in the projection carries a public `bridge` flag, and isolation is legal or recommended only for bridges. See [Bridge-only closure](BRIDGE_CLOSURE.md).
 
@@ -25,7 +27,7 @@ The trusted `SupportContext.build()` adapter creates a new dictionary containing
 | round / remaining_budget | Current round and total remaining supply |
 | responses | Validated danger location, proposed action, applicable target, confidence, and enumerated reason only |
 
-It never copies current hidden P0/P1, the source, planned resolution, ground truth, narrative reports, private IDs, names, or raw text fields. Narrative dispatches were retired in context `cascade-context-2`; see [NO_DISPATCH_CONTEXT.md](NO_DISPATCH_CONTEXT.md). Anonymous response records are sorted so changing player order cannot change output. Verify snapshots stay historical, even if hidden pressure changes later. Monitor installation alone exposes no pressure. Dev Mode does not expand this boundary.
+It never copies current hidden P0/P1, the source, planned resolution, ground truth, narrative reports, private IDs, names, or raw text fields. Narrative dispatches were retired in context `cascade-context-2`; see [NO_DISPATCH_CONTEXT.md](NO_DISPATCH_CONTEXT.md). Anonymous response records are sorted so changing player order cannot change output. Verify snapshots stay historical, even if hidden pressure changes later. Monitor selection and transit expose no pressure. Delivery completion publishes the then-current pressure and subsequent changes update that public reading. Dev Mode does not expand this boundary.
 
 `SupportLibrary.generate()` receives only that dictionary and the condition string. It neither receives nor looks up a scenario ID. It cannot reach a GameManager, GameState, ScenarioData, logger, filesystem, network, clock, or random generator. The scenario ID is attached separately by the logger for audit.
 

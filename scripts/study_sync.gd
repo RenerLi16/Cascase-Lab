@@ -24,8 +24,9 @@ var outbox_path := "user://synthetic_pending_v1.json"
 # Schema 8 / cascade-public-8: scoped anonymous public demo sessions.
 # Schema 9 / cascade-public-9: post-outcome forms and completion barriers.
 # Older queued schema-5/6/7 records retain their protected identities and metadata.
-const SESSION_SCHEMA := 9
-const GAME_VERSION := "cascade-public-9"
+const SESSION_SCHEMA := 10
+# Schema 10: Monitor baseline on delivery; existing outbox metadata is retained.
+const GAME_VERSION := "cascade-public-10"
 var storage_key := "cascade.synthetic.outbox.v1"
 
 func _ready() -> void:

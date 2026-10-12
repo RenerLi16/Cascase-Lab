@@ -501,36 +501,50 @@ func _position_road_bubble() -> void:
 
 func _build_selection(parent: Node) -> void:
 	if selected_shelter == "": return
+	parent.add_theme_constant_override("separation",6)
 	var shelter: ShelterState = session.state.shelters[selected_shelter]
 	var top := HBoxContainer.new()
 	parent.add_child(top)
-	var tag := UIkit.heading(selected_shelter+" · "+shelter.display_name)
+	var tag := UIkit.heading(selected_shelter+" · "+shelter.display_name,22)
 	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(tag)
 	var close := UIkit.quiet("×",_clear_selection)
 	close.tooltip_text = "Close"
+	close.custom_minimum_size = Vector2(32,32)
+	for style in ["normal","hover","pressed"]: close.add_theme_stylebox_override(style,UIkit.box(UIkit.RAISED,UIkit.LINE,2,2))
 	top.add_child(close)
 	var facts := VBoxContainer.new()
 	facts.add_theme_constant_override("separation",UIkit.SM)
 	parent.add_child(facts)
-	facts.add_child(UIkit.paragraph("Pressure: " + PresentationText.known_status(shelter),UIkit.BODY,UIkit.RED if shelter.is_overrun else UIkit.TEXT))
+	var reading := HBoxContainer.new()
+	facts.add_child(reading)
+	if shelter.is_monitored: reading.add_child(ActionIcon.view("MONITOR"))
+	reading.add_child(UIkit.paragraph(PresentationText.known_status(shelter)+(FirstPlayText.choose(" · Monitor active"," · 监测已生效") if shelter.is_monitored and not shelter.is_overrun else ""),UIkit.SMALL,UIkit.RED if shelter.is_overrun else UIkit.TEXT))
 	var access: Array[String] = []
-	for depot in session.action_manager.supply.eligible_depots(selected_shelter): access.append(session.scenario.shelter_names[depot])
-	facts.add_child(UIkit.paragraph("Supply access: " + ", ".join(access) if not access.is_empty() else "No stocked supply route"))
-	if session.state.depots.has(selected_shelter): facts.add_child(UIkit.strong("%d supply remaining" % session.state.depots[selected_shelter].supply_remaining))
-	if shelter.is_monitored: facts.add_child(UIkit.paragraph("Monitor active",UIkit.BODY,UIkit.TEAL))
-	if shelter.shielded_this_round: facts.add_child(UIkit.paragraph("Shield active · this resolution only",UIkit.BODY,UIkit.TEAL))
-	for record in shelter.verified_history:
-		facts.add_child(UIkit.paragraph("OBS R%d · Pressure %d at verification" % [record.round,record.pressure],UIkit.BODY,UIkit.SECONDARY))
+	for depot in session.action_manager.supply.eligible_depots(selected_shelter): access.append(depot)
+	var supply_text := FirstPlayText.choose("Supply depots: ","补给仓库：") + ", ".join(access) if not access.is_empty() else FirstPlayText.choose("No stocked supply route","没有可用补给路线")
+	if session.state.depots.has(selected_shelter): supply_text += FirstPlayText.choose(" · Stock %d"," · 库存 %d") % session.state.depots[selected_shelter].supply_remaining
+	facts.add_child(UIkit.paragraph(supply_text,UIkit.SMALL))
+	reading.tooltip_text = FirstPlayText.choose("Monitor active: shows current pressure.","监测已生效：显示当前压力。") if shelter.is_monitored else ""
+	if shelter.shielded_this_round and session.phase != GameManager.Phase.ACTIONS: facts.add_child(UIkit.paragraph("Shield active · this resolution only",UIkit.BODY,UIkit.TEAL))
 	if session.dev_mode and not _private_phase(): facts.add_child(UIkit.strong("DEV · P%d" % shelter.zombie_pressure,UIkit.SMALL,UIkit.RED))
 	UIkit.rule(parent)
 	if session.phase == GameManager.Phase.ACTIONS:
-		parent.add_child(UIkit.strong("Decisions"))
+		parent.add_child(UIkit.strong(FirstPlayText.choose("Decisions","塔楼操作"),UIkit.SMALL))
 		for kind in ["VERIFY","MONITOR","SHIELD"]: _action_button(parent,kind,selected_shelter)
 	else: parent.add_child(UIkit.paragraph("Decisions unlock in the action phase.",UIkit.BODY,UIkit.SECONDARY))
 
+	for record in shelter.verified_history:
+		parent.add_child(UIkit.paragraph(FirstPlayText.choose("OBS R%d · Pressure %d at verification","第 %d 轮核实快照 · 压力 %d") % [record.round,record.pressure],UIkit.BODY,UIkit.SECONDARY))
+
 func _action_button(parent: Node, kind: String, target: String) -> void:
 	var reason := session.action_manager.unavailable_reason(kind,target)
+	if kind in ["VERIFY","MONITOR","SHIELD"]:
+		var control := TowerActionButton.new()
+		control.setup(kind,reason)
+		control.pressed.connect(func(): _request_action(kind,target))
+		parent.add_child(control)
+		return
 	var group := VBoxContainer.new()
 	group.add_theme_constant_override("separation",UIkit.XS+2)
 	parent.add_child(group)
@@ -546,7 +560,10 @@ func _observation_card(parent: Node, observation: Dictionary) -> void:
 	note.add_theme_constant_override("separation",UIkit.MD)
 	parent.add_child(note)
 	UIkit.rule(note)
-	note.add_child(UIkit.paragraph(PresentationText.observation_text(observation)))
+	var row := HBoxContainer.new()
+	note.add_child(row)
+	row.add_child(ActionIcon.view(observation.type))
+	row.add_child(UIkit.paragraph(PresentationText.observation_text(observation)))
 
 func _build_phase_button() -> void:
 	match session.phase:
@@ -830,7 +847,7 @@ func _show_help() -> void:
 	var wrapper := VBoxContainer.new()
 	wrapper.custom_minimum_size = Vector2(0,minf(540,size.y-250))
 	column.add_child(wrapper)
-	var guide := UIkit.rich(PresentationText.RULES+PresentationText.MAP_KEY)
+	var guide := UIkit.rich(PresentationText.guide_text())
 	# Guide section titles are the only bold runs; render them as headings.
 	guide.add_theme_font_override("bold_font",UIkit.HEADING_FONT)
 	guide.add_theme_font_size_override("bold_font_size",24)

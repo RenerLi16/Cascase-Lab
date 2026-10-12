@@ -57,7 +57,7 @@ Each shelter has one underlying pressure state:
 
 A public Overrun marker is strong evidence of a loss. The absence of that marker does not distinguish pressure 0 from pressure 1. A green supply-access indicator describes delivery access, not a guarantee of safety.
 
-Public evidence includes reports already released, known road closures, visible Overrun shelters, depot balances, completed actions, dated verification results, and public monitoring observations. A verification is a snapshot of the moment it was obtained. Installing a monitor does not immediately reveal a shelter's baseline pressure.
+Public evidence includes reports already released, known road closures, visible Overrun shelters, depot balances, completed actions, dated verification results, and public monitoring observations. A verification is a snapshot of the moment it was obtained. A Monitor reveals the shelter’s current pressure when its delivery completes, then tracks changes for the rest of the scenario.
 
 The outbreak advances only when the team ends the action phase and resolves the round. It does not spread because participants spend longer reading, completing forms, discussing, or watching a supply delivery.
 
@@ -66,7 +66,7 @@ The outbreak advances only when the team ends the action phase and resolves the 
 | Action | Cost | Target and effect | Limitation |
 | --- | --- | --- | --- |
 | **Verify** | 1 supply | Deliver to a functioning shelter and reveal its exact pressure at arrival. | Does not protect or cure it. The result is dated, not a permanent live reading. |
-| **Monitor** | 1 supply | Install a persistent monitor at a functioning shelter; later pressure changes produce public alerts. | No immediate baseline reading, no protection, and no cure. There must be a later change for a new alert. |
+| **Monitor** | 1 supply | On delivery, reveal current pressure and install persistent monitoring; later changes produce public alerts. | No reading before delivery, no protection, and no cure. Unchanged pressure retains its known reading. |
 | **Shield** | 1 supply | Protect a functioning shelter against incoming infection during the upcoming resolution. | Expires after that resolution. Does not reverse exposure or stop its internal progression. |
 | **Isolate** | 2 supplies | Deliver one unit to each endpoint of an open road; close it permanently after both deliveries arrive. | Stops supply traffic as well as infection. Both endpoints must still function and be reachable. |
 | **Wait / save supply** | 0 | End the round without further spending. | The outbreak still resolves. Waiting is a private proposal option; final waiting uses End round. |
@@ -74,6 +74,8 @@ The outbreak advances only when the team ends the action phase and resolves the 
 For isolation, one depot may fund both endpoints if it has enough stock and routes; alternatively, the depots can split the deliveries. The preview shows supply access that would be lost. A road cannot be isolated after either endpoint becomes Overrun, because the required delivery cannot be completed.
 
 Before dispatch, the game checks action eligibility, stock, and routes. Supplies are deducted at dispatch; the effect happens after delivery. Other actions and round resolution are blocked during delivery. The game then returns to the action phase.
+
+**Unresolved balance issue (monitor-current-1):** at the unchanged 1-supply cost, Monitor provides the delivery-time information of Verify plus future updates. Verify is retained and no costs or other mechanics are rebalanced in this change.
 
 **There is no one-action-per-round limit.** The team can take several actions sequentially, use a new verification result to choose another action, conserve supplies, or stop when no useful legal action remains. Its constraints are stock, access, action eligibility, and the three-round horizon. An installed monitor cannot be installed again, and an active shield cannot be stacked. Verification can be purchased again.
 
@@ -263,7 +265,7 @@ At fictional time 10:00, the final report reads:
 
 The image report does not establish that D is exposed, safe, or the group's destination. The team must combine this uncertainty with its own observation history and the consequences of the first two resolutions.
 
-There is only one resolution left. Information has value only if it can still affect a remaining decision. A monitor installed now provides no immediate baseline; an alert during the final resolution arrives after the final action phase. Verification can still support another action in the same round if stock and access permit. Saving stock now has no later round in which to spend it.
+There is only one resolution left. Information has value only if it can still affect a remaining decision. A Monitor installed now reveals current pressure on arrival, supporting another decision in this action phase; a later alert during final resolution arrives after the final action phase. Verification can still support another action in the same round if stock and access permit. Saving stock now has no later round in which to spend it.
 
 The team may be choosing among a few reachable targets, interpreting an old pressure reading, or discovering that an earlier closure or loss has made remaining stock unusable. The AI must respond to that actual public situation, not assume that all teams have reached the same board state.
 

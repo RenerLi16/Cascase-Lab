@@ -9,7 +9,7 @@ var is_overrun: bool:
 var is_monitored := false
 var verified_history: Array = []
 var shielded_this_round := false
-# Monitoring starts a baseline internally, but only changes are reported publicly.
+# Public reading is established only on delivery, then retained and updated.
 var monitor_known_pressure := -1
 
 func _init(node_id: String = "", label: String = "", pressure: int = 0) -> void:

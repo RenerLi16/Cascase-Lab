@@ -111,7 +111,7 @@ class ContractTests(unittest.TestCase):
             validate_request(request() | {'context_version': 'cascade-context-1'})
         legacy = {'condition': 'DIRECT_RECOMMENDATION', 'context': context() | {'public_reports': legacy_dispatches()[:1]}}
         with self.assertRaisesRegex(Invalid, 'deprecated_report_field'): validate_request(legacy)
-        self.assertEqual(CONTEXT_VERSION, 'cascade-context-3')
+        self.assertEqual(CONTEXT_VERSION, 'cascade-context-4')
 
     def test_prompts_examples_mocks_and_templates_contain_no_narrative_clues(self):
         sources = {'system prompt': COMMON, **{f'role {k}': v for k, v in ROLES.items()},
@@ -304,10 +304,10 @@ class EndToEndOutboundTests(unittest.TestCase):
                 with service.store.connect() as db:
                     sessions = [json.loads(row[0]) for row in db.execute('SELECT metadata FROM sessions')]
                     self.assertEqual(len(sessions), 3)
-                    self.assertTrue(all(m['game_version'] == 'cascade-public-9' and m['schema_version'] == 9 for m in sessions))
+                    self.assertTrue(all(m['game_version'] == 'cascade-public-10' and m['schema_version'] == 10 for m in sessions))
                     self.assertEqual(db.execute("SELECT count(*) FROM sessions WHERE status='interrupted' OR status='completed'").fetchone()[0], 3)
                     stored = ' '.join(row[0] for table in ('game_events', 'audit_events', 'private_events') for row in db.execute(f'SELECT body FROM {table}'))
-                    self.assertIn('cascade-context-3', stored)
+                    self.assertIn('cascade-context-4', stored)
                     for term in sentinels + tuple(legacy_texts()) + ('PUBLIC_INTEL_SHOWN', 'public_intel', 'public_reports'):
                         self.assertNotIn(term, stored)
                     audits = [json.loads(row[0]) for row in db.execute('SELECT audit FROM interventions')]

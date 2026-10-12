@@ -82,7 +82,12 @@ func complete_delivery(action: GameAction) -> Dictionary:
 				logger.record(state.round,"VERIFY_RESULT",shelter.id,null,shelter.zombie_pressure)
 			"MONITOR":
 				shelter.is_monitored = true
+				shelter.monitor_known_pressure = shelter.zombie_pressure
 				logger.record(state.round,"MONITOR_INSTALLED",shelter.id,false,true)
+				observation = {"type":"MONITOR","kind":"initial","target":shelter.id,"round":state.round,"pressure":shelter.monitor_known_pressure}
+				state.observations.append(observation)
+				state.investigation_log.append("R%d · %s Monitor installed: Pressure %d" % [state.round,shelter.id,shelter.monitor_known_pressure])
+				logger.record(state.round,"MONITOR_OBSERVATION",shelter.id,null,shelter.monitor_known_pressure,{"kind":"initial"})
 			"SHIELD":
 				shelter.shielded_this_round = true
 				logger.record(state.round,"SHIELD_APPLIED",shelter.id,false,true)
