@@ -49,7 +49,7 @@ func run() -> void:
 		check_layout(tag+"-round-handoff")
 		for player in 3:
 			await click("Open my form")
-			check(descendants(app,"OptionButton").size() == 4,"No AI: four non-AI options")
+			check(descendants(app,"OptionButton").size() == 5,"No AI: five non-AI options")
 			check(descendants(app,"TextEdit")[0].text == "","Round form starts blank")
 			check(button_containing("Submit & pass").disabled,"Blank form cannot submit")
 			if player == 0:
@@ -117,7 +117,7 @@ func run() -> void:
 		app.session.next_round()
 		app.session.open_private_form()
 		await settle()
-		check(descendants(app,"OptionButton").size() == (6 if variant == "qwen" else 4),"AI controls correctly shown: "+variant)
+		check(descendants(app,"OptionButton").size() == (7 if variant == "qwen" else 5),"AI controls correctly shown: "+variant)
 		var influence: OptionButton = app.find_child("influence",true,false)
 		check(influence.item_count == (7 if variant == "qwen" else 6),"AI message influence option: "+variant)
 		if variant == "qwen":

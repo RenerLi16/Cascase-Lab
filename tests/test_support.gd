@@ -65,7 +65,7 @@ func test_projection() -> void:
 	for condition in SupportLibrary.CONDITIONS:
 		check(SupportLibrary.generate(context(game),condition)==SupportLibrary.generate(clean,condition),"Hidden state cannot alter output: "+condition)
 	check(not clean.has("public_reports") and not clean.has("public_intel") and not SupportContext.CATEGORIES.has("published_reports"),"Support context carries no narrative reports")
-	check(SupportContext.VERSION == "cascade-context-4","Current no-dispatch, bridge-flag context contract")
+	check(SupportContext.VERSION == "cascade-context-5","Current no-dispatch, bridge-flag context contract")
 	game.state.shelters.E.verified_history.append({"round":1,"pressure":1})
 	game.state.shelters.E.verified_history.append({"round":3,"pressure":2})
 	game.state.round=2
@@ -110,6 +110,9 @@ func test_recommendations() -> void:
 	for kind in ["MONITOR","ISOLATE"]:
 		input=context(game,responses(kind,"E-F" if kind=="ISOLATE" else "E"))
 		check(SupportLibrary.generate(input,"DIRECT_RECOMMENDATION").action==kind,"Supported legal proposal: "+kind)
+	input=context(game,responses("MONITOR","E"))
+	input.round=3
+	check(SupportLibrary.generate(input,"DIRECT_RECOMMENDATION").action!="MONITOR","Final-round advice avoids pending-only Monitor")
 	game.state.shelters.E.zombie_pressure=2
 	input=context(game)
 	advice=SupportLibrary.generate(input,"DIRECT_RECOMMENDATION")

@@ -56,8 +56,12 @@ func _initialize() -> void:
 					var key := game.post_form_key()
 					check(not game.submit_post_form(key,{}),"Blank form rejected")
 					check(game.post_form_draft.is_empty(),"Next player starts blank")
-					check(game.post_form_questions().size() == (7 if variant == "qwen" else 5),"AI-specific visibility")
+					check(game.post_form_questions().size() == (8 if variant == "qwen" else 6),"AI-specific visibility")
 					var answers := Fixture.answers(game,CANARY)
+					answers.concerns_addressed = "Not applicable — I did not raise any concerns"
+					var missing := answers.duplicate()
+					missing.erase("concerns_addressed")
+					check(not game.submit_post_form(key,missing),"New reflection item required")
 					var bad := answers.duplicate()
 					bad.explanation = "x".repeat(601)
 					check(not game.submit_post_form(key,bad),"600-character limit")
@@ -73,6 +77,7 @@ func _initialize() -> void:
 					answers.explanation = "mutated"
 					check(game.round_evaluations.back().answers.explanation == CANARY,"Submission immutable")
 					var record: Dictionary = game.round_evaluations.back()
+					check(record.instrument_version == "round-evaluation-proposed-3" and not record.answers.has("felt_heard") and record.answers.concerns_addressed == answers.concerns_addressed,"New item answers and version preserved without numeric coercion")
 					check(record.session_id == mission.session_id and record.scenario_index == scenario_number and record.slot == "P%d" % (player+1),"Stable metadata")
 					check(record.timing == "post_outcome_after_round_summary" and record.submitted_utc.ends_with("Z"),"Explicit post-outcome timing")
 					check(record.ai_display.not_applicable_reason != "" or variant == "qwen","Inapplicability reason retained")

@@ -9,7 +9,8 @@ var is_overrun: bool:
 var is_monitored := false
 var verified_history: Array = []
 var shielded_this_round := false
-# Public reading is established only on delivery, then retained and updated.
+# Delivery installs a pending monitor; its first reading is at the next round start.
+var monitor_activation_round := -1
 var monitor_known_pressure := -1
 
 func _init(node_id: String = "", label: String = "", pressure: int = 0) -> void:
@@ -20,4 +21,4 @@ func _init(node_id: String = "", label: String = "", pressure: int = 0) -> void:
 func to_dictionary() -> Dictionary:
 	return {"id":id,"display_name":display_name,"zombie_pressure":zombie_pressure,
 		"is_overrun":is_overrun,"is_monitored":is_monitored,"verified_history":verified_history.duplicate(true),
-		"shielded_this_round":shielded_this_round,"monitor_known_pressure":monitor_known_pressure}
+		"shielded_this_round":shielded_this_round,"monitor_known_pressure":monitor_known_pressure,"monitor_activation_round":monitor_activation_round}

@@ -1,3 +1,5 @@
+> Historical report for the prior delivery-time Monitor rule. The current rule is `monitor-next-round-1`: first reading at the next round start. Screenshots and test counts below describe the earlier version. See the README for current mechanics.
+
 # Mechanical tower controls and persistent Monitor
 
 The three equal-size controls use original 24-pixel lens, eye and shield artwork. Iron housings, recessed faces, brass bevels, rivets and small corner stains are drawn directly by Godot. All material wear stays outside the text and icon areas. The fixed housing never moves; the face moves down three pixels while held. Hover and keyboard focus illuminate the rim and run one 240 ms icon highlight. Reduced motion suppresses that animation while retaining immediate focus/press feedback.

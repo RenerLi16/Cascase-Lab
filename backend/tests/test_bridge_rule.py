@@ -1,4 +1,4 @@
-"""Bridge-only closure (cascade-context-4): only roads flagged bridge=true can be isolated."""
+"""Bridge-only closure (cascade-context-5): only roads flagged bridge=true can be isolated."""
 from copy import deepcopy
 import unittest
 from backend.providers import COMMON, PROMPT_VERSION
@@ -11,7 +11,7 @@ BRIDGE = 'E-F'     # Riverside designated bridge
 
 class BridgeRuleTests(unittest.TestCase):
     def test_versions_and_rules_name_the_bridge_rule(self):
-        self.assertEqual((CONTEXT_VERSION, PROMPT_VERSION), ('cascade-context-4', 'cascade-zh-5'))
+        self.assertEqual((CONTEXT_VERSION, PROMPT_VERSION), ('cascade-context-5', 'cascade-zh-6'))
         self.assertIn('bridge=true', RULES['access'])
         self.assertIn('Close bridge', RULES['effects'])
         self.assertIn('bridge flags', COMMON)

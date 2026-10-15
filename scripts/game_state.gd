@@ -32,6 +32,7 @@ func copy() -> GameState:
 		var original: ShelterState = shelters[id]
 		var shelter := ShelterState.new(id, original.display_name, original.zombie_pressure)
 		shelter.is_monitored = original.is_monitored
+		shelter.monitor_activation_round = original.monitor_activation_round
 		shelter.shielded_this_round = original.shielded_this_round
 		shelter.verified_history = original.verified_history.duplicate(true)
 		shelter.monitor_known_pressure = original.monitor_known_pressure

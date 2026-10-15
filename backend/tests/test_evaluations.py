@@ -83,6 +83,43 @@ class EvaluationTests(unittest.TestCase):
                 self.assertEqual(rows[0][-2:],['public-demo',False])
                 self.assertIn('Not sure',rows[0])
 
+    def test_new_reflections_required_and_exported_with_inapplicable_answers(self):
+        first = records()[0]
+        for key in ('concerns_addressed',):
+            bad = deepcopy(first)
+            del bad['payload']['answers'][key]
+            with self.assertRaises(Invalid): self.post('events', dict(events=[bad]))
+        first['payload']['answers'].update(
+            concerns_addressed='Not applicable — I did not raise any concerns')
+        self.post('events', dict(events=[first]))
+        with self.service.store.connect() as db:
+            header, rows = form_export_sheets(db)['round_evaluations']
+            for key in ('concerns_addressed',):
+                self.assertEqual(rows[0][header.index(key)], first['payload']['answers'][key])
+            self.assertEqual(rows[0][header.index('instrument_version')], 'round-evaluation-proposed-3')
+
+    def test_queued_v1_reflections_keep_original_version_and_missing_fields(self):
+        first = records()[0]
+        first['payload']['instrument_version'] = 'round-evaluation-proposed-1'
+        for key in ('concerns_addressed',): del first['payload']['answers'][key]
+        self.post('events', dict(events=[first]))
+        with self.service.store.connect() as db:
+            header, rows = form_export_sheets(db)['round_evaluations']
+            self.assertEqual(rows[0][header.index('instrument_version')], 'round-evaluation-proposed-1')
+            for key in ('concerns_addressed',):
+                self.assertEqual(rows[0][header.index(key)], '')
+
+    def test_v2_felt_heard_is_retained_only_for_historical_submissions(self):
+        first = records()[0]
+        first['payload']['answers']['felt_heard'] = 'Very much'
+        with self.assertRaises(Invalid): self.post('events', dict(events=[first]))
+        first['payload']['instrument_version'] = 'round-evaluation-proposed-2'
+        self.post('events', dict(events=[first]))
+        with self.service.store.connect() as db:
+            header, rows = form_export_sheets(db)['round_evaluations']
+            self.assertEqual(rows[0][header.index('felt_heard')], 'Very much')
+            self.assertEqual(rows[0][header.index('instrument_version')], 'round-evaluation-proposed-2')
+
     def test_duplicate_identity_and_atomic_retry(self):
         first = records()[0]
         self.post('events',dict(events=[first]))

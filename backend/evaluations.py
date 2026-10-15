@@ -5,6 +5,13 @@ from pathlib import Path
 from .validation import keys, require, string, integer
 
 INSTRUMENTS = json.loads((Path(__file__).resolve().parents[1] / 'scripts/evaluation_instruments.json').read_text())
+# Historical submissions retain their original questions and instrument versions.
+LEGACY_ROUNDS = {
+    item['version']: item for item in (
+        json.loads((Path(__file__).resolve().parents[1] / f'scripts/round_evaluation_v{v}.json').read_text())
+        for v in (1, 2)
+    )
+}
 CHANNELS = {'round_evaluation': 'round_evaluations', 'scenario_reasoning': 'scenario_reasoning'}
 FORM_SCHEMA = '''
 CREATE TABLE IF NOT EXISTS round_evaluations (
@@ -25,6 +32,8 @@ def validate_form(sid, event, metadata):
         return
     require(metadata['schema_version'] >= 9)
     instrument = INSTRUMENTS[kind]
+    if kind == 'round_evaluation':
+        instrument = LEGACY_ROUNDS.get(p.get('instrument_version'), instrument)
     fields = 'type session_id scenario_id scenario_index slot condition instrument_version timing submitted_utc answers'
     keys(p, fields + (' round ai_display' if kind == 'round_evaluation' else ''))
     require(p['type'] == kind.upper() and p['session_id'] == sid and p['scenario_id'] == event['scenario'])

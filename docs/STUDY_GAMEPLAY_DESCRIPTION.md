@@ -57,7 +57,7 @@ Each shelter has one underlying pressure state:
 
 A public Overrun marker is strong evidence of a loss. The absence of that marker does not distinguish pressure 0 from pressure 1. A green supply-access indicator describes delivery access, not a guarantee of safety.
 
-Public evidence includes reports already released, known road closures, visible Overrun shelters, depot balances, completed actions, dated verification results, and public monitoring observations. A verification is a snapshot of the moment it was obtained. A Monitor reveals the shelter’s current pressure when its delivery completes, then tracks changes for the rest of the scenario.
+Public evidence includes reports already released, known road closures, visible Overrun shelters, depot balances, completed actions, dated verification results, and public monitoring observations. A verification is a snapshot of the moment it was obtained. A Monitor installs when delivery completes, first reveals current pressure at the next round start, then tracks changes for the rest of the scenario.
 
 The outbreak advances only when the team ends the action phase and resolves the round. It does not spread because participants spend longer reading, completing forms, discussing, or watching a supply delivery.
 
@@ -66,16 +66,16 @@ The outbreak advances only when the team ends the action phase and resolves the 
 | Action | Cost | Target and effect | Limitation |
 | --- | --- | --- | --- |
 | **Verify** | 1 supply | Deliver to a functioning shelter and reveal its exact pressure at arrival. | Does not protect or cure it. The result is dated, not a permanent live reading. |
-| **Monitor** | 1 supply | On delivery, reveal current pressure and install persistent monitoring; later changes produce public alerts. | No reading before delivery, no protection, and no cure. Unchanged pressure retains its known reading. |
+| **Monitor** | 1 supply | Install on delivery; first read at the start of the next round, then report later changes. | No reading or alert in the installation round; final-round installation gives no reading. No protection or cure. Unchanged pressure retains its known reading. |
 | **Shield** | 1 supply | Protect a functioning shelter against incoming infection during the upcoming resolution. | Expires after that resolution. Does not reverse exposure or stop its internal progression. |
 | **Isolate** | 2 supplies | Deliver one unit to each endpoint of an open road; close it permanently after both deliveries arrive. | Stops supply traffic as well as infection. Both endpoints must still function and be reachable. |
 | **Wait / save supply** | 0 | End the round without further spending. | The outbreak still resolves. Waiting is a private proposal option; final waiting uses End round. |
 
 For isolation, one depot may fund both endpoints if it has enough stock and routes; alternatively, the depots can split the deliveries. The preview shows supply access that would be lost. A road cannot be isolated after either endpoint becomes Overrun, because the required delivery cannot be completed.
 
-Before dispatch, the game checks action eligibility, stock, and routes. Supplies are deducted at dispatch; the effect happens after delivery. Other actions and round resolution are blocked during delivery. The game then returns to the action phase.
+Before dispatch, the game checks action eligibility, stock, and routes. Supplies are deducted at dispatch; Verify, Shield, and closure take effect on delivery, while Monitor installs on delivery and first reads at the next round start. Other actions and round resolution are blocked during delivery. The game then returns to the action phase.
 
-**Unresolved balance issue (monitor-current-1):** at the unchanged 1-supply cost, Monitor provides the delivery-time information of Verify plus future updates. Verify is retained and no costs or other mechanics are rebalanced in this change.
+**Timing distinction (monitor-next-round-1):** Verify provides immediate information on delivery; Monitor delays its first reading until the next round. Both cost 1 supply. This timing change has not established empirical balance between the actions.
 
 **There is no one-action-per-round limit.** The team can take several actions sequentially, use a new verification result to choose another action, conserve supplies, or stop when no useful legal action remains. Its constraints are stock, access, action eligibility, and the three-round horizon. An installed monitor cannot be installed again, and an active shield cannot be stacked. Verification can be purchased again.
 
@@ -139,13 +139,13 @@ After delivery, the action takes effect and the team may take another action. Ne
 
 ### Step 6: resolve the round
 
-The team selects End round and confirms resolution. Already-Overrun shelters transmit pressure along open roads; exposed shelters progress; shields block incoming pressure for this resolution; new Overrun shelters become public; monitors report changes; and shields expire. The game shows the public outcome and the number of shelters lost.
+The team selects End round and confirms resolution. Already-Overrun shelters transmit pressure along open roads; exposed shelters progress; shields block incoming pressure for this resolution; new Overrun shelters become public; active monitors report changes; and shields expire. The game shows the public outcome and the number of shelters lost.
 
 State changes are simultaneous. A shelter that becomes Overrun in this resolution begins spreading only at a later resolution, not immediately through the rest of the network in the same step.
 
 ### Step 7: individual evaluations, reasoning, and continuation
 
-After the outcome summary in rounds 1 and 2, all three players privately submit a round evaluation. The team then advances to the next round and repeats the initial judgments, discussion, intervention, actions, and resolution. Supplies, installed monitors, closures, observations, and losses carry forward.
+After the outcome summary in rounds 1 and 2, all three players privately submit a round evaluation. The team then advances to the next round, activates pending monitors before private judgments, and repeats the initial judgments, discussion, intervention, actions, and resolution. Supplies, installed monitors, closures, observations, and losses carry forward.
 
 After round 3, all three players submit their round evaluations and then their individual scenario reasoning forms. Only then do results summarize surviving/functioning shelters and resource use. A functioning shelter means one not yet Overrun: a pressure-1 shelter still counts as functioning at the endpoint. This score does not establish that every surviving shelter is unexposed or would remain safe indefinitely.
 
@@ -265,7 +265,7 @@ At fictional time 10:00, the final report reads:
 
 The image report does not establish that D is exposed, safe, or the group's destination. The team must combine this uncertainty with its own observation history and the consequences of the first two resolutions.
 
-There is only one resolution left. Information has value only if it can still affect a remaining decision. A Monitor installed now reveals current pressure on arrival, supporting another decision in this action phase; a later alert during final resolution arrives after the final action phase. Verification can still support another action in the same round if stock and access permit. Saving stock now has no later round in which to spend it.
+There is only one resolution left. Information has value only if it can still affect a remaining decision. A Monitor installed now gives no reading because no next round is played. An already active Monitor still reports final-resolution changes, after the final action phase. Verification can still support another action in the same round if stock and access permit. Saving stock now has no later round in which to spend it.
 
 The team may be choosing among a few reachable targets, interpreting an old pressure reading, or discovering that an earlier closure or loss has made remaining stock unusable. The AI must respond to that actual public situation, not assume that all teams have reached the same board state.
 

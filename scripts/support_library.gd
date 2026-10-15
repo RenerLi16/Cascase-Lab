@@ -5,7 +5,7 @@ extends RefCounted
 # No GameManager/ScenarioData reference, I/O, network, clock, RNG or hidden solver.
 # 1.1.0: wording no longer refers to the retired narrative reports.
 # 1.2.0: bridge-only closure; ISOLATE is legal and recommended only for bridge roads.
-const VERSION := "support-1.3.0"
+const VERSION := "support-1.4.0"
 const PAUSE_SECONDS := 15
 const CONDITIONS := ["NONE", "DIRECT_RECOMMENDATION", "CONSTRUCTIVE_DISSENT"]
 const LABELS := ["No AI", "Direct-Recommendation AI", "Constructive-Dissent AI"]
@@ -18,7 +18,7 @@ const TEMPLATES := {
 		"Check: Existing exposure is not cured by shielding; distinguish current observations from older verification results."],
 	"direct.monitor":["Recommendation: Monitor Shelter %s next.",
 		"Why: Structured proposals include monitoring this reachable location. Continuing observations could test assumptions about changing danger while the team manages its remaining supplies.",
-		"Check: Delivery reveals current pressure and tracks later changes, but neither cures exposure nor blocks infection."],
+		"Check: Readings start next round, then track changes; monitoring neither cures exposure nor blocks infection."],
 	"direct.isolate":["Recommendation: Close Bridge %s next.",
 		"Why: Structured proposals include closing this currently usable bridge. Both ends have funded delivery routes, and closure would block infection and supplies across this connection.",
 		"Check: Inspect the supply access lost on each side before committing both units; alternative roads may still carry infection."],
@@ -148,7 +148,7 @@ static func recommend(context: Dictionary, legal: Array) -> Dictionary:
 				if not shelter.verified_history.is_empty() and shelter.verified_history.back().pressure == 1: continue
 				score += 25 + threats * 3
 			"MONITOR", "ISOLATE":
-				if proposals == 0: continue
+				if proposals == 0 or (candidate.action == "MONITOR" and context.round >= 3): continue
 				score += 12
 		# Sorted IDs and fixed action order break ties; no use of player identity/order.
 		if score > best_score:

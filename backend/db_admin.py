@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 from .storage_pg import DEFAULT_ROOT_CERT
-from .evaluations import CHANNELS, INSTRUMENTS
+from .evaluations import CHANNELS, INSTRUMENTS, LEGACY_ROUNDS
 
 
 def connect(args, user, password):
@@ -97,6 +97,10 @@ def form_export_sheets(db, available_tables=None):
     sheets = {}
     for kind, table in CHANNELS.items():
         questions = [q['id'] for q in INSTRUMENTS[kind]['questions']]
+        if kind == 'round_evaluation':
+            for instrument in LEGACY_ROUNDS.values():
+                for q in instrument['questions']:
+                    if q['id'] not in questions: questions.append(q['id'])
         header = ['session_id','seq','scenario','scenario_index','round','condition','player_slot',
                   'instrument_version','submitted_utc','timing','ai_display_status','ai_not_applicable_reason',
                   'ai_provider','message_id','message_version','template_id','displayed_utc'] + questions

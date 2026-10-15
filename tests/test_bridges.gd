@@ -152,7 +152,7 @@ func responses(kind: String, target: String) -> Array:
 	return output
 
 func support_checks() -> void:
-	check(SupportContext.VERSION == "cascade-context-4" and SupportLibrary.VERSION == "support-1.3.0","Support contract versions advanced")
+	check(SupportContext.VERSION == "cascade-context-5" and SupportLibrary.VERSION == "support-1.4.0","Support contract versions advanced")
 	var game := sandbox(ScenarioData.load_by_id("crossfire_04_v2"))
 	var input := SupportContext.build(game.state,responses("ISOLATE","D-E"))
 	for id in game.state.edges:

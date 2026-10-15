@@ -1,6 +1,6 @@
 {
   "round_evaluation": {
-    "version": "round-evaluation-proposed-1",
+    "version": "round-evaluation-proposed-3",
     "title": "Individual round evaluation",
     "timing": "post_outcome_after_round_summary",
     "questions": [
@@ -13,6 +13,18 @@
           "Moderately",
           "Very much",
           "Completely"
+        ]
+      },
+      {
+        "id": "concerns_addressed",
+        "text": "To what extent did the team discuss and respond to concerns you raised this round?",
+        "options": [
+          "Not at all",
+          "A little",
+          "Moderately",
+          "Very much",
+          "Completely",
+          "Not applicable — I did not raise any concerns"
         ]
       },
       {

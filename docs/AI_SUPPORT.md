@@ -1,8 +1,8 @@
 > **Current implementation:** The asynchronous backend integration supersedes the deterministic-only runtime described below. See [BACKEND_SETUP.md](BACKEND_SETUP.md). `SupportLibrary` remains as a public-rule/mock fixture; the default game uses the backend. No live Qwen call has been verified.
 
-# Controlled support — support-1.3.0
+# Controlled support — support-1.4.0
 
-> **Monitor update (support-1.3.0, context `cascade-context-4`):** a delivered Monitor immediately makes current pressure public, then tracks later changes. Costs and AI role boundaries are unchanged.
+> **Monitor update (support-1.4.0, context `cascade-context-5`):** a delivered Monitor remains pending until the next round starts, then makes current pressure public and tracks later changes. A final-round installation produces no reading. Costs and AI role boundaries are unchanged.
 
 > **Bridge-only closure (support-1.2.0, context `cascade-context-3`):** each road in the projection carries a public `bridge` flag, and isolation is legal or recommended only for bridges. See [Bridge-only closure](BRIDGE_CLOSURE.md).
 
@@ -27,7 +27,7 @@ The trusted `SupportContext.build()` adapter creates a new dictionary containing
 | round / remaining_budget | Current round and total remaining supply |
 | responses | Validated danger location, proposed action, applicable target, confidence, and enumerated reason only |
 
-It never copies current hidden P0/P1, the source, planned resolution, ground truth, narrative reports, private IDs, names, or raw text fields. Narrative dispatches were retired in context `cascade-context-2`; see [NO_DISPATCH_CONTEXT.md](NO_DISPATCH_CONTEXT.md). Anonymous response records are sorted so changing player order cannot change output. Verify snapshots stay historical, even if hidden pressure changes later. Monitor selection and transit expose no pressure. Delivery completion publishes the then-current pressure and subsequent changes update that public reading. Dev Mode does not expand this boundary.
+It never copies current hidden P0/P1, the source, planned resolution, ground truth, narrative reports, private IDs, names, or raw text fields. Narrative dispatches were retired in context `cascade-context-2`; see [NO_DISPATCH_CONTEXT.md](NO_DISPATCH_CONTEXT.md). Anonymous response records are sorted so changing player order cannot change output. Verify snapshots stay historical, even if hidden pressure changes later. Monitor selection and transit expose no pressure. Delivery completion installs a pending monitor without a reading. At the next round start, its first reading samples the then-current pressure; subsequent changes update that public reading. Dev Mode does not expand this boundary.
 
 `SupportLibrary.generate()` receives only that dictionary and the condition string. It neither receives nor looks up a scenario ID. It cannot reach a GameManager, GameState, ScenarioData, logger, filesystem, network, clock, or random generator. The scenario ID is attached separately by the logger for audit.
 
@@ -35,7 +35,7 @@ It never copies current hidden P0/P1, the source, planned resolution, ground tru
 
 Every message is 35–60 whitespace-separated words including section labels. Road IDs such as E-F count as one word. Tests validate every template, including zero-supply and wait cases.
 
-Direct support independently computes legal supply actions from public road connectivity and depot balances. Isolation requires a designated bridge, two reachable endpoints and sufficient combined stock, matching live action rules. A fixed ranking considers anonymous proposal matches, danger-target matches, visible connections, and visibly Overrun neighbors. Shield messages only apply to a functioning neighbor of visible Overrun and are excluded for publicly known exposure. Monitor and isolation suggestions require a corresponding structured proposal. Verify is the baseline legal information action. Stable map-ID/action ordering breaks ties; confidence never identifies a favored respondent. Unanimous waiting and no-funded-route states have distinct explicit wait templates. This policy is a bounded suggestion heuristic, not an optimizer or hidden outbreak solver.
+Direct support independently computes legal supply actions from public road connectivity and depot balances. Isolation requires a designated bridge, two reachable endpoints and sufficient combined stock, matching live action rules. A fixed ranking considers anonymous proposal matches, danger-target matches, visible connections, and visibly Overrun neighbors. Shield messages only apply to a functioning neighbor of visible Overrun and are excluded for publicly known exposure. Monitor and isolation suggestions require a corresponding structured proposal; final-round Monitor is not recommended. Verify is the baseline legal information action. Stable map-ID/action ordering breaks ties; confidence never identifies a favored respondent. Unanimous waiting and no-funded-route states have distinct explicit wait templates. This policy is a bounded suggestion heuristic, not an optimizer or hidden outbreak solver.
 
 Dissent selects one branch: no executable funded action; differing danger/action/target patterns; differing reasoning categories; low or divergent confidence; otherwise shared agreement. It asks one focused question, suggests an evidence comparison, and never produces an action/target prescription. It reports neither vote counts nor respondent labels.
 

@@ -5,7 +5,7 @@ import re
 CONDITIONS = ('NONE', 'DIRECT_RECOMMENDATION', 'CONSTRUCTIVE_DISSENT')
 # Support-context contract. cascade-context-2 retired the narrative dispatches that context v1
 # carried as public_reports. The game sends this version with every intervention request.
-CONTEXT_VERSION = 'cascade-context-4'
+CONTEXT_VERSION = 'cascade-context-5'
 # Field names from the retired narrative-report contract. Any occurrence, at any depth, is
 # rejected explicitly instead of being dropped or forwarded to a model.
 # cascade-context-3 adds each road's public bridge flag (bridge-only closure).
@@ -16,8 +16,8 @@ REASONS = ('', 'visible outbreak', 'suspected hidden exposure', 'protect importa
            'protect supply access', 'gather more information', 'prevent cascade', 'other / uncertain')
 RULES = {
     'costs': {'VERIFY': 1, 'MONITOR': 1, 'SHIELD': 1, 'ISOLATE': 2, 'WAIT': 0},
-    'observations': 'known_pressure=-1 means unknown. Verification is dated evidence, not current pressure. Monitoring reveals current pressure only on delivery completion, then retains and updates the reading for the scenario.',
-    'effects': 'VERIFY reveals a snapshot. MONITOR reveals current pressure on delivery and tracks later changes; it neither cures nor protects. SHIELD blocks incoming infection for this round only and does not cure exposure. ISOLATE (shown to players as Close bridge) closes a bridge permanently for both infection and supplies; pay one unit to each endpoint. WAIT spends nothing.',
+    'observations': 'known_pressure=-1 means unknown. Verification is dated evidence, not current pressure. Monitoring reveals nothing during its installation round. At the start of the next round it reveals current pressure, then retains and updates that reading for the scenario. Installation in the final round gives no reading.',
+    'effects': 'VERIFY reveals a snapshot. MONITOR starts revealing pressure at the next round start and tracks changes thereafter; it neither cures nor protects. SHIELD blocks incoming infection for this round only and does not cure exposure. ISOLATE (shown to players as Close bridge) closes a bridge permanently for both infection and supplies; pay one unit to each endpoint. WAIT spends nothing.',
     'access': 'Deliver from stocked depots along open roads through functioning shelters. Overrun shelters cannot receive or relay supplies. Already monitored/shielded targets cannot repeat that action. Only roads with bridge=true can be isolated; ordinary roads always stay open. Closed bridges cannot be isolated again.',
     'resolution': 'Overrun shelters transmit along open roads at resolution. Existing exposure progresses when exposure_progresses is true. Incoming infection is simultaneous; newly overrun shelters transmit next round.',
 }

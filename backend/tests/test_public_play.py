@@ -10,6 +10,7 @@ import threading
 import unittest
 from backend.config import Config
 from backend.server import Service
+from backend.public_play import SCENARIOS
 from backend.storage import Unauthorized, Conflict, Limited
 from backend.validation import Invalid
 from .fixtures import start, request, event, SCENARIO
@@ -40,6 +41,17 @@ class PublicPlayTests(unittest.TestCase):
 
     def post(self, sid, token, resource, body):
         return self.service.dispatch('POST',f'/v1/sessions/{sid}/{resource}',body,token)
+
+    def test_monitor_versions_preserve_historical_session_metadata(self):
+        for schema in (8, 9, 10, 11):
+            sid = f'monitor-version-{schema}'
+            body = public_start(sid)
+            body['metadata'].update(schema_version=schema, game_version=f'cascade-public-{schema}', scenario_order=list(SCENARIOS))
+            result = self.service.dispatch('POST', '/v1/public-sessions', body, '')[1]
+            stored = self.service.store.authorize(sid, result['credential'])
+            self.assertEqual(stored['schema_version'], schema)
+            self.assertEqual(result['record_mode'], 'public-demo')
+            self.assertFalse(result['research_eligible'])
 
     def test_public_is_server_issued_idempotent_and_not_legacy_auth(self):
         result = self.bootstrap()

@@ -54,7 +54,7 @@ The action meanings are:
 | Action | Cost | Result |
 | --- | ---: | --- |
 | `VERIFY` | 1 | Delivers a precise, dated pressure snapshot immediately on arrival. |
-| `MONITOR` | 1 | Reveals current pressure when delivery arrives; permanent monitoring retains the reading and reports later changes. No cure or protection. |
+| `MONITOR` | 1 | Installs on delivery; first reads current pressure at the next round start, then retains it and reports changes. No installation-round reading, cure or protection. Final-round installation gives no reading. |
 | `SHIELD` | 1 | Blocks incoming infection for the upcoming resolution, then expires. It does not cure an existing exposure or stop outgoing spread. |
 | `ISOLATE` (shown as **Close bridge**) | 2 | Bridges only. Delivers to both endpoints, warns about supply-route losses, then permanently closes the bridge in both directions. Ordinary roads cannot be closed. |
 
@@ -74,9 +74,9 @@ A two-minute discussion timer starts after the third private response. Expiry, o
 - **Constructive-Dissent AI:** Decision check / Discuss / Evidence to seek. It distinguishes different decisions, different reasoning categories, and uncertainty in confidence. Agreement triggers a shared-assumption question. It never identifies respondents, reports vote counts, assigns majority/minority labels, or prescribes a final action.
 - **No AI:** Pause / Time / Continue. It describes the scheduled interval without suggesting a tactic or introducing a decision check.
 
-`SupportContext` is the only simulation-to-support adapter. Its whitelist contains public Overrun/monitor status, dated Verify observations, road topology/closures, depot supplies, previous team actions, current round, remaining budget, and anonymous structured responses (contract `cascade-context-4`). Unrevealed P0/P1 remain unknown; a historical Verify result is never silently upgraded to current pressure. No names, raw explanations, live discussion, source, hidden pressure, narrative reports, or ground-truth timeline enter the generator, even in Dev Mode.
+`SupportContext` is the only simulation-to-support adapter. Its whitelist contains public Overrun/monitor status, dated Verify observations, road topology/closures, depot supplies, previous team actions, current round, remaining budget, and anonymous structured responses (contract `cascade-context-5`). Unrevealed P0/P1 remain unknown; a historical Verify result is never silently upgraded to current pressure. No names, raw explanations, live discussion, source, hidden pressure, narrative reports, or ground-truth timeline enter the generator, even in Dev Mode.
 
-`SupportLibrary` version **support-1.1.0** is a pure local template/ranking function. It has no file, network, random, clock, scenario, or simulator access. Both modes receive the same projection, including prior actions and dated observations. Templates and deterministic selection rules must receive a new version if wording or ranking changes.
+`SupportLibrary` version **support-1.4.0** is a pure local template/ranking function. It has no file, network, random, clock, scenario, or simulator access. Both modes receive the same projection, including prior actions and dated observations. Templates and deterministic selection rules must receive a new version if wording or ranking changes.
 
 The `SUPPORT_SHOWN` event stores condition, scenario ID, round, permitted input categories, exact displayed text, template ID/version, and display time (UTC plus elapsed milliseconds). It intentionally does not store the input payload or any individual response. Replay of the displayed message uses the stored text; regenerating from inputs requires the same permitted snapshot and library version. Existing anonymous survey records and detailed simulation logs remain separate research data and are never fed wholesale into support. The current local export schema is **7**, and the public session protocol is **9**. The new post-outcome responses are stored separately from these initial judgments; their stable player slots appear only in private exports.
 
@@ -179,6 +179,6 @@ For current browser limitations, see the [Godot Web export documentation](https:
 
 Online pilot deployment (itch.io + Render + AWS RDS + Qwen): see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Local backend setup: [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md).
 
-### Monitor rule update (monitor-current-1)
+### Monitor rule update (monitor-next-round-1)
 
-Monitor now reveals current pressure on delivery and tracks it persistently. Costs remain unchanged: at 1 supply Monitor provides Verify’s information plus future updates. This dominance is an unresolved balance issue, intentionally not rebalanced here. See [mechanical tower controls and validation](docs/TOWER_CONTROLS.md). New records use export schema 8 / observations-2, context cascade-context-4, and public session schema 10; existing records keep their original versions.
+Verify still provides a dated reading on arrival. Monitor costs 1 supply and starts reading at the beginning of the next playable round, before private judgments; it then tracks changes through the scenario. Installation-round resolution produces no Monitor reading or alert. Final-round installation remains legal but gives no reading, and the action panel warns about this. New records use export schema 9 / observations-3, context cascade-context-5, support-1.4.0, provider prompt cascade-zh-6, and public session schema 11. Historical queued records retain their versions; public schemas 8–10 remain accepted for recovery. These source changes do not deploy a new build or backend.

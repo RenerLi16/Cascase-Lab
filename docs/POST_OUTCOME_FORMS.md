@@ -10,30 +10,37 @@ These questions and options are proposed wording, **not validated research scale
 
 Round evaluations are collected **after players see the outcome and round summary**. Their confidence is post-outcome confidence. The answers may reflect initial judgments, discussion, constraints, AI, and observed outcomes; they are not a clean measure of AI influence alone.
 
-### Individual round evaluation (`round-evaluation-proposed-1`)
+### Individual round evaluation (`round-evaluation-proposed-3`)
+
+Version 3 removes the feeling-heard question and retains concerns addressed as a separate participant-reported outcome. It asks whether the team discussed and responded to raised concerns, not whether the participant agreed with the final decision. The not-applicable response for participants who raised no concerns remains a category, not a zero score. This proposed item is not a validated scale. Timing remains after the round outcome, with 6 questions or 8 when Qwen questions apply.
+
+Historical version-1 and version-2 submissions retain their original answers and versions. Exports preserve a historical felt_heard column for version-2 records; new forms do not collect it.
 
 1. How much did you agree with the team’s final decisions this round?
    Options: Not at all / A little / Moderately / Very much / Completely.
 
-2. How confident are you in the team’s final decisions this round?
+2. To what extent did the team discuss and respond to concerns you raised this round?
+   Options: Not at all / A little / Moderately / Very much / Completely / Not applicable — I did not raise any concerns.
+
+3. How confident are you in the team’s final decisions this round?
    Options: Not at all confident / Slightly confident / Moderately confident / Very confident / Extremely confident.
 
-3. Compared with your initial judgment, how much did your preferred plan change?
+4. Compared with your initial judgment, how much did your preferred plan change?
    Options: Not at all / A little / Moderately / A lot / Completely.
 
-4. What most influenced your final judgment?
+5. What most influenced your final judgment?
    Options: My initial judgment / Team discussion / Public map and observations / Supply and route constraints / AI message / Other.
 
-5. Briefly explain what changed your mind, or why your view stayed the same.
+6. Briefly explain what changed your mind, or why your view stayed the same.
    Required text; maximum 600 characters.
 
-6. How useful was the AI message for your decision-making?
+7. How useful was the AI message for your decision-making?
    Options: Not at all useful / Slightly useful / Moderately useful / Very useful / Extremely useful / Unable to judge.
-   Only shown for a successfully displayed AI-provider message.
+   Only shown for a successfully displayed Qwen message.
 
-7. How much did you rely on the AI message when forming your final judgment?
+8. How much did you rely on the AI message when forming your final judgment?
    Options: Not at all / A little / Moderately / Very much / Completely.
-   Only shown for a successfully displayed AI-provider message.
+   Only shown for a successfully displayed Qwen message.
 
 ### Individual scenario reasoning (`scenario-reasoning-proposed-1`)
 
@@ -63,7 +70,7 @@ The new responses never enter `SupportContext` or Qwen requests, including futur
 
 ## Storage and compatibility
 
-Local exports use schema **7**; new public sessions use schema **9 / cascade-public-9**. Support context remains `cascade-context-3`. Old protected schema-5/6/7 queues and public schema-8 queues retain their original identities, metadata, and record contracts. New tables are additive; existing initial judgments and saved records are not rewritten. Previous local JSON records remain readable as JSON and are not retroactively required to contain forms. The existing browser/native durable outbox remains version 1 because its envelope is unchanged.
+Current local exports use schema **9**; new public sessions use schema **11 / cascade-public-11**, with support context `cascade-context-5`. The new question set is identified independently by `round-evaluation-proposed-3`. Old protected schema-5/6/7 queues and public schema-8 queues retain their original identities, metadata, and record contracts. New tables are additive; existing initial judgments and saved records are not rewritten. Previous local JSON records remain readable as JSON and are not retroactively required to contain forms. The existing browser/native durable outbox remains version 1 because its envelope is unchanged.
 
 Both new record types store:
 

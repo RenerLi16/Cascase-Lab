@@ -1,6 +1,6 @@
 # Cascade Lab: Outbreak — Fixed Message Library
 
-Version: `support-1.3.0` (1.3.0 updates Monitor delivery readings and the comparison with Verify)
+Version: `support-1.4.0` (1.4.0 delays Monitor readings until the next round)
 
 History: `support-1.2.0` (1.1.0 removed references to the retired narrative reports from two templates; 1.2.0 applies the bridge-only closure rule and rewords `direct.isolate` — see [Bridge-only closure](BRIDGE_CLOSURE.md))
 
@@ -32,13 +32,13 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
 
 ### direct.monitor
 
-44 words, including section labels.
+43 words, including section labels.
 
 **Recommendation:** Monitor Shelter %s next.
 
 **Why:** Structured proposals include monitoring this reachable location. Continuing observations could test assumptions about changing danger while the team manages its remaining supplies.
 
-**Check:** Delivery reveals current pressure and tracks later changes, but neither cures exposure nor blocks infection.
+**Check:** Readings start next round, then track changes; monitoring neither cures exposure nor blocks infection.
 
 ### direct.isolate
 
@@ -145,7 +145,7 @@ Source of truth: `scripts/support_library.gd`. These templates are versioned in 
    - Add 3 per matching proposed action and target.
    - Verify: add 10 and 1 per open incident road.
    - Shield: require an openly connected, visibly Overrun neighbor. Exclude a target with public known pressure 1 or a latest dated Verify result of 1. Add 25 and 3 per visible Overrun neighbor.
-   - Monitor / Isolate: require at least one matching proposal; add 12. Isolate (shown as Close bridge) is eligible only for roads whose public `bridge` flag is true.
+   - Monitor / Isolate: require at least one matching proposal; add 12. Do not recommend Monitor in final round 3. Isolate (shown as Close bridge) is eligible only for roads whose public `bridge` flag is true.
 4. Pick the highest score. Ties retain the first candidate: sorted shelter IDs with VERIFY, MONITOR, SHIELD order, followed by sorted bridge IDs for ISOLATE.
 
 Eligibility uses public closures, public Overrun state, depot stock and reachability, existing monitors/shields, and the two-endpoint funding requirement. Hidden exposure never enters selection.

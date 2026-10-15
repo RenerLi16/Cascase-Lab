@@ -27,10 +27,10 @@ const DISCUSSION_SECONDS := 120
 # Export schema 5: narrative dispatches retired (no public_intel, no PUBLIC_INTEL_SHOWN events).
 # Export schema 6: bridge-only closure; exported edges carry a bridge flag.
 # Export schema 7: separate versioned post-outcome evaluations and reasoning.
-# Export schema 8: delivery-time Monitor readings and observations-2.
-const EXPORT_SCHEMA := 8
-const MONITOR_RULE := "monitor-current-1"
-const OBSERVATION_FORMAT := "observations-2"
+# Export schema 9: next-round Monitor activation and observations-3.
+const EXPORT_SCHEMA := 9
+const MONITOR_RULE := "monitor-next-round-1"
+const OBSERVATION_FORMAT := "observations-3"
 var scenario_index := 0
 var round_evaluations: Array = []
 var scenario_reasoning: Array = []
@@ -373,7 +373,7 @@ func apply_resolution(token: int) -> bool:
 			if shelter.is_overrun:
 				newly.append(shelter.id)
 				logger.record(state.round,"SHELTER_OVERRUN",shelter.id,false,true)
-			if shelter.is_monitored:
+			if shelter.is_monitored and shelter.monitor_known_pressure >= 0:
 				shelter.monitor_known_pressure = calculation.new
 				var alert := {"type":"MONITOR","kind":"change","round":state.round,"target":shelter.id,"old":calculation.old,"new":calculation.new}
 				alerts.append(alert)
@@ -419,7 +419,19 @@ func _advance_after_forms() -> void:
 		_set_phase(Phase.RESULTS)
 	else:
 		state.round += 1
+		_activate_pending_monitors()
 		_set_phase(Phase.OBSERVE)
+
+func _activate_pending_monitors() -> void:
+	# Called only after advancing into a playable round, before private judgments.
+	for shelter: ShelterState in state.shelters.values():
+		if not shelter.is_monitored or shelter.monitor_known_pressure >= 0: continue
+		if shelter.monitor_activation_round < 0 or shelter.monitor_activation_round > state.round: continue
+		shelter.monitor_known_pressure = shelter.zombie_pressure
+		var observation := {"type":"MONITOR","kind":"initial","target":shelter.id,"round":state.round,"pressure":shelter.monitor_known_pressure}
+		state.observations.append(observation)
+		state.investigation_log.append("R%d · %s Monitor activated: Pressure %d" % [state.round,shelter.id,shelter.monitor_known_pressure])
+		logger.record(state.round,"MONITOR_OBSERVATION",shelter.id,null,shelter.monitor_known_pressure,{"kind":"initial","activation_round":shelter.monitor_activation_round})
 
 func set_dev_mode(enabled: bool) -> void:
 	if not is_sandbox() or phase in [Phase.DELIVERY,Phase.RESOLUTION,Phase.PRIVATE_GATE,Phase.PRIVATE_FORM,Phase.INTERVENTION]: return

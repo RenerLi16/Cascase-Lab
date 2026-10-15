@@ -519,13 +519,13 @@ func _build_selection(parent: Node) -> void:
 	var reading := HBoxContainer.new()
 	facts.add_child(reading)
 	if shelter.is_monitored: reading.add_child(ActionIcon.view("MONITOR"))
-	reading.add_child(UIkit.paragraph(PresentationText.known_status(shelter)+(FirstPlayText.choose(" · Monitor active"," · 监测已生效") if shelter.is_monitored and not shelter.is_overrun else ""),UIkit.SMALL,UIkit.RED if shelter.is_overrun else UIkit.TEXT))
+	reading.add_child(UIkit.paragraph(PresentationText.known_status(shelter)+(" · " + PresentationText.monitor_status(shelter,session.scenario.rounds) if shelter.is_monitored and not shelter.is_overrun else ""),UIkit.SMALL,UIkit.RED if shelter.is_overrun else UIkit.TEXT))
 	var access: Array[String] = []
 	for depot in session.action_manager.supply.eligible_depots(selected_shelter): access.append(depot)
 	var supply_text := FirstPlayText.choose("Supply depots: ","补给仓库：") + ", ".join(access) if not access.is_empty() else FirstPlayText.choose("No stocked supply route","没有可用补给路线")
 	if session.state.depots.has(selected_shelter): supply_text += FirstPlayText.choose(" · Stock %d"," · 库存 %d") % session.state.depots[selected_shelter].supply_remaining
 	facts.add_child(UIkit.paragraph(supply_text,UIkit.SMALL))
-	reading.tooltip_text = FirstPlayText.choose("Monitor active: shows current pressure.","监测已生效：显示当前压力。") if shelter.is_monitored else ""
+	reading.tooltip_text = PresentationText.monitor_status(shelter,session.scenario.rounds)
 	if shelter.shielded_this_round and session.phase != GameManager.Phase.ACTIONS: facts.add_child(UIkit.paragraph("Shield active · this resolution only",UIkit.BODY,UIkit.TEAL))
 	if session.dev_mode and not _private_phase(): facts.add_child(UIkit.strong("DEV · P%d" % shelter.zombie_pressure,UIkit.SMALL,UIkit.RED))
 	UIkit.rule(parent)
@@ -543,6 +543,8 @@ func _action_button(parent: Node, kind: String, target: String) -> void:
 		var control := TowerActionButton.new()
 		control.setup(kind,reason)
 		control.pressed.connect(func(): _request_action(kind,target))
+		if kind == "MONITOR" and session.state.round >= session.scenario.rounds:
+			parent.add_child(UIkit.paragraph(FirstPlayText.choose("Final round: a new Monitor will give no reading.","最后一轮：新安装的监测不会提供读数。"),UIkit.SMALL,UIkit.SECONDARY))
 		parent.add_child(control)
 		return
 	var group := VBoxContainer.new()

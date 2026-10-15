@@ -103,7 +103,7 @@ func run() -> void:
 			await capture(tag+"-disabled",app.inspector.get_global_rect())
 			for child in descendants(app,"Button"):
 				if child is TowerActionButton: check(Rect2(panel.position+Vector2(20,20),panel.size-Vector2(40,40)).encloses(child.get_global_rect()),tag+" disabled stack fits inner inspector")
-			check(app.session.state.shelters.E.monitor_known_pressure == 1,"Delivery publishes actual pressure")
+			check(app.session.state.shelters.E.monitor_known_pressure == -1,"Delivery installs a pending Monitor without revealing pressure")
 			await capture(tag+"-map-label",Rect2(app.board.title_rects.E.position-Vector2(4,4),Vector2(app.board.title_rects.E.size.x+8,64)))
 			await hold(15)
 			recording = false
